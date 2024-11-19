@@ -48,7 +48,7 @@ export class MCTcpSocketServer implements IMCTcpSocketServer {
           await this.mTcpServer.listen(ipAddress);
           MCLogger.log(MCLogger.LogLevel.INFO, `[MCTcpSocketServer] Server successfully bound to ${ipAddress.address}, waiting for connections...`);
           this.mTcpServer.on("connect", (connection) => {
-            MCLogger.log(MCLogger.LogLevel.INFO, `[MCTcpSocketServer] New connection received ${connection.clientId}.`);
+            MCLogger.log(MCLogger.LogLevel.INFO, `[MCTcpSocketServer] New connection received with client ID: ${connection.clientId}.`);
             this.mConnectionCallback ? this.mConnectionCallback?.(connection) : connection.close();
           });
           this.mPort = (await this.mTcpServer.getLocalAddress()).port as number;
