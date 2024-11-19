@@ -9,8 +9,8 @@ export interface IMCTcpSocketServer {
   /** 启动本地服务器; */
   start(): Promise<boolean>;
   //on(event: 'isRunning', callback: () => void): Promise<void>;
-  on(event: 'connect', callback: (connection: socket.TCPSocketConnection) => void): void;
-  off(_: 'connect'): void;
+  on(event: 'connect', callback: (connection: socket.TCPSocketConnection) => void): Promise<void>;
+  off(_: 'connect'): Promise<void>;
 }
 
 export class MCTcpSocketServer implements IMCTcpSocketServer {
@@ -51,11 +51,11 @@ export class MCTcpSocketServer implements IMCTcpSocketServer {
   //   throw new Error("Method not implemented.");
   // }
 
-  on(_: 'connect', callback: (connection: socket.TCPSocketConnection) => void): void {
-    this.mLock.lockAsync(() => this.mConnectionCallback = callback );
+  on(_: 'connect', callback: (connection: socket.TCPSocketConnection) => void): Promise<void> {
+    return this.mLock.lockAsync(() => { this.mConnectionCallback = callback } );
   }
 
-  off(_: 'connect'): void {
-    this.mLock.lockAsync(() => this.mConnectionCallback = undefined );
+  off(_: 'connect'): Promise<void> {
+    return this.mLock.lockAsync(() => { this.mConnectionCallback = undefined } );
   }
 }
