@@ -1,10 +1,10 @@
-// client connection message -> request -> ??? -> response
 import { IMCHttpRequest } from "./MCHttpRequest";
 
 export interface IMCHttpResponse {
   readonly isDone: Promise<boolean>;
   prepare(request: IMCHttpRequest): Promise<void>
   readData(): Promise<string | ArrayBuffer | undefined>;
+  abort(): Promise<void>;
   on(event: 'newDataAvailable', callback: (response: IMCHttpResponse) => void): void;
 }
 
@@ -18,6 +18,10 @@ export class MCHttpResponse implements IMCHttpResponse {
   }
 
   readData(): Promise<string | ArrayBuffer | undefined> {
+    throw new Error("Method not implemented.");
+  }
+
+  abort(): Promise<void> {
     throw new Error("Method not implemented.");
   }
 

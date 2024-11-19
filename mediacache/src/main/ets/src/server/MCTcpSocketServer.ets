@@ -7,7 +7,7 @@ export interface IMCTcpSocketServer {
   readonly port: Promise<number>;
 
   /** 启动本地服务器; */
-  start(): Promise<boolean>;
+  start(): Promise<void>;
   //on(event: 'isRunning', callback: () => void): Promise<void>;
   on(event: 'connect', callback: (connection: socket.TCPSocketConnection) => void): Promise<void>;
   off(_: 'connect'): Promise<void>;
@@ -23,7 +23,7 @@ export class MCTcpSocketServer implements IMCTcpSocketServer {
   get isRunning(): Promise<boolean> { return this.mLock.lockAsync(() => this.mRunning); }
   get port(): Promise<number> { return this.mLock.lockAsync(() => this.mPort); }
 
-  start(): Promise<boolean> {
+  start(): Promise<void> {
     return this.mLock.lockAsync(async () => {
       if ( !this.mRunning ) {
         const ipAddress: socket.NetAddress = {
@@ -34,7 +34,6 @@ export class MCTcpSocketServer implements IMCTcpSocketServer {
         this.mPort = (await this.mTcpServer.getLocalAddress()).port as number;
         this.mRunning = true;
       }
-      return this.mRunning;
     })
   }
 
