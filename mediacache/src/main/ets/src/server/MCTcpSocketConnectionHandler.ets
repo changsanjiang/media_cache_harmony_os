@@ -54,11 +54,11 @@ export class MCTcpSocketConnectionHandler implements IMCTcpSocketConnectionHandl
         for (let i = 0; i < dataView.byteLength; ++i) {
           rawMessage += String.fromCharCode(dataView.getUint8(i));
         }
-        // 解析请求;
-        const request = parseHttpRequest(rawMessage);
-        MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCTcpSocketConnectionHandler] Received request from client ID: ${connection.clientId}: ${JSON.stringify(request)}`);
-        // 开始准备响应数据;
-        await response.prepare(request);
+        // 解析代理请求;
+        const proxyRequest = parseHttpRequest(rawMessage);
+        MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCTcpSocketConnectionHandler] Received request from client ID: ${connection.clientId}: ${JSON.stringify(proxyRequest)}`);
+        // 准备响应;
+        await response.prepare(proxyRequest);
         MCLogger.log(MCLogger.LogLevel.INFO, `[MCTcpSocketConnectionHandler] Preparing response for client ID: ${connection.clientId}`);
       }
       catch (e) {

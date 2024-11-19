@@ -2,7 +2,7 @@ import { IMCHttpRequest } from "./MCHttpRequest";
 
 export interface IMCHttpResponse {
   readonly isDone: Promise<boolean>;
-  prepare(request: IMCHttpRequest): Promise<void>
+  prepare(proxyRequest: IMCHttpRequest): Promise<void>
   readData(): Promise<string | ArrayBuffer | undefined>;
   abort(): Promise<void>;
   on(event: 'newDataAvailable', callback: (response: IMCHttpResponse) => void): void;
@@ -13,7 +13,7 @@ export class MCHttpResponse implements IMCHttpResponse {
     return Promise.resolve(false);
   }
 
-  prepare(request: IMCHttpRequest): Promise<void> {
+  prepare(proxyRequest: IMCHttpRequest): Promise<void> {
     throw new Error("Method not implemented.");
   }
 
