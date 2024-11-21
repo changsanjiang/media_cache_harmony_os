@@ -77,12 +77,16 @@ export class MCTcpSocketServer implements IMCTcpSocketServer {
   // }
 
   on(event: 'connect', callback: (connection: socket.TCPSocketConnection) => void): Promise<void> {
-    MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCTcpSocketServer] Event listener for '${event}' registered;`);
-    return this.mLock.lockAsync(() => { this.mConnectionCallback = callback } );
+    return this.mLock.lockAsync(() => {
+      this.mConnectionCallback = callback;
+      MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCTcpSocketServer] Event listener for '${event}' registered;`);
+    });
   }
 
   off(event: 'connect'): Promise<void> {
-    MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCTcpSocketServer] Event listener for '${event}' unregistered;`);
-    return this.mLock.lockAsync(() => { this.mConnectionCallback = undefined } );
+    return this.mLock.lockAsync(() => {
+      this.mConnectionCallback = undefined;
+      MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCTcpSocketServer] Event listener for '${event}' unregistered;`);
+    });
   }
 }

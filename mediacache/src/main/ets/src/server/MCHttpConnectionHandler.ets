@@ -11,8 +11,8 @@ export interface IMCHttpConnectionHandler {
 
 export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
   handleConnection(connection: socket.TCPSocketConnection): void {
-    MCLogger.log(MCLogger.LogLevel.INFO, `[MCTcpSocketConnectionHandler] New connection established with client ID: ${connection.clientId}`);
-
+    MCLogger.log(MCLogger.LogLevel.INFO, `[MCTcpSocketConnectionHandler][clientId: ${connection.clientId}] New connection established.`);
+    MCLogger.log(MCLogger.LogLevel.INFO, `[MCTcpSocketConnectionHandler][clientId: ${connection.clientId}] Creating response object.`);
     const response: IMCHttpResponse = new MCHttpResponse();
     // 监听响应数据, 有可用数据时发送给客户端;
     response.on("newDataAvailable", async (response: IMCHttpResponse) => {
@@ -21,24 +21,24 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
           // 读取一段数据;
           const data = await response.readData();
           if (!data) {
-            MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCTcpSocketConnectionHandler] No data available for client ID: ${connection.clientId}, waiting for next callback...`);
+            MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCTcpSocketConnectionHandler][clientId: ${connection.clientId}] No data available, waiting for next callback...`);
             // break, 等待下一段可用数据的回调;
             break;
           }
           // 发送数据;
           await connection.send({ data: data })
-          MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCTcpSocketConnectionHandler] Data sent to client ID: ${connection.clientId}, size: ${(typeof data == 'string') ? data.length : data.byteLength}`);
+          MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCTcpSocketConnectionHandler][clientId: ${connection.clientId}] Data sent, size: ${(typeof data === 'string') ? data.length : data.byteLength}`);
 
           // 所有数据都发送完毕后, 关闭连接;
           if ( await response.isDone ) {
-            MCLogger.log(MCLogger.LogLevel.INFO, `[MCTcpSocketConnectionHandler] All data sent to client ID: ${connection.clientId}. Closing connection.`);
+            MCLogger.log(MCLogger.LogLevel.INFO, `[MCTcpSocketConnectionHandler][clientId: ${connection.clientId}] All data sent, closing connection.`);
             this.clean(response, connection);
             break;
           }
         }
       }
       catch (e) {
-        MCLogger.log(MCLogger.LogLevel.ERROR, `[MCTcpSocketConnectionHandler] Error while sending data to client ID: ${connection.clientId}: ${(e as Error).message}. Closing connection.`);
+        MCLogger.log(MCLogger.LogLevel.ERROR, `[MCTcpSocketConnectionHandler][clientId: ${connection.clientId}] Error while sending data: ${(e as Error).message}. Closing connection.`);
         this.internalError(response, connection, true);
       }
     });
@@ -57,36 +57,37 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
         for (let i = 0; i < dataView.byteLength; ++i) {
           rawMessage += String.fromCharCode(dataView.getUint8(i));
         }
-        MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCTcpSocketConnectionHandler] Parsing request from client ID: ${connection.clientId}: ${rawMessage}`);
+        MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCTcpSocketConnectionHandler][clientId: ${connection.clientId}] Parsing request: ${rawMessage}`);
         // 解析代理请求;
         proxyRequest = parseRequest(rawMessage)
-        MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCTcpSocketConnectionHandler] Received request from client ID: ${connection.clientId}: ${JSON.stringify(proxyRequest)}`);
+        MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCTcpSocketConnectionHandler][clientId: ${connection.clientId}] Request parsed successfully: ${JSON.stringify(proxyRequest)}`);
       }
       catch (e) {
-        MCLogger.log(MCLogger.LogLevel.ERROR, `[MCTcpSocketConnectionHandler] Error while processing message from client ID: ${connection.clientId}: ${(e as Error).message}. Closing connection.`);
+        MCLogger.log(MCLogger.LogLevel.ERROR, `[MCTcpSocketConnectionHandler][clientId: ${connection.clientId}] Error while parsing request: ${(e as Error).message}. Closing connection.`);
         this.badRequestError(response, connection, e);
       }
 
       if (proxyRequest) {
         try {
           // 准备响应
+          MCLogger.log(MCLogger.LogLevel.INFO, `[MCTcpSocketConnectionHandler][clientId: ${connection.clientId}] Preparing response.`);
           await response.prepare(proxyRequest);
-          MCLogger.log(MCLogger.LogLevel.INFO, `[MCTcpSocketConnectionHandler] Preparing response for client ID: ${connection.clientId}`);
+          MCLogger.log(MCLogger.LogLevel.INFO, `[MCTcpSocketConnectionHandler][clientId: ${connection.clientId}] Response prepared successfully.`);
         }
         catch (e) {
-          MCLogger.log(MCLogger.LogLevel.ERROR, `[MCTcpSocketConnectionHandler] Error while preparing response from client ID: ${connection.clientId}: ${(e as Error).message}. Closing connection.`);
+          MCLogger.log(MCLogger.LogLevel.ERROR, `[MCTcpSocketConnectionHandler][clientId: ${connection.clientId}] Error while preparing response: ${(e as Error).message}. Closing connection.`);
           this.internalError(response, connection, e);
         }
       }
     });
 
     connection.on('error', async (e: Error) => {
-      MCLogger.log(MCLogger.LogLevel.ERROR, `[MCTcpSocketConnectionHandler] Connection error with client ID: ${connection.clientId}: ${e.message}`);
+      MCLogger.log(MCLogger.LogLevel.ERROR, `[MCTcpSocketConnectionHandler][clientId: ${connection.clientId}] Connection error: ${e.message}`);
       this.internalError(response, connection, true, e);
     });
 
     connection.on('close', async () => {
-      MCLogger.log(MCLogger.LogLevel.WARN, `[MCTcpSocketConnectionHandler] Connection closed for client ID: ${connection.clientId}`);
+      MCLogger.log(MCLogger.LogLevel.WARN, `[MCTcpSocketConnectionHandler][clientId: ${connection.clientId}] Connection closed.`);
       if ( !(await response.isAborted || await response.isDone) ) {
         response.off('newDataAvailable');
         response.off('aborted');
@@ -113,6 +114,6 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
     connection.off('error');
     connection.off('close');
     connection.close();
-    MCLogger.log(MCLogger.LogLevel.INFO, `[MCTcpSocketConnectionHandler] Connection cleaned up for client ID: ${connection.clientId}, aborted: ${shouldAborted}`);
+    MCLogger.log(MCLogger.LogLevel.INFO, `[MCTcpSocketConnectionHandler][clientId: ${connection.clientId}] Connection cleaned up, aborted: ${shouldAborted}`);
   }
 }
