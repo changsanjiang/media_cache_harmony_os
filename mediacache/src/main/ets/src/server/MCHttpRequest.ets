@@ -9,8 +9,8 @@ import MCLogger from "../utils/MCLogger";
  * @returns IMCHttpRequest - 解析后的 HTTP 请求对象
  * @throws Error - 如果消息格式无效、不支持的 HTTP 方法或存在消息体，则抛出异常
  */
-export function parseRequest(rawMessage: string): IMCHttpRequest {
-  MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCHttpRequest] Start parsing HTTP request with rawMessage: ${rawMessage}`);
+export function parseRequest(clientId: number, rawMessage: string): IMCHttpRequest {
+  MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCHttpRequest][clientId: ${clientId}] Start parsing HTTP request with rawMessage: ${rawMessage}`);
 
   // 分离 header 部分和 body;
   const delimiterIndex = rawMessage.indexOf("\r\n\r\n");
@@ -27,7 +27,7 @@ export function parseRequest(rawMessage: string): IMCHttpRequest {
 
   // 不解析 body; 如果存在消息体部分, 抛出异常;
   if (bodyPart.trim().length > 0) {
-    MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest] Request contains a body, which is not supported.`);
+    MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest][clientId: ${clientId}] Request contains a body, which is not supported.`);
     throw new Error("Request contains a body, which is not supported.");
   }
 
@@ -36,27 +36,27 @@ export function parseRequest(rawMessage: string): IMCHttpRequest {
   // 解析起始行
   const startLine = headerLines.shift();
   if (!startLine) {
-    MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest] Invalid HTTP message: Missing start line.`);
+    MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest][clientId: ${clientId}] Invalid HTTP message: Missing start line.`);
     throw new Error("Invalid HTTP message: Missing start line.");
   }
 
   // 分割起始行，获取 method, requestTarget, 和 httpVersion
   let startLineParts = startLine.split(" ");
   if (startLineParts.length !== 3) {
-    MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest] Invalid start line format: ${startLine}`);
+    MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest][clientId: ${clientId}] Invalid start line format: ${startLine}`);
     throw new Error(`Invalid start line format: ${startLine}`);
   }
   const method = startLineParts[0];
   const requestTarget = startLineParts[1];
   const httpVersion = startLineParts[2];
   if (httpVersion !== "HTTP/1.1") {
-    MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest] Unsupported HTTP version: ${httpVersion}. Only HTTP/1.1 is supported.`);
+    MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest][clientId: ${clientId}] Unsupported HTTP version: ${httpVersion}. Only HTTP/1.1 is supported.`);
     throw new Error("Unsupported HTTP version. Only HTTP/1.1 is supported.");
   }
 
   // 仅支持 GET 和 HEAD 方法
   if (method !== "GET" && method !== "HEAD") {
-    MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest] Unsupported HTTP method: ${method}. Only GET and HEAD are supported.`);
+    MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest][clientId: ${clientId}] Unsupported HTTP method: ${method}. Only GET and HEAD are supported.`);
     throw new Error(`Unsupported HTTP method: ${method}. Only GET and HEAD are supported.`);
   }
 
@@ -65,7 +65,7 @@ export function parseRequest(rawMessage: string): IMCHttpRequest {
   for (const line of headerLines) {
     const separatorIndex = line.indexOf(":");
     if (separatorIndex === -1) {
-      MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest] Invalid header line: ${line}`);
+      MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest][clientId: ${clientId}] Invalid header line: ${line}`);
       throw new Error(`Invalid header line: ${line}`);
     }
 
@@ -77,7 +77,7 @@ export function parseRequest(rawMessage: string): IMCHttpRequest {
   // 验证 Host 头
   const host = headers["host"];
   if (!host) {
-    MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest] Invalid HTTP/1.1 message: Missing 'Host' header.`);
+    MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest][clientId: ${clientId}] Invalid HTTP/1.1 message: Missing 'Host' header.`);
     throw new Error("Invalid HTTP/1.1 message: Missing 'Host' header.");
   }
 
@@ -85,10 +85,10 @@ export function parseRequest(rawMessage: string): IMCHttpRequest {
   const rangeHeader = headers['range'];
   if (rangeHeader) {
     try {
-      parseRequestRange(rangeHeader);
+      parseRequestRange(clientId, rangeHeader);
     }
     catch (e) {
-      MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest] Invalid Range format: ${rangeHeader}. Error: ${e.stack}`);
+      MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest][clientId: ${clientId}] Invalid Range format: ${rangeHeader}. Error: ${e.stack}`);
       throw new Error('Invalid Range format');
     }
   }
@@ -100,13 +100,16 @@ export function parseRequest(rawMessage: string): IMCHttpRequest {
     headers: headers
   };
 
-  MCLogger.log(MCLogger.LogLevel.INFO, `[MCHttpRequest] Successfully parsed request: ${JSON.stringify(request)}`);
+  MCLogger.log(MCLogger.LogLevel.INFO, `[MCHttpRequest][clientId: ${clientId}] Successfully parsed request: ${JSON.stringify(request)}`);
 
   return request
 }
 
-export function parseRequestRange(rangeHeader: string): IMCHttpRequestRange | undefined {
+export function parseRequestRange(clientId: number, rangeHeader?: string): IMCHttpRequestRange | undefined {
+  MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCHttpRequest][clientId: ${clientId}] Start parsing Range header: ${rangeHeader}`);
+
   if (!rangeHeader) {
+    MCLogger.log(MCLogger.LogLevel.INFO, `[MCHttpRequest][clientId: ${clientId}] No Range header provided.`);
     return undefined;
   }
 
@@ -117,21 +120,25 @@ export function parseRequestRange(rangeHeader: string): IMCHttpRequestRange | un
    Range: <unit>=-<suffix-length>
    * */
   if (!rangeHeader.startsWith('bytes=')) {
+    MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest][clientId: ${clientId}] Unsupported Range unit: Only "bytes" unit is supported.`);
     throw new Error('Unsupported Range unit: Only "bytes" unit is supported');
   }
 
   if (rangeHeader.includes(',')) {
+    MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest][clientId: ${clientId}] Multi-range requests are not supported. Only single-range requests are allowed.`);
     throw new Error('Multi-range requests are not supported. Only single-range requests are allowed.');
   }
 
   const matches = rangeHeader.match(/bytes=(\d+)?-(\d+)?/);
   if (!matches) {
+    MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest][clientId: ${clientId}] Invalid Range format: ${rangeHeader}. Expected format: bytes=<range-start>-<range-end>`);
     throw new Error('Invalid Range format. Expected format: bytes=<range-start>-<range-end>');
   }
 
   const first = matches[1] ? parseInt(matches[1], 10) : undefined;
   const second = matches[2] ? parseInt(matches[2], 10) : undefined;
   if (first === undefined && second === undefined) {
+    MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest][clientId: ${clientId}] Invalid Range format: At least one of range-start or range-end should be specified.`);
     throw new Error('Invalid Range format. At least one of range-start or range-end should be specified.');
   }
 
@@ -141,12 +148,17 @@ export function parseRequestRange(rangeHeader: string): IMCHttpRequestRange | un
 
   // 如果 rangeStart 大于 rangeEnd，则抛出错误
   if (rangeStart !== undefined && rangeEnd !== undefined && rangeStart > rangeEnd) {
+    MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest][clientId: ${clientId}] Invalid Range: rangeStart cannot be greater than rangeEnd.`);
     throw new Error('Invalid Range: rangeStart cannot be greater than rangeEnd.');
   }
 
-  return {
+  const range: IMCHttpRequestRange = {
     rangeStart: rangeStart,
     rangeEnd: rangeEnd,
     suffixLength: suffixLength
-  };
+  }
+
+  MCLogger.log(MCLogger.LogLevel.INFO, `[MCHttpRequest][clientId: ${clientId}] Successfully parsed Range header: ${JSON.stringify(range)}`);
+
+  return range;
 }

@@ -59,7 +59,7 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
         }
         MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCTcpSocketConnectionHandler][clientId: ${connection.clientId}] Parsing request: ${rawMessage}`);
         // 解析代理请求;
-        proxyRequest = parseRequest(rawMessage)
+        proxyRequest = parseRequest(connection.clientId, rawMessage)
         MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCTcpSocketConnectionHandler][clientId: ${connection.clientId}] Request parsed successfully: ${JSON.stringify(proxyRequest)}`);
       }
       catch (e) {
