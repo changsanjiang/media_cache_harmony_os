@@ -6,7 +6,7 @@ export interface IMCDataReader {
 
   prepare(): Promise<void>
   readData(capacity: number): Promise<ArrayBuffer | undefined>;
-  seekTo(offset: number): Promise<void>;
+  seekToEndOfReadableRange(): Promise<number>; // 跳转到当前可读范围的尾部，并返回跳转的长度
   abort(error?: Error): Promise<void>;
 
   on(event: 'newDataReadable', callback: (reader: IMCDataReader) => void): Promise<void>;
