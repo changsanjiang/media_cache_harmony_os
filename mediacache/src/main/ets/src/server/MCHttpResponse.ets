@@ -3,27 +3,24 @@ import { IMCDataReader } from "../common/IMCDataReader";
 import MCAssetManager from "../asset/MCAssetManager";
 import MCLogger from "../utils/MCLogger";
 import { IMCHttpRequest } from "../common/IMCHttpRequest";
-
-export interface IMCHttpResponse {
-  readonly isDone: Promise<boolean>;
-  prepare(proxyRequest: IMCHttpRequest): Promise<void>
-  readData(): Promise<string | ArrayBuffer | undefined>;
-  abort(error?: Error): Promise<void>;
-  on(event: 'newDataAvailable', callback: (response: IMCHttpResponse) => void): Promise<void>;
-  off(event: 'newDataAvailable'): Promise<void>;
-}
+import { IMCHttpResponse } from "../common/IMCHttpResponse";
 
 export class MCHttpResponse implements IMCHttpResponse {
   /// headers是否已发送给客户端;
   private mHeadersSent = false;
   private mDataReader?: IMCDataReader = undefined;
   private mNewDataCallback?: (response: IMCHttpResponse) => void = undefined;
+  private mAbortedCallback?: (response: IMCHttpResponse, error?: Error) => void = undefined;
   private mAborted = false;
   private mDone = false;
   private mLock: ArkTSUtils.locks.AsyncLock = new ArkTSUtils.locks.AsyncLock();
 
   get isDone(): Promise<boolean> {
     return this.mLock.lockAsync(() => this.mDone);
+  }
+
+  get isAborted(): Promise<boolean> {
+    return this.mLock.lockAsync(() => this.mAborted);
   }
 
   prepare(proxyRequest: IMCHttpRequest): Promise<void> {
@@ -36,6 +33,8 @@ export class MCHttpResponse implements IMCHttpResponse {
 
       this.mDataReader = MCAssetManager.createDataReader(proxyRequest);
       this.mDataReader.on('newDataReadable', (_) => this.mLock.lockAsync(() => this.mNewDataCallback).then((callback) => callback?.(this)));
+      this.mDataReader.on('aborted', (_, error) => this.abort(error));
+      return this.mDataReader?.prepare();
     });
   }
 
@@ -105,7 +104,7 @@ export class MCHttpResponse implements IMCHttpResponse {
     return this.mLock.lockAsync(() => {
       if ( this.mAborted || this.mDone ) {
         MCLogger.log(MCLogger.LogLevel.WARN, `[MCHttpResponse] Abort called after response completion or previous abortion.`);
-        return;
+        return undefined;
       }
 
       this.mAborted = true;
@@ -113,19 +112,37 @@ export class MCHttpResponse implements IMCHttpResponse {
       this.mDataReader = undefined;
 
       MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpResponse] Response aborted${error ? ` due to error: ${error.message}` : ""}.`);
-    });
+
+      return this.mAbortedCallback;
+    }).then((callback) => callback?.(this, error));
   }
 
-  on(event: "newDataAvailable", callback: (response: IMCHttpResponse) => void): Promise<void> {
+  on(event: string, callback: Object): Promise<void> {
     return this.mLock.lockAsync(() => {
-      this.mNewDataCallback = callback;
+      if ( event === 'newDataAvailable' ) {
+        if (this.mNewDataCallback) {
+          MCLogger.log(MCLogger.LogLevel.WARN, `[MCHttpResponse] Event listener for 'newDataAvailable' is already registered.`);
+        }
+        this.mNewDataCallback = callback as (reader: IMCHttpResponse) => void;
+      }
+      else if ( event === 'aborted' ) {
+        if (this.mAbortedCallback) {
+          MCLogger.log(MCLogger.LogLevel.WARN, `[MCHttpResponse] Event listener for 'aborted' is already registered.`);
+        }
+        this.mAbortedCallback = callback as (reader: IMCHttpResponse, error?: Error) => void;
+      }
       MCLogger.log(MCLogger.LogLevel.INFO, `[MCHttpResponse] Event listener for '${event}' registered.`);
     });
   }
 
-  off(event: 'newDataAvailable'): Promise<void> {
+  off(event: string): Promise<void> {
     return this.mLock.lockAsync(() => {
-      this.mNewDataCallback = undefined;
+      if ( event === 'newDataAvailable' ) {
+        this.mNewDataCallback = undefined;
+      }
+      else if ( event === 'aborted' ) {
+        this.mAbortedCallback = undefined;
+      }
       MCLogger.log(MCLogger.LogLevel.INFO, `[MCHttpResponse] Event listener for '${event}' unregistered.`);
     });
   }

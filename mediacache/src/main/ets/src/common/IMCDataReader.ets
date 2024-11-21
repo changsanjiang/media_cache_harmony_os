@@ -4,12 +4,16 @@ export interface IMCDataReader {
   readonly isDone: Promise<boolean>;
   readonly isAborted: Promise<boolean>;
 
+  prepare(): Promise<void>
   readData(capacity: number): Promise<ArrayBuffer | undefined>;
   seekTo(offset: number): Promise<void>;
   abort(error?: Error): Promise<void>;
 
   on(event: 'newDataReadable', callback: (reader: IMCDataReader) => void): Promise<void>;
   off(event: 'newDataReadable'): Promise<void>;
+
+  on(event: 'aborted', callback: (reader: IMCDataReader, error?: Error) => void): Promise<void>; // 内部执行出错时也会调用 abort;
+  off(event: 'aborted'): Promise<void>;
 }
 
 // https://datatracker.ietf.org/doc/html/rfc9110#name-example-message-exchange

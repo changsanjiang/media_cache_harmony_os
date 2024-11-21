@@ -1,5 +1,5 @@
 import { IMCDataReader } from '../common/IMCDataReader';
-import { IMCHttpRequest } from '../server/MCHttpRequest';
+import { IMCHttpRequest } from '../common/IMCHttpRequest';
 
 namespace MCAssetManager {
   export function createDataReader(request: IMCHttpRequest): IMCDataReader {
