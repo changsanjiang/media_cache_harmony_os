@@ -93,14 +93,16 @@ export function parseRequest(rawMessage: string): IMCHttpRequest {
     }
   }
 
-  MCLogger.log(MCLogger.LogLevel.INFO, `[MCHttpRequest] Successfully parsed request: Method=${method}, RequestTarget=${requestTarget}, Host=${host}`);
-
-  return {
+  const request: IMCHttpRequest = {
     method: method,
     requestTarget: requestTarget,
     host: host,
     headers: headers
-  }
+  };
+
+  MCLogger.log(MCLogger.LogLevel.INFO, `[MCHttpRequest] Successfully parsed request: ${JSON.stringify(request)}`);
+
+  return request
 }
 
 export function parseRequestRange(rangeHeader: string): IMCHttpRequestRange | undefined {
