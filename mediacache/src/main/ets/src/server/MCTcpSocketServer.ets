@@ -29,11 +29,15 @@ export class MCTcpSocketServer implements IMCTcpSocketServer {
   private mLock: ArkTSUtils.locks.AsyncLock = new ArkTSUtils.locks.AsyncLock();
   private mConnectionCallback?: (connection: socket.TCPSocketConnection) => void = undefined;
 
+  constructor() {
+    MCLogger.log(MCLogger.LogLevel.INFO, `[MCTcpSocketServer] New Server instance created.`);
+  }
+
   get isRunning(): Promise<boolean> { return this.mLock.lockAsync(() => this.mRunning); }
   get port(): Promise<number> { return this.mLock.lockAsync(() => this.mPort); }
 
   start(): Promise<number> {
-    MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCTcpSocketServer] start() invoked; Checking server state...`);
+    MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCTcpSocketServer] Start Server; Checking server state...`);
     return this.mLock.lockAsync(async () => {
       try {
         if ( !this.mRunning ) {

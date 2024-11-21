@@ -10,10 +10,14 @@ export interface IMCHttpConnectionHandler {
 }
 
 export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
+  constructor() {
+    MCLogger.log(MCLogger.LogLevel.INFO, `[MCHttpConnectionHandler] New HttpConnectionHandler instance created.`);
+  }
+
   handleConnection(connection: socket.TCPSocketConnection): void {
     MCLogger.log(MCLogger.LogLevel.INFO, `[MCTcpSocketConnectionHandler][clientId: ${connection.clientId}] New connection established.`);
     MCLogger.log(MCLogger.LogLevel.INFO, `[MCTcpSocketConnectionHandler][clientId: ${connection.clientId}] Creating response object.`);
-    const response: IMCHttpResponse = new MCHttpResponse();
+    const response: IMCHttpResponse = new MCHttpResponse(connection.clientId);
     // 监听响应数据, 有可用数据时发送给客户端;
     response.on("newDataAvailable", async (response: IMCHttpResponse) => {
       try {
