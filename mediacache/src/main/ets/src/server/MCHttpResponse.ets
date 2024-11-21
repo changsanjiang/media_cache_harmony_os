@@ -23,6 +23,10 @@ export class MCHttpResponse implements IMCHttpResponse {
     return this.mLock.lockAsync(() => this.mAborted);
   }
 
+  get isHeadersSent(): Promise<boolean> {
+    return this.mLock.lockAsync(() => this.mHeadersSent);
+  }
+
   prepare(proxyRequest: IMCHttpRequest): Promise<void> {
     return this.mLock.lockAsync(() => {
       if (this.mDataReader) {

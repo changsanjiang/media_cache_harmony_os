@@ -3,6 +3,7 @@ import { IMCHttpRequest } from "./IMCHttpRequest";
 export interface IMCHttpResponse {
   readonly isDone: Promise<boolean>;
   readonly isAborted: Promise<boolean>;
+  readonly isHeadersSent: Promise<boolean>;
 
   prepare(proxyRequest: IMCHttpRequest): Promise<void>
   readData(): Promise<string | ArrayBuffer | undefined>;
