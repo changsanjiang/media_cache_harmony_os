@@ -115,9 +115,9 @@ export class MCHttpResponse implements IMCHttpResponse {
       this.mAborted = true;
 
       if ( this.mDataReader ) {
-        this.mDataReader?.abort(error);
         this.mDataReader?.off('newDataReadable');
         this.mDataReader?.off('aborted');
+        this.mDataReader?.abort(error);
         this.mDataReader = undefined;
       }
 
