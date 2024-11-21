@@ -29,7 +29,7 @@ export class MCHttpResponse implements IMCHttpResponse {
         throw new Error("A request is already being processed.");
       }
 
-      MCLogger.log(MCLogger.LogLevel.INFO, `[MCHttpResponse] Preparing data reader for request: Method=${proxyRequest.method}, Target=${proxyRequest.requestTarget}`);
+      MCLogger.log(MCLogger.LogLevel.INFO, `[MCHttpResponse] Preparing data reader for request: ${JSON.stringify(proxyRequest)}`);
 
       this.mDataReader = MCAssetManager.createDataReader(proxyRequest);
       this.mDataReader.on('newDataReadable', (_) => this.mLock.lockAsync(() => this.mNewDataCallback).then((callback) => callback?.(this)));
