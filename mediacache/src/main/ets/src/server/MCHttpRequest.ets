@@ -63,7 +63,7 @@ export function parseRequest(rawMessage: string): IMCHttpRequest {
   // 解析头部字段
   const headers: Record<string, string> = {};
   for (const line of headerLines) {
-    const separatorIndex = line.indexOf(": ");
+    const separatorIndex = line.indexOf(":");
     if (separatorIndex === -1) {
       MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest] Invalid header line: ${line}`);
       throw new Error(`Invalid header line: ${line}`);

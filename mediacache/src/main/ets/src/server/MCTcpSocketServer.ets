@@ -23,7 +23,7 @@ export interface IMCTcpSocketServer {
 }
 
 export class MCTcpSocketServer implements IMCTcpSocketServer {
-  private mTcpServer = socket.constructTCPSocketServerInstance();
+  private mTcpServer: socket.TCPSocketServer = socket.constructTCPSocketServerInstance();
   private mRunning = false
   private mPort = 0
   private mLock: ArkTSUtils.locks.AsyncLock = new ArkTSUtils.locks.AsyncLock();
@@ -43,7 +43,7 @@ export class MCTcpSocketServer implements IMCTcpSocketServer {
           MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCTcpSocketServer] Server not running, initializing with address ${ipAddress.address}...`);
           await this.mTcpServer.listen(ipAddress);
           MCLogger.log(MCLogger.LogLevel.INFO, `[MCTcpSocketServer] Server successfully bound to ${ipAddress.address}, waiting for connections...`);
-          this.mTcpServer.on("connect", (connection) => {
+          this.mTcpServer.on("connect", (connection: socket.TCPSocketConnection) => {
             MCLogger.log(MCLogger.LogLevel.INFO, `[MCTcpSocketServer] New connection received with client ID: ${connection.clientId}.`);
             this.mConnectionCallback ? this.mConnectionCallback?.(connection) : connection.close();
           });

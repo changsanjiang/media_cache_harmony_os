@@ -48,28 +48,39 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
     });
 
     // 监听客户端消息;
-    connection.on('message', async (data) => {
+    connection.on('message', async (data: socket.SocketMessageInfo) => {
+      let proxyRequest: IMCHttpRequest | undefined = undefined;
       try {
-        let buffer = data.message;
+        let buffer: ArrayBuffer = data.message;
         let dataView = new DataView(buffer);
         let rawMessage = "";
         for (let i = 0; i < dataView.byteLength; ++i) {
           rawMessage += String.fromCharCode(dataView.getUint8(i));
         }
+        MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCTcpSocketConnectionHandler] Parsing request from client ID: ${connection.clientId}: ${rawMessage}`);
         // 解析代理请求;
-        const proxyRequest = parseRequest(rawMessage)
+        proxyRequest = parseRequest(rawMessage)
         MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCTcpSocketConnectionHandler] Received request from client ID: ${connection.clientId}: ${JSON.stringify(proxyRequest)}`);
-        // 准备响应;
-        await response.prepare(proxyRequest);
-        MCLogger.log(MCLogger.LogLevel.INFO, `[MCTcpSocketConnectionHandler] Preparing response for client ID: ${connection.clientId}`);
       }
       catch (e) {
         MCLogger.log(MCLogger.LogLevel.ERROR, `[MCTcpSocketConnectionHandler] Error while processing message from client ID: ${connection.clientId}: ${(e as Error).message}. Closing connection.`);
         this.badRequestError(response, connection, e);
       }
+
+      if (proxyRequest) {
+        try {
+          // 准备响应
+          await response.prepare(proxyRequest);
+          MCLogger.log(MCLogger.LogLevel.INFO, `[MCTcpSocketConnectionHandler] Preparing response for client ID: ${connection.clientId}`);
+        }
+        catch (e) {
+          MCLogger.log(MCLogger.LogLevel.ERROR, `[MCTcpSocketConnectionHandler] Error while preparing response from client ID: ${connection.clientId}: ${(e as Error).message}. Closing connection.`);
+          this.internalError(response, connection, e);
+        }
+      }
     });
 
-    connection.on('error', async (e) => {
+    connection.on('error', async (e: Error) => {
       MCLogger.log(MCLogger.LogLevel.ERROR, `[MCTcpSocketConnectionHandler] Connection error with client ID: ${connection.clientId}: ${e.message}`);
       this.internalError(response, connection, true, e);
     });
@@ -102,6 +113,6 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
     connection.off('error');
     connection.off('close');
     connection.close();
-    MCLogger.log(MCLogger.LogLevel.INFO, `[MCTcpSocketConnectionHandler] Connection cleaned up for client ID: ${connection.clientId}`);
+    MCLogger.log(MCLogger.LogLevel.INFO, `[MCTcpSocketConnectionHandler] Connection cleaned up for client ID: ${connection.clientId}, aborted: ${shouldAborted}`);
   }
 }

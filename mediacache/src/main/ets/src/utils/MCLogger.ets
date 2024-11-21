@@ -6,7 +6,7 @@ namespace MCLogger {
     ERROR,
   }
 
-  export let logLevel = LogLevel.INFO;
+  export let logLevel = LogLevel.DEBUG;
   export let enabled = true;
 
   export function log(level: LogLevel, message: string): void {
