@@ -5,11 +5,11 @@ import MCLogger from "../utils/MCLogger";
 import { parseRequest } from "./MCHttpRequest";
 import { MCHttpResponse } from "./MCHttpResponse";
 
-export interface IMCTcpSocketConnectionHandler {
+export interface IMCHttpConnectionHandler {
   handleConnection(connection: socket.TCPSocketConnection): void;
 }
 
-export class MCTcpSocketConnectionHandler implements IMCTcpSocketConnectionHandler {
+export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
   handleConnection(connection: socket.TCPSocketConnection): void {
     MCLogger.log(MCLogger.LogLevel.INFO, `[MCTcpSocketConnectionHandler] New connection established with client ID: ${connection.clientId}`);
 
