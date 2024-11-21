@@ -76,9 +76,11 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
 
     connection.on('close', async () => {
       MCLogger.log(MCLogger.LogLevel.WARN, `[MCTcpSocketConnectionHandler] Connection closed for client ID: ${connection.clientId}`);
-      response.off('newDataAvailable');
-      response.off('aborted');
-      if ( !(await response.isAborted || await response.isDone) ) response.abort(new Error("Connection closed unexpectedly."));
+      if ( !(await response.isAborted || await response.isDone) ) {
+        response.off('newDataAvailable');
+        response.off('aborted');
+        response.abort(new Error("Connection closed unexpectedly."));
+      }
     });
   }
 
