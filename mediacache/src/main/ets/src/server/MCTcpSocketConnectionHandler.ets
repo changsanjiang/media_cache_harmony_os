@@ -1,6 +1,6 @@
 import { socket } from "@kit.NetworkKit";
 import MCLogger from "../utils/MCLogger";
-import { parseHttpRequest } from "./MCHttpRequest";
+import { parseRequest } from "./MCHttpRequest";
 import { MCHttpResponse } from "./MCHttpResponse";
 
 export interface IMCTcpSocketConnectionHandler {
@@ -55,7 +55,7 @@ export class MCTcpSocketConnectionHandler implements IMCTcpSocketConnectionHandl
           rawMessage += String.fromCharCode(dataView.getUint8(i));
         }
         // 解析代理请求;
-        const proxyRequest = parseHttpRequest(rawMessage);
+        const proxyRequest = parseRequest(rawMessage);
         MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCTcpSocketConnectionHandler] Received request from client ID: ${connection.clientId}: ${JSON.stringify(proxyRequest)}`);
         // 准备响应;
         await response.prepare(proxyRequest);

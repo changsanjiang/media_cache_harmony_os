@@ -1,12 +1,6 @@
+import { IMCHttpRequest } from "../common/IMCHttpRequest";
+import { IMCHttpRequestRange } from "../common/IMCHttpRequestRange";
 import MCLogger from "../utils/MCLogger";
-
-// https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Messages
-export interface IMCHttpRequest {
-  method: string; // 请求方法 (如 GET, HEAD)
-  requestTarget: string; // 请求目标 (如 "/index.html")
-  host: string; // Host 头字段
-  headers: Record<string, string>; // 所有的请求头字段
-}
 
 /**
  * 解析原始 HTTP 请求消息，仅处理 GET 和 HEAD 请求。
@@ -15,7 +9,7 @@ export interface IMCHttpRequest {
  * @returns IMCHttpRequest - 解析后的 HTTP 请求对象
  * @throws Error - 如果消息格式无效、不支持的 HTTP 方法或存在消息体，则抛出异常
  */
-export function parseHttpRequest(rawMessage: string): IMCHttpRequest {
+export function parseRequest(rawMessage: string): IMCHttpRequest {
   MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCHttpRequest] Start parsing HTTP request with rawMessage: ${rawMessage}`);
 
   // 分离 header 部分和 body;
@@ -32,7 +26,7 @@ export function parseHttpRequest(rawMessage: string): IMCHttpRequest {
   }
 
   // 不解析 body; 如果存在消息体部分, 抛出异常;
-  if (bodyPart && bodyPart.trim().length > 0) {
+  if (bodyPart.trim().length > 0) {
     MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest] Request contains a body, which is not supported.`);
     throw new Error("Request contains a body, which is not supported.");
   }
@@ -68,24 +62,35 @@ export function parseHttpRequest(rawMessage: string): IMCHttpRequest {
 
   // 解析头部字段
   const headers: Record<string, string> = {};
-  for (let i = 0; i < headerLines.length; i++) {
-    const line = headerLines[i];
+  for (const line of headerLines) {
     const separatorIndex = line.indexOf(": ");
     if (separatorIndex === -1) {
       MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest] Invalid header line: ${line}`);
       throw new Error(`Invalid header line: ${line}`);
     }
 
-    const key = line.slice(0, separatorIndex).trim();
+    const key = line.slice(0, separatorIndex).trim().toLowerCase();
     const value = line.slice(separatorIndex + 2).trim();
     headers[key] = value;
   }
 
   // 验证 Host 头
-  const host = headers["Host"];
+  const host = headers["host"];
   if (!host) {
     MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest] Invalid HTTP/1.1 message: Missing 'Host' header.`);
     throw new Error("Invalid HTTP/1.1 message: Missing 'Host' header.");
+  }
+
+  // 不支持多范围请求
+  const rangeHeader = headers['range'];
+  if (rangeHeader) {
+    try {
+      parseRequestRange(rangeHeader);
+    }
+    catch (e) {
+      MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest] Invalid Range format: ${rangeHeader}. Error: ${e.stack}`);
+      throw new Error('Invalid Range format');
+    }
   }
 
   MCLogger.log(MCLogger.LogLevel.INFO, `[MCHttpRequest] Successfully parsed request: Method=${method}, RequestTarget=${requestTarget}, Host=${host}`);
@@ -96,4 +101,50 @@ export function parseHttpRequest(rawMessage: string): IMCHttpRequest {
     host: host,
     headers: headers
   }
+}
+
+export function parseRequestRange(rangeHeader: string): IMCHttpRequestRange | undefined {
+  if (!rangeHeader) {
+    return undefined;
+  }
+
+  /** https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Range#syntax
+   Range: <unit>=<range-start>-
+   Range: <unit>=<range-start>-<range-end>
+   Range: <unit>=<range-start>-<range-end>, <range-start>-<range-end>, …
+   Range: <unit>=-<suffix-length>
+   * */
+  if (!rangeHeader.startsWith('bytes=')) {
+    throw new Error('Unsupported Range unit: Only "bytes" unit is supported');
+  }
+
+  if (rangeHeader.includes(',')) {
+    throw new Error('Multi-range requests are not supported. Only single-range requests are allowed.');
+  }
+
+  const matches = rangeHeader.match(/bytes=(\d+)?-(\d+)?/);
+  if (!matches) {
+    throw new Error('Invalid Range format. Expected format: bytes=<range-start>-<range-end>');
+  }
+
+  const first = matches[1] ? parseInt(matches[1], 10) : undefined;
+  const second = matches[2] ? parseInt(matches[2], 10) : undefined;
+  if (first === undefined && second === undefined) {
+    throw new Error('Invalid Range format. At least one of range-start or range-end should be specified.');
+  }
+
+  const rangeStart = first;
+  const rangeEnd = first !== undefined && second !== undefined ? second : undefined;
+  const suffixLength = first === undefined && second !== undefined ? second : undefined;
+
+  // 如果 rangeStart 大于 rangeEnd，则抛出错误
+  if (rangeStart !== undefined && rangeEnd !== undefined && rangeStart > rangeEnd) {
+    throw new Error('Invalid Range: rangeStart cannot be greater than rangeEnd.');
+  }
+
+  return {
+    rangeStart: rangeStart,
+    rangeEnd: rangeEnd,
+    suffixLength: suffixLength
+  };
 }
