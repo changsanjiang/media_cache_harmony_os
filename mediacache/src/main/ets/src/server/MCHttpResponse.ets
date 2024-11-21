@@ -91,6 +91,11 @@ export class MCHttpResponse implements IMCHttpResponse {
       if ( readableLength > 0 ) {
         const data = await reader.readData(4 * 1024 * 1024);
         this.mDone = await reader.isDone;
+        if ( this.mDone ) {
+          reader.off('newDataReadable');
+          reader.off('aborted');
+          this.mDataReader = undefined;
+        }
         MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCHttpResponse] Data chunk read (${data?.byteLength || 0} bytes), Done=${this.mDone}`);
         return data;
       }
@@ -108,8 +113,13 @@ export class MCHttpResponse implements IMCHttpResponse {
       }
 
       this.mAborted = true;
-      this.mDataReader?.abort(error);
-      this.mDataReader = undefined;
+
+      if ( this.mDataReader ) {
+        this.mDataReader?.abort(error);
+        this.mDataReader?.off('newDataReadable');
+        this.mDataReader?.off('aborted');
+        this.mDataReader = undefined;
+      }
 
       MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpResponse] Response aborted${error ? ` due to error: ${error.message}` : ""}.`);
 

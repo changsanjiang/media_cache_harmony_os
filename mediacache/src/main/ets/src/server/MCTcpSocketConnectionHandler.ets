@@ -1,4 +1,5 @@
 import { socket } from "@kit.NetworkKit";
+import { IMCHttpResponse } from "../common/IMCHttpResponse";
 import MCLogger from "../utils/MCLogger";
 import { parseRequest } from "./MCHttpRequest";
 import { MCHttpResponse } from "./MCHttpResponse";
@@ -13,7 +14,7 @@ export class MCTcpSocketConnectionHandler implements IMCTcpSocketConnectionHandl
 
     const response = new MCHttpResponse();
     // 监听响应数据, 有可用数据时发送给客户端;
-    response.on("newDataAvailable", async (response) => {
+    response.on("newDataAvailable", async (response: IMCHttpResponse) => {
       try {
         while (true) {
           // 读取一段数据;
@@ -34,12 +35,15 @@ export class MCTcpSocketConnectionHandler implements IMCTcpSocketConnectionHandl
             connection.off('error');
             connection.off('close');
             connection.close();
+            response.off('newDataAvailable');
+            response.off('aborted');
             break;
           }
         }
       }
       catch (e) {
         MCLogger.log(MCLogger.LogLevel.ERROR, `[MCTcpSocketConnectionHandler] Error while sending data to client ID: ${(e as Error).message}. Closing connection.`);
+        // TODO: make error response and clear events;
         response.abort();
         connection.close();
       }
@@ -63,6 +67,7 @@ export class MCTcpSocketConnectionHandler implements IMCTcpSocketConnectionHandl
       }
       catch (e) {
         MCLogger.log(MCLogger.LogLevel.ERROR, `[MCTcpSocketConnectionHandler] Error while processing message from client ID: ${connection.clientId}: ${(e as Error).message}. Closing connection.`);
+        // TODO: make error response and clear events;
         response.abort();
         connection.close();
       }
@@ -70,6 +75,7 @@ export class MCTcpSocketConnectionHandler implements IMCTcpSocketConnectionHandl
 
     connection.on('error', async (e) => {
       MCLogger.log(MCLogger.LogLevel.ERROR, `[MCTcpSocketConnectionHandler] Connection error with client ID: ${connection.clientId}: ${e.message}`);
+      // TODO: make error response and clear events;
       response.abort();
       connection.close();
     });
