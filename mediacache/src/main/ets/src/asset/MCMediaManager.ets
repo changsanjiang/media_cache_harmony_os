@@ -1,9 +1,15 @@
 import { IMCMediaDataReader } from '../common/IMCMediaDataReader';
 import { IMCHttpRequest } from '../common/IMCHttpRequest';
+import { IMCMedia } from '../common/IMCMedia';
+import { MCMedia } from './MCMedia';
 
 namespace MCMediaManager {
-  export function createDataReader(request: IMCHttpRequest): IMCMediaDataReader {
+  export function createDataReader(proxyRequest: IMCHttpRequest): IMCMediaDataReader {
     throw new Error("Method not implemented.");
+  }
+
+  export function getMediaBy(identifier: string): IMCMedia {
+    return new MCMedia(identifier);
   }
 }
 
@@ -54,8 +60,7 @@ export default MCMediaManager;
 
   不能返回内容， 得返回内容加载器， 用来加载内容， Reader 进行读取; ==> MCMediaContentLoader;
 
-
-
+ Media 元数据的加载是通过 content loader 间接完成的, 所以当 content loader 的 dataLoaded 回调时, Reader 就可以直接读取这些元数据了;
 
  * AVAsset 核心功能
  资源封装： AVAsset 表示一个静态的多媒体资源（例如视频文件、音频文件、远程流等）。
