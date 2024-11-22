@@ -1,18 +1,18 @@
 import { ArkTSUtils } from "@kit.ArkTS";
-import { IMCAssetDataReader } from "../common/IMCAssetDataReader";
-import MCAssetManager from "../asset/MCAssetManager";
+import { IMCMediaDataReader } from "../common/IMCMediaDataReader";
+import MCMediaManager from "../asset/MCMediaManager";
 import MCLogger from "../utils/MCLogger";
 import { IMCHttpRequest } from "../common/IMCHttpRequest";
 import { IMCHttpResponse } from "../common/IMCHttpResponse";
-import { IMCAssetDataOkResponse,
-  IMCAssetDataPartialContentResponse,
-  IMCAssetDataResponse, MCAssetDataResponseType } from "../common/IMCAssetDataResponse";
+import { IMCMediaDataOkResponse,
+  IMCMediaDataPartialContentResponse,
+  IMCMediaDataResponse, MCMediaDataResponseType } from "../common/IMCMediaDataResponse";
 
 export class MCHttpResponse implements IMCHttpResponse {
   private mClientId: number;
   /// headers是否已发送给客户端;
   private mHeadersSent = false;
-  private mDataReader?: IMCAssetDataReader = undefined;
+  private mDataReader?: IMCMediaDataReader = undefined;
   private mNewDataCallback?: (response: IMCHttpResponse) => void = undefined;
   private mAbortedCallback?: (response: IMCHttpResponse, error?: Error) => void = undefined;
   private mAborted = false;
@@ -45,7 +45,7 @@ export class MCHttpResponse implements IMCHttpResponse {
 
       MCLogger.log(MCLogger.LogLevel.INFO, `[MCHttpResponse][clientId: ${this.mClientId}] Preparing data reader for request: ${JSON.stringify(proxyRequest)}`);
 
-      this.mDataReader = MCAssetManager.createDataReader(proxyRequest);
+      this.mDataReader = MCMediaManager.createDataReader(proxyRequest);
       this.mDataReader.on('responseReady', (_) => this.mLock.lockAsync(() => this.mNewDataCallback).then((callback) => callback?.(this)));
       this.mDataReader.on('newDataReadable', (_) => this.mLock.lockAsync(() => this.mNewDataCallback).then((callback) => callback?.(this)));
       this.mDataReader.on('aborted', (_, error) => this.abort(error));
@@ -157,7 +157,7 @@ export class MCHttpResponse implements IMCHttpResponse {
     });
   }
 
-  private generateResponseHeaders(dataResponse?: IMCAssetDataResponse): string | undefined {
+  private generateResponseHeaders(dataResponse?: IMCMediaDataResponse): string | undefined {
     // https://datatracker.ietf.org/doc/html/rfc9110#name-example-message-exchange
     //
     // HTTP/1.1 200 OK
@@ -191,8 +191,8 @@ export class MCHttpResponse implements IMCHttpResponse {
 
     const currentDate = new Date().toUTCString();
     switch (dataResponse.type) {
-      case MCAssetDataResponseType.OK: {
-        const okResponse = dataResponse as IMCAssetDataOkResponse;
+      case MCMediaDataResponseType.OK: {
+        const okResponse = dataResponse as IMCMediaDataOkResponse;
         return (
           `HTTP/1.1 200 OK\r\n` +
             `Content-Type: ${okResponse.contentType}\r\n` +
@@ -202,8 +202,8 @@ export class MCHttpResponse implements IMCHttpResponse {
             `\r\n`
         );
       }
-      case MCAssetDataResponseType.PARTIAL_CONTENT: {
-        const partialResponse = dataResponse as IMCAssetDataPartialContentResponse;
+      case MCMediaDataResponseType.PARTIAL_CONTENT: {
+        const partialResponse = dataResponse as IMCMediaDataPartialContentResponse;
         return (
           `HTTP/1.1 206 Partial Content\r\n` +
             `Content-Range: bytes ${partialResponse.contentOffset}-${partialResponse.contentOffset + partialResponse.contentLength - 1}/${partialResponse.totalLength}\r\n` +
@@ -214,10 +214,10 @@ export class MCHttpResponse implements IMCHttpResponse {
             `\r\n`
         );
       }
-      case MCAssetDataResponseType.BAD_REQUEST:
+      case MCMediaDataResponseType.BAD_REQUEST:
         return `HTTP/1.1 400 Bad Request\r\nDate: ${currentDate}\r\n\r\n`;
       default: {
-        if ( dataResponse.type !== MCAssetDataResponseType.INTERNAL_ERROR ) {
+        if ( dataResponse.type !== MCMediaDataResponseType.INTERNAL_ERROR ) {
           MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpResponse][clientId: ${this.mClientId}] Unsupported response type: ${dataResponse.type}`);
         }
         return `HTTP/1.1 500 Internal Server Error\r\nDate: ${currentDate}\r\n\r\n`;

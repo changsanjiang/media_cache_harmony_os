@@ -1,11 +1,11 @@
-import { IMCAssetDataReader } from "../common/IMCAssetDataReader";
-import { IMCAssetDataResponse } from "../common/IMCAssetDataResponse";
+import { IMCMediaDataReader } from "../common/IMCMediaDataReader";
+import { IMCMediaDataResponse } from "../common/IMCMediaDataResponse";
 
-export class MCAssetDataReader implements IMCAssetDataReader {
+export class MCMediaDataReader implements IMCMediaDataReader {
   get readableLength(): Promise<number> {
     throw new Error("Method not implemented.");
   }
-  get response(): Promise<IMCAssetDataResponse | undefined> {
+  get response(): Promise<IMCMediaDataResponse | undefined> {
     throw new Error("Method not implemented.");
   }
   get isDone(): Promise<boolean> {
@@ -31,13 +31,13 @@ export class MCAssetDataReader implements IMCAssetDataReader {
     throw new Error("Method not implemented.");
   }
 
-  // on(event: 'responseReady', callback: (reader: IMCAssetDataReader, response: IMCAssetDataResponse) => void): Promise<void>;
+  // on(event: 'responseReady', callback: (reader: IMCMediaDataReader, response: IMCMediaDataResponse) => void): Promise<void>;
   // off(event: 'responseReady'): Promise<void>;
 
-  // on(event: "newDataReadable", callback: (reader: IMCAssetDataReader) => void): Promise<void>;
+  // on(event: "newDataReadable", callback: (reader: IMCMediaDataReader) => void): Promise<void>;
   // off(event: "newDataReadable"): Promise<void>;
   //
-  // on(event: "aborted", callback: (reader: IMCAssetDataReader, error?: Error | undefined) => void): Promise<void>;
+  // on(event: "aborted", callback: (reader: IMCMediaDataReader, error?: Error | undefined) => void): Promise<void>;
   // off(event: "aborted"): Promise<void>;
 
   on(event: string, callback: Object): Promise<void> {
