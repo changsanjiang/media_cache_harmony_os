@@ -32,9 +32,18 @@ export default MCAssetManager;
  轨道管理： 可以获取音频、视频、字幕等不同类型的轨道。
  资源分析： 不需要解码的情况下分析文件的时间范围、格式等。
 
-
  现在是已经有一个代理请求了, 如何拿着这个请求去获取数据？ 从谁上面获取？
 
  // MCAssetDataReader
+
+ // MCAsset
+ // - MCFileBasedAsset
+ // - MCHLSAsset
+
+ 内容都在 Asset 中, Asset 通过请求返回对应内容数组， 提供给 Reader 读取;
+
+ 内容数组可以是以下两者的组合：
+ - 本地缓存内容
+ - http内容
 
  * */

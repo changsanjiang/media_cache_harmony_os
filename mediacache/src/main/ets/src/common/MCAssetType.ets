@@ -1,4 +1,4 @@
 export enum MCAssetType {
-  FILE,
+  FILE_BASED,
   HLS,
 }
