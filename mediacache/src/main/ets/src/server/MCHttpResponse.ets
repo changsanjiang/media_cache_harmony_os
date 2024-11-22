@@ -1,15 +1,18 @@
 import { ArkTSUtils } from "@kit.ArkTS";
-import { IMCDataReader } from "../common/IMCDataReader";
+import { IMCAssetDataReader } from "../common/IMCAssetDataReader";
 import MCAssetManager from "../asset/MCAssetManager";
 import MCLogger from "../utils/MCLogger";
 import { IMCHttpRequest } from "../common/IMCHttpRequest";
 import { IMCHttpResponse } from "../common/IMCHttpResponse";
+import { IMCAssetDataOkResponse,
+  IMCAssetDataPartialContentResponse,
+  IMCAssetDataResponse, MCAssetDataResponseType } from "../common/IMCAssetDataResponse";
 
 export class MCHttpResponse implements IMCHttpResponse {
   private mClientId: number;
   /// headers是否已发送给客户端;
   private mHeadersSent = false;
-  private mDataReader?: IMCDataReader = undefined;
+  private mDataReader?: IMCAssetDataReader = undefined;
   private mNewDataCallback?: (response: IMCHttpResponse) => void = undefined;
   private mAbortedCallback?: (response: IMCHttpResponse, error?: Error) => void = undefined;
   private mAborted = false;
@@ -43,6 +46,7 @@ export class MCHttpResponse implements IMCHttpResponse {
       MCLogger.log(MCLogger.LogLevel.INFO, `[MCHttpResponse][clientId: ${this.mClientId}] Preparing data reader for request: ${JSON.stringify(proxyRequest)}`);
 
       this.mDataReader = MCAssetManager.createDataReader(proxyRequest);
+      this.mDataReader.on('responseReady', (_) => this.mLock.lockAsync(() => this.mNewDataCallback).then((callback) => callback?.(this)));
       this.mDataReader.on('newDataReadable', (_) => this.mLock.lockAsync(() => this.mNewDataCallback).then((callback) => callback?.(this)));
       this.mDataReader.on('aborted', (_, error) => this.abort(error));
       await this.mDataReader?.prepare();
@@ -65,35 +69,18 @@ export class MCHttpResponse implements IMCHttpResponse {
 
       // 先向客户端发送响应头消息
       if ( !this.mHeadersSent ) {
-        // https://datatracker.ietf.org/doc/html/rfc9110#name-example-message-exchange
-        //
-        // HTTP/1.1 200 OK
-        // Date: Mon, 27 Jul 2009 12:28:53 GMT
-        // Server: Apache
-        // Last-Modified: Wed, 22 Jul 2009 19:15:56 GMT
-        // ETag: "34aa387-d-1568eb00"
-        // Accept-Ranges: bytes
-        // Content-Length: 51
-        // Vary: Accept-Encoding
-        // Content-Type: text/plain
-        //
-        // Hello World! My content includes a trailing CRLF.
-
-        // https://datatracker.ietf.org/doc/html/rfc9110#name-single-part
-        //
-        // HTTP/1.1 206 Partial Content
-        // Date: Wed, 15 Nov 1995 06:25:24 GMT
-        // Last-Modified: Wed, 15 Nov 1995 04:58:08 GMT
-        // Content-Range: bytes 21010-47021/47022
-        // Content-Length: 26012
-        // Content-Type: image/gif
-        //
-        // ... 26012 bytes of partial image data ...
-        //
-        const responseHeaders = await reader.response;
+        MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCHttpResponse][clientId: ${this.mClientId}] Generating response headers for data response.`);
+        const responseHeaders = this.generateResponseHeaders(await reader.response);
         if ( responseHeaders ) {
           this.mHeadersSent = true;
-          MCLogger.log(MCLogger.LogLevel.INFO, `[MCHttpResponse][clientId: ${this.mClientId}] Headers sent to client: ${responseHeaders}`);
+          MCLogger.log(MCLogger.LogLevel.INFO, `[MCHttpResponse][clientId: ${this.mClientId}] Headers sent to client: ${JSON.stringify(responseHeaders)}`);
+          this.mDone = await reader.isDone;
+          if ( this.mDone ) {
+            reader.off('responseReady');
+            reader.off('newDataReadable');
+            reader.off('aborted');
+            this.mDataReader = undefined;
+          }
         }
         return responseHeaders;
       }
@@ -104,6 +91,7 @@ export class MCHttpResponse implements IMCHttpResponse {
         const data = await reader.readData(4 * 1024 * 1024);
         this.mDone = await reader.isDone;
         if ( this.mDone ) {
+          reader.off('responseReady');
           reader.off('newDataReadable');
           reader.off('aborted');
           this.mDataReader = undefined;
@@ -149,7 +137,7 @@ export class MCHttpResponse implements IMCHttpResponse {
       }
       else if ( event === 'aborted' ) {
         if (this.mAbortedCallback) {
-          MCLogger.log(MCLogger.LogLevel.WARN, `[MCHttpResponse][clientId: ${this.mClientId}] Event listener for 'aborted' is already registered.`);
+          MCLogger.log(MCLogger.LogLevel.WARN, `[MCHttpResponse][clientId: ${this.mClientId}] Event listener for '${event}' is being replaced.`);
         }
         this.mAbortedCallback = callback as (reader: IMCHttpResponse, error?: Error) => void;
       }
@@ -167,5 +155,73 @@ export class MCHttpResponse implements IMCHttpResponse {
       }
       MCLogger.log(MCLogger.LogLevel.INFO, `[MCHttpResponse][clientId: ${this.mClientId}] Event listener for '${event}' unregistered.`);
     });
+  }
+
+  private generateResponseHeaders(dataResponse?: IMCAssetDataResponse): string | undefined {
+    // https://datatracker.ietf.org/doc/html/rfc9110#name-example-message-exchange
+    //
+    // HTTP/1.1 200 OK
+    // Accept-Ranges: bytes
+    // Content-Length: 51
+    // Content-Type: text/plain
+    //
+    // Hello World! My content includes a trailing CRLF.
+    //
+
+    // https://datatracker.ietf.org/doc/html/rfc9110#name-single-part
+    //
+    // HTTP/1.1 206 Partial Content
+    // Content-Range: bytes 21010-47021/47022
+    // Content-Length: 26012
+    // Content-Type: image/gif
+    //
+    // ... 26012 bytes of partial image data ...
+    //
+
+    // HTTP/1.1 400 Bad Request
+    //
+
+    // HTTP/1.1 500 Internal Server Error
+    //
+
+    if (!dataResponse) {
+      MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpResponse][clientId: ${this.mClientId}] Cannot generate headers: Response data is undefined.`);
+      return undefined;
+    }
+
+    const currentDate = new Date().toUTCString();
+    switch (dataResponse.type) {
+      case MCAssetDataResponseType.OK: {
+        const okResponse = dataResponse as IMCAssetDataOkResponse;
+        return (
+          `HTTP/1.1 200 OK\r\n` +
+            `Content-Type: ${okResponse.contentType}\r\n` +
+            `Content-Length: ${okResponse.contentLength}\r\n` +
+            `Accept-Ranges: ${okResponse.byteRangeAccessSupported ? "bytes" : "none"}\r\n` +
+            `Date: ${currentDate}\r\n` +
+            `\r\n`
+        );
+      }
+      case MCAssetDataResponseType.PARTIAL_CONTENT: {
+        const partialResponse = dataResponse as IMCAssetDataPartialContentResponse;
+        return (
+          `HTTP/1.1 206 Partial Content\r\n` +
+            `Content-Range: bytes ${partialResponse.contentOffset}-${partialResponse.contentOffset + partialResponse.contentLength - 1}/${partialResponse.totalLength}\r\n` +
+            `Content-Type: ${partialResponse.contentType}\r\n` +
+            `Content-Length: ${partialResponse.contentLength}\r\n` +
+            `Accept-Ranges: bytes\r\n` +
+            `Date: ${currentDate}\r\n` +
+            `\r\n`
+        );
+      }
+      case MCAssetDataResponseType.BAD_REQUEST:
+        return `HTTP/1.1 400 Bad Request\r\nDate: ${currentDate}\r\n\r\n`;
+      default: {
+        if ( dataResponse.type !== MCAssetDataResponseType.INTERNAL_ERROR ) {
+          MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpResponse][clientId: ${this.mClientId}] Unsupported response type: ${dataResponse.type}`);
+        }
+        return `HTTP/1.1 500 Internal Server Error\r\nDate: ${currentDate}\r\n\r\n`;
+      }
+    }
   }
 }
