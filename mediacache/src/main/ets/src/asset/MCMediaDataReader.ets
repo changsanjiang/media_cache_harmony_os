@@ -1,7 +1,15 @@
 import { IMCMediaDataReader } from "../common/IMCMediaDataReader";
 import { IMCMediaDataResponse } from "../common/IMCMediaDataResponse";
+import MCLogger from "../utils/MCLogger";
 
 export class MCMediaDataReader implements IMCMediaDataReader {
+  private mClientId: number;
+
+  constructor(clientId: number) {
+    this.mClientId = clientId;
+    MCLogger.log(MCLogger.LogLevel.INFO, `[MCMediaDataReader][clientId: ${this.mClientId}] New DataReader instance created.`);
+  }
+
   get readableLength(): Promise<number> {
     throw new Error("Method not implemented.");
   }
