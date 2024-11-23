@@ -3,7 +3,7 @@ import { ArkTSUtils } from "@kit.ArkTS";
 import MCLogger from "../utils/MCLogger";
 
 export class MCReadwriteReference<T> implements IMCReadwriteReference<T> {
-  private mReadwriteCount = 0;
+  protected mReadwriteCount = 0;
   protected mLock: ArkTSUtils.locks.AsyncLock = new ArkTSUtils.locks.AsyncLock();
 
   get readwriteCount(): Promise<number> {

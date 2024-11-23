@@ -5,13 +5,13 @@
         "name": "default",
         "type": "HarmonyOS",
         "material": {
-          "certpath": "/Users/db/.ohos/config/default_mediacache_1HgZf1D8UV7D_YQuSRiE9neiUQxA4GRlnenFib5-CPc=.cer",
-          "storePassword": "0000001B5138824AD8D75C01B484A08689554B4A8E8D191D38D0259F998D98D863F9289AA9E2614744EB25",
+          "certpath": "/Users/changsanjiang/.ohos/config/default_media_cache_harmony_os_gGbeVLBHoU1yI3-8DX11ewm-QXkMfcKY4lmFhwUo0Hc=.cer",
+          "storePassword": "0000001B0BB7E367DEFB2FC8C8708652AF4E1FFC4B76ED0EB3729FBD10B90FB384A2BBD685472677734269",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001BFAE0C844F790B232ABE5EA987F19C5EADF009D42730F56FECBF865C326D0ADA7FD334BC1E8E5DF",
-          "profile": "/Users/db/.ohos/config/default_mediacache_1HgZf1D8UV7D_YQuSRiE9neiUQxA4GRlnenFib5-CPc=.p7b",
+          "keyPassword": "0000001B4BA19693293BBCAC3B85FA7BA7536FDC297525EBCC36912DDFCE0230A01A412C6CF6365838F2A7",
+          "profile": "/Users/changsanjiang/.ohos/config/default_media_cache_harmony_os_gGbeVLBHoU1yI3-8DX11ewm-QXkMfcKY4lmFhwUo0Hc=.p7b",
           "signAlg": "SHA256withECDSA",
-          "storeFile": "/Users/db/.ohos/config/default_mediacache_1HgZf1D8UV7D_YQuSRiE9neiUQxA4GRlnenFib5-CPc=.p12"
+          "storeFile": "/Users/changsanjiang/.ohos/config/default_media_cache_harmony_os_gGbeVLBHoU1yI3-8DX11ewm-QXkMfcKY4lmFhwUo0Hc=.p12"
         }
       }
     ],
