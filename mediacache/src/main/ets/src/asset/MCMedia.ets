@@ -4,6 +4,7 @@ import { http } from "@kit.NetworkKit";
 import { IMCMediaContentLoader } from "../common/IMCMediaContentLoader";
 import { IMCMediaContent } from "../common/IMCMediaContent";
 import { MCReadwriteReference } from "../common/MCReadwriteReference";
+import { MCMediaContentProvider } from "./MCMediaContentProvider";
 
 export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   readonly id: string;
@@ -11,6 +12,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   private mTotalLength = 0;
   private mByteRangeAccessSupported = false;
   private mStored = false;
+  private mContentProvider?: MCMediaContentProvider = undefined;
 
   constructor(id: string) {
     super();
@@ -33,9 +35,10 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     throw new Error("Method not implemented.");
   }
 
-  prepare(): Promise<void> {
-    return this.mLock.lockAsync(() => {
-      // TODO: 从磁盘加载已缓存的内容
+  prepare(rootDir: string): Promise<void> {
+    return this.mLock.lockAsync(async () => {
+      this.mContentProvider = new MCMediaContentProvider(rootDir, this.id);
+      const contents = await this.mContentProvider.prepare();
 
     })
   }

@@ -14,7 +14,7 @@ export interface IMCMedia extends IMCReadwriteReference<IMCMedia> {
   readonly isStored: Promise<boolean>;
   readonly completeness: Promise<number>; // 完成度; [0, 1];
 
-  prepare(): Promise<void>;
+  prepare(rootDir: string): Promise<void>;
   getContentLoadersBy(request: IMCMediaDataReadRequest): Promise<IMCMediaContentLoader[]>;
   createContentBy(response: http.HttpResponse): Promise<IMCMediaContent>;
 }
