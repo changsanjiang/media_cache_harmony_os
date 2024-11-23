@@ -33,7 +33,7 @@ export class MCMediaContentProvider {
     const fileName = this.generateFileName(contentOffset, index);
     const filePath = `${this.mDir}/${fileName}`;
     const content = new MCMediaContent(contentOffset, filePath);
-    this.mLastIndexes[contentOffset] = index;
+    this.mLastIndexes.set(contentOffset, index);
     return content;
   }
 
@@ -42,6 +42,10 @@ export class MCMediaContentProvider {
   }
 
   private getContentOffsetAndIndex(fileName: string): string[] {
+    const parts = fileName.split("_");
+    if (parts.length != 3) {
+      throw new Error(`Invalid file name format: ${fileName}`);
+    }
     return fileName.split("_").slice(-2);
   }
 }
