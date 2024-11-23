@@ -64,7 +64,9 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   }
 
   protected onReadwriteZeroReferences(): void {
-
+    if ( !this.mFullyTrimmed && this.mMetadata ) {
+      this.restructureContents();
+    }
   }
 
   // 重组内容. 合并数据并移除多余内容;
@@ -98,14 +100,10 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
             curNode = nextNode;
           }
         }
+
         if ( head && head.longestContent?.unsafeLength === this.mMetadata.totalLength ) {
           if ( !this.mAssembled ) {
             this.mAssembled = true;
-            //     for ( id<MCSAssetObserver> observer in MCSAllHashTableObjects(mObservers) ) {
-            //       if ( [observer respondsToSelector:@selector(assetDidStore:)] ) {
-            //         [observer assetDidStore:self];
-            //       }
-            //     }
           }
 
           if ( !this.mFullyTrimmed ) {
