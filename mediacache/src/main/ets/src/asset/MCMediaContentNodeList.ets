@@ -21,7 +21,7 @@ export class MCMediaContentNodeList {
     return this.mTail;
   }
 
-  upsertNode(placement: number, content: IMCMediaContent) {
+  upsertNode(placement: number, content: IMCMediaContent): void {
     const curNodeKey = placement;
     let curNode = this.mNodes.get(curNodeKey);
     if (curNode != undefined) {
@@ -101,7 +101,7 @@ export class MCMediaContentNodeList {
     }
   }
 
-  private insertBetween(newNode: MCMediaContentNode, prevNode?: MCMediaContentNode, nextNode?: MCMediaContentNode) {
+  private insertBetween(newNode: MCMediaContentNode, prevNode?: MCMediaContentNode, nextNode?: MCMediaContentNode): void {
     if (prevNode) {
       prevNode.next = newNode;
       newNode.prev = prevNode;
@@ -119,7 +119,7 @@ export class MCMediaContentNodeList {
     }
   }
 
-  removeNode(n: IMCMediaContentNode) {
+  removeNode(n: IMCMediaContentNode): void {
     const node = n as MCMediaContentNode;
     if (!this.mNodes.has(node.placement)) {
       return;
@@ -157,14 +157,14 @@ export class MCMediaContentNodeList {
     }
   }
 
-  detachAllNodes() {
+  detachAllNodes(): void {
     this.mNodes.clear();
     this.mHead = undefined;
     this.mMiddle = undefined;
     this.mTail = undefined;
   }
 
-  enumerateNodesUsingBlock(block: (node: IMCMediaContentNode, stop: IMCStopFlag) => void) {
+  enumerateNodesUsingBlock(block: (node: IMCMediaContentNode, stop: IMCStopFlag) => void): void {
     const stop: IMCStopFlag = { value: false };
     let cur = this.mHead;
     while ( cur != undefined ) {

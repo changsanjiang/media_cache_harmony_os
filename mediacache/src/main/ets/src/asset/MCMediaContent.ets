@@ -23,6 +23,10 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
     return this.mLock.lockAsync(() => this.mLength);
   }
 
+  get unsafeLength(): number {
+    return this.mLength;
+  }
+
   get filePath(): string {
     return this.mFilePath;
   }

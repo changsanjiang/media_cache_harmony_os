@@ -43,4 +43,11 @@ export class MCMediaContentNode implements IMCMediaContentNode {
       if ( stop.value ) break;
     }
   }
+
+  removeContent(content: IMCMediaContent): void {
+    const index = this.mContents.indexOf(content);
+    if (index >= 0) {
+      this.mContents.splice(index, 1);
+    }
+  }
 }
