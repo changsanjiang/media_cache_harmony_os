@@ -204,7 +204,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
         await writer.readwriteRetain();
         await reader.readwriteRelease();
         while (true) {
-          const len = await reader.readData(position, buffer);
+          const len = await reader.readData(position, buffer, buffer.byteLength);
           if (len == 0) {
             break;
           }

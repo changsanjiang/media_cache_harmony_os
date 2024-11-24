@@ -31,7 +31,7 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
     return this.mFilePath;
   }
 
-  readData(position: number, buffer: ArrayBuffer): Promise<number> {
+  readData(position: number, buffer: ArrayBuffer, length: number): Promise<number> {
     if (buffer.byteLength === 0) {
       throw new Error("Buffer cannot be empty.");
     }
@@ -52,7 +52,7 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
         this.mReader = await fileIo.open(this.mFilePath, fileIo.OpenMode.READ_ONLY | fileIo.OpenMode.CREATE);
       }
 
-      return fileIo.read(this.mReader.fd, buffer, { offset: position - this.contentOffset });
+      return fileIo.read(this.mReader.fd, buffer, { offset: position - this.contentOffset, length: length });
     });
   }
 

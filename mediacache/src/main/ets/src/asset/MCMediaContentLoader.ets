@@ -1,14 +1,16 @@
 import { IMCMediaContentLoader } from "../common/IMCMediaContentLoader";
 import { ArkTSUtils } from "@kit.ArkTS";
 import { IMCMediaContent } from "../common/IMCMediaContent";
+import { MCRange } from "../utils/MCRange";
 
 export class MCMediaContentLoader implements IMCMediaContentLoader {
   private mDone = false;
   private mAborted = false;
   private mLock: ArkTSUtils.locks.AsyncLock = new ArkTSUtils.locks.AsyncLock();
-  private mContent?: IMCMediaContent = undefined;
   private mDataLoadedCallback?: (loader: IMCMediaContentLoader, length: number) => void = undefined;
   private mAbortedCallback?: (loader: IMCMediaContentLoader, error?: Error) => void = undefined;
+  private mContent?: IMCMediaContent = undefined;
+  private mLoadRange = MCRange.zero;
   private mOffset = 0;
 
   get isDone(): Promise<boolean> {
@@ -20,7 +22,7 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
   }
 
   prepare(): Promise<void> {
-    throw new Error("Method not implemented.");
+    return this.mLock.lockAsync(() => this.onPrepare());
   }
 
   readData(buffer: ArrayBuffer): Promise<number> {
@@ -29,17 +31,28 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
         return 0;
       }
 
-      const len = await this.mContent.readData(this.mOffset, buffer);
-      if ( len > 0 ) this.mOffset += len;
-
-      // TODO: update done state;
-
+      const len = await this.mContent.readData(this.mOffset, buffer, Math.min(buffer.byteLength, this.mLoadRange.max - this.mOffset));
+      if ( len > 0 ) {
+        this.mOffset += len;
+        this.mDone = this.mOffset === this.mLoadRange.max;
+        if ( this.mDone ) {
+          this.clear();
+        }
+      }
       return len;
     });
   }
 
   abort(error?: Error | undefined): Promise<void> {
-    throw new Error("Method not implemented.");
+    return this.mLock.lockAsync(() => {
+      if ( this.mAborted || this.mDone ) {
+        return undefined;
+      }
+      this.mAborted = true;
+      this.onAborted(error);
+      this.clear();
+      return this.mAbortedCallback;
+    }).then((callback) => callback?.(this, error));
   }
 
   on(event: "dataLoaded" | "aborted", callback: ((loader: IMCMediaContentLoader, length: number) => void) | ((loader: IMCMediaContentLoader, error?: Error | undefined) => void)): Promise<void> {
@@ -64,20 +77,40 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
     });
   }
 
-  protected onContentReady(content: IMCMediaContent) {
+  /// 实现类在准备好 content 之后, 调用该方法通知抽象类;
+  ///
+  /// 实现类通知抽象类已准备好 content;
+  /// 调用前请对 content 做一次 readwriteRetain 操作, 防止被提前 release; 之后不需要外部调用 release, 抽象类会在读取操作结束后进行清理操作;
+  protected contentReady(content: IMCMediaContent, loadRange: MCRange) {
     this.mLock.lockAsync(() => {
       if ( !this.mAborted ) {
         this.mContent = content;
-        this.mContent.on('dataWritten', this.onDataLoaded);
+        this.mLoadRange = loadRange;
+        this.mOffset = loadRange.location;
+        this.mContent.on('dataWritten', this.onDataLoaded); // 实现类通知抽象类可加载数据了;
         return content.length;
       }
       return 0;
-    }).then((length) => {
-      if ( length != 0 ) this.onDataLoaded(content, length);
+    }).then((loadableLength) => {
+      if ( loadableLength != 0 ) this.onDataLoaded(content, loadableLength);
     });
   }
 
+  protected onPrepare(): Promise<void> {
+    throw new Error("Method 'onPrepare()' must be implemented in subclass.");
+  }
+
+  protected onAborted(error?: Error) { }
+
   private onDataLoaded(_: IMCMediaContent, length: number): void {
     this.mLock.lockAsync(() => !this.mDone && !this.mAborted ? this.mDataLoadedCallback : undefined).then((callback) => callback?.(this, length));
+  }
+
+  private clear() {
+    if ( this.mContent ) {
+      this.mContent.off('dataWritten', this.onDataLoaded);
+      this.mContent.readwriteRelease();
+      this.mContent.closeRead();
+    }
   }
 }

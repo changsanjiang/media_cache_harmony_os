@@ -1,4 +1,6 @@
 export class MCRange {
+  static zero = new MCRange(0, 0);
+
   location: number;
   length: number;
 
