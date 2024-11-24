@@ -1,5 +1,5 @@
 import { IMCHttpRequest } from "../common/IMCHttpRequest";
-import { IMCHttpRequestRange, parseRequestRange } from "../common/IMCHttpRequestRange";
+import { parseRequestRange } from "../common/IMCHttpRequestRange";
 import MCLogger from "../utils/MCLogger";
 
 /**
