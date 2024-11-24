@@ -116,7 +116,7 @@ export function parseRequestRange(clientId: number, rangeHeader?: string): IMCHt
   /** https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Range#syntax
    Range: <unit>=<range-start>-
    Range: <unit>=<range-start>-<range-end>
-   Range: <unit>=<range-start>-<range-end>, <range-start>-<range-end>, …
+   Range: <unit>=<range-start>-<range-end>, <range-start>-<range-end>, …  // @note: Multi-range requests are not supported;
    Range: <unit>=-<suffix-length>
    * */
   if (!rangeHeader.startsWith('bytes=')) {

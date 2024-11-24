@@ -1,10 +1,6 @@
-namespace MCDatabase {
-  export interface IMCMediaMetadata {
-    readonly contentType: string;
-    readonly totalLength: number;
-    readonly byteRangeAccessSupported: boolean;
-  }
+import { IMCMediaMetadata } from './IMCMediaMetadata';
 
+namespace MCDatabase {
   export function queryMediaMetadata(mediaId: string): Promise<IMCMediaMetadata | undefined> {
     throw new Error("Method not implemented.");
   }

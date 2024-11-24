@@ -1,6 +1,5 @@
 import { IMCMedia } from "../common/IMCMedia";
 import { IMCMediaDataReadRequest } from "../common/IMCMediaDataReadRequest";
-import { http } from "@kit.NetworkKit";
 import { IMCMediaContentLoader } from "../common/IMCMediaContentLoader";
 import { IMCMediaContent } from "../common/IMCMediaContent";
 import { MCReadwriteReference } from "../common/MCReadwriteReference";
@@ -9,10 +8,13 @@ import { MCMediaContentNodeList } from "./MCMediaContentNodeList";
 import { IMCMediaContentNode } from "../common/IMCMediaContentNode";
 import { MCRange } from "../utils/MCRange";
 import MCDatabase from "../common/MCDatabase";
+import { IMCMediaMetadata } from "../common/IMCMediaMetadata";
+import MCUtils from "../utils/MCUtils";
+import { parseResponseContentRange } from "../common/IMCHttpResponseContentRange";
 
 export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   readonly id: string;
-  private mMetadata?: MCDatabase.IMCMediaMetadata = undefined;
+  private mMetadata?: IMCMediaMetadata = undefined;
   private mContentProvider?: MCMediaContentProvider = undefined;
   private mNodeList = new MCMediaContentNodeList();
   private mAssembled = false; // 是否已组合完成, 是否已得到完整内容; 虽然得到了完整内容, 但是文件夹下可能还存在正在读取的冗余数据;
@@ -55,8 +57,55 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     throw new Error("Method not implemented.");
   }
 
-  createContentBy(response: http.HttpResponse): Promise<IMCMediaContent> {
-    throw new Error("Method not implemented.");
+  createContentBy(responseHeaders: Object): Promise<IMCMediaContent> {
+    /** response headers
+     - 206
+     {
+       "accept-ranges": "bytes",
+       "content-length": "3",
+       "content-range": "bytes 0-2/59471774",
+       "content-type": "video/mp4"
+     }
+
+     - 200
+     {
+       "accept-ranges": "bytes",
+       "content-length": "60277",
+       "content-type": "image/jpeg"
+     }
+     */
+    return this.mLock.lockAsync(() => {
+      const rawHeaders = MCUtils.objectToRecord<string>(responseHeaders);
+      const contentRangeHeader: string | undefined = rawHeaders['content-range'];
+      const acceptRangesHeader: string | undefined = rawHeaders['accept-ranges'];
+      const contentTypeHeader: string | undefined = rawHeaders['content-type'];
+      const contentLengthHeader: string | undefined = rawHeaders['content-length'];
+
+      if (!contentLengthHeader) { // contentRangeHeader must be specified;
+        throw new Error("contentRangeHeader is not specified");
+      }
+
+      const contentRange = contentRangeHeader ? parseResponseContentRange(contentRangeHeader) : undefined;
+      const contentType = contentTypeHeader ? contentTypeHeader : 'application/octet-stream';
+      const contentLength = parseInt(contentLengthHeader, 10);
+      const totalLength = contentRange ? contentRange.size : contentLength;
+
+      if ( !this.mMetadata ) {
+        const byteRangeAccessSupported = acceptRangesHeader === 'bytes' || contentRange !== undefined;
+        const metadata: IMCMediaMetadata = {
+          contentType: contentType,
+          totalLength: totalLength,
+          byteRangeAccessSupported: byteRangeAccessSupported,
+        };
+        this.mMetadata = metadata;
+      }
+
+      const contentOffset = contentRange ? contentRange.rangeStart : 0;
+      const content = this.mContentProvider!.createContent(contentOffset);
+      content.readwriteRetain();
+      this.mNodeList.upsertNode(contentOffset, content);
+      return content;
+    });
   }
 
   protected getInstance(): MCMedia {
