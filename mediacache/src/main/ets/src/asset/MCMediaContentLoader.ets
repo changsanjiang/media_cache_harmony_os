@@ -49,7 +49,6 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
         return undefined;
       }
       this.mAborted = true;
-      this.onAborted(error);
       this.clear();
       return this.mAbortedCallback;
     }).then((callback) => callback?.(this, error));
@@ -97,10 +96,14 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
   }
 
   protected onPrepare(): Promise<void> {
-    throw new Error("Method 'onPrepare()' must be implemented in subclass.");
+    throw new Error("Method 'onPrepare()' must be implemented in subclass. Ensure your subclass overrides this method with necessary preparation logic.");
   }
 
-  protected onAborted(error?: Error) { }
+  // 清理操作执行之前, 子类可以做一些自定义操作;
+  protected onClearBefore() { }
+
+  // 清理操作执行之后, 子类可以做一些自定义操作;
+  protected onClearAfter() { }
 
   private onDataLoaded(_: IMCMediaContent, length: number): void {
     this.mLock.lockAsync(() => !this.mDone && !this.mAborted ? this.mDataLoadedCallback : undefined).then((callback) => callback?.(this, length));
@@ -108,9 +111,11 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
 
   private clear() {
     if ( this.mContent ) {
+      this.onClearBefore();
       this.mContent.off('dataWritten', this.onDataLoaded);
       this.mContent.readwriteRelease();
       this.mContent.closeRead();
+      this.onClearAfter();
     }
   }
 }
