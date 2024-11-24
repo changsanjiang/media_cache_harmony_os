@@ -10,7 +10,6 @@ export class MCMediaFileContentLoader extends MCMediaContentLoader {
     super();
     this.content = content;
     this.loadRange = loadRange;
-    this.content.readwriteRetain();
   }
 
   protected onPrepare(): Promise<void> {
@@ -27,9 +26,5 @@ export class MCMediaFileContentLoader extends MCMediaContentLoader {
       this.contentReady(this.content, this.loadRange);
       resolve();
     })
-  }
-
-  protected onClearBefore(): void {
-    this.content.readwriteRelease();
   }
 }
