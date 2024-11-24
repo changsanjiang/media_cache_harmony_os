@@ -30,7 +30,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     return this.mLock.lockAsync(() => this.mMetadata ? this.mMetadata.totalLength : 0);
   }
   get byteRangeAccessSupported(): Promise<boolean> {
-    return this.mLock.lockAsync(() => this.mMetadata ? this.mMetadata.byteRangeAccessSupported : false);
+    return this.mLock.lockAsync(() => this.mAssembled || (this.mMetadata ? this.mMetadata.byteRangeAccessSupported : false));
   }
   get isStored(): Promise<boolean> {
     return this.mLock.lockAsync(() => this.mAssembled);
