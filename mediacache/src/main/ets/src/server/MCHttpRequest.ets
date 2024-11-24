@@ -1,5 +1,5 @@
 import { IMCHttpRequest } from "../common/IMCHttpRequest";
-import { IMCHttpRequestRange } from "../common/IMCHttpRequestRange";
+import { IMCHttpRequestRange, parseRequestRange } from "../common/IMCHttpRequestRange";
 import MCLogger from "../utils/MCLogger";
 
 /**
@@ -81,11 +81,11 @@ export function parseRequest(clientId: number, rawMessage: string): IMCHttpReque
     throw new Error("Invalid HTTP/1.1 message: Missing 'Host' header.");
   }
 
-  // 不支持多范围请求
+  // 验证 range 格式; 不支持多范围请求;
   const rangeHeader = headers['range'];
   if (rangeHeader) {
     try {
-      parseRequestRange(clientId, rangeHeader);
+      parseRequestRange(rangeHeader);
     }
     catch (e) {
       MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest][clientId: ${clientId}] Invalid Range format: ${rangeHeader}. Error: ${e.stack}`);
@@ -103,62 +103,4 @@ export function parseRequest(clientId: number, rawMessage: string): IMCHttpReque
   MCLogger.log(MCLogger.LogLevel.INFO, `[MCHttpRequest][clientId: ${clientId}] Successfully parsed request: ${JSON.stringify(request)}`);
 
   return request
-}
-
-export function parseRequestRange(clientId: number, rangeHeader?: string): IMCHttpRequestRange | undefined {
-  MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCHttpRequest][clientId: ${clientId}] Start parsing Range header: ${rangeHeader}`);
-
-  if (!rangeHeader) {
-    MCLogger.log(MCLogger.LogLevel.INFO, `[MCHttpRequest][clientId: ${clientId}] No Range header provided.`);
-    return undefined;
-  }
-
-  /** https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Range#syntax
-   Range: <unit>=<range-start>-
-   Range: <unit>=<range-start>-<range-end>
-   Range: <unit>=<range-start>-<range-end>, <range-start>-<range-end>, …  // @note: Multi-range requests are not supported;
-   Range: <unit>=-<suffix-length>
-   * */
-  if (!rangeHeader.startsWith('bytes=')) {
-    MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest][clientId: ${clientId}] Unsupported Range unit: Only "bytes" unit is supported.`);
-    throw new Error('Unsupported Range unit: Only "bytes" unit is supported');
-  }
-
-  if (rangeHeader.includes(',')) {
-    MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest][clientId: ${clientId}] Multi-range requests are not supported. Only single-range requests are allowed.`);
-    throw new Error('Multi-range requests are not supported. Only single-range requests are allowed.');
-  }
-
-  const matches = rangeHeader.match(/bytes=(\d+)?-(\d+)?/);
-  if (!matches) {
-    MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest][clientId: ${clientId}] Invalid Range format: ${rangeHeader}. Expected format: bytes=<range-start>-<range-end>`);
-    throw new Error('Invalid Range format. Expected format: bytes=<range-start>-<range-end>');
-  }
-
-  const first = matches[1] ? parseInt(matches[1], 10) : undefined;
-  const second = matches[2] ? parseInt(matches[2], 10) : undefined;
-  if (first === undefined && second === undefined) {
-    MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest][clientId: ${clientId}] Invalid Range format: At least one of range-start or range-end should be specified.`);
-    throw new Error('Invalid Range format. At least one of range-start or range-end should be specified.');
-  }
-
-  const rangeStart = first;
-  const rangeEnd = first !== undefined && second !== undefined ? second : undefined;
-  const suffixLength = first === undefined && second !== undefined ? second : undefined;
-
-  // 如果 rangeStart 大于 rangeEnd，则抛出错误
-  if (rangeStart !== undefined && rangeEnd !== undefined && rangeStart > rangeEnd) {
-    MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest][clientId: ${clientId}] Invalid Range: rangeStart cannot be greater than rangeEnd.`);
-    throw new Error('Invalid Range: rangeStart cannot be greater than rangeEnd.');
-  }
-
-  const range: IMCHttpRequestRange = {
-    rangeStart: rangeStart,
-    rangeEnd: rangeEnd,
-    suffixLength: suffixLength
-  }
-
-  MCLogger.log(MCLogger.LogLevel.INFO, `[MCHttpRequest][clientId: ${clientId}] Successfully parsed Range header: ${JSON.stringify(range)}`);
-
-  return range;
 }

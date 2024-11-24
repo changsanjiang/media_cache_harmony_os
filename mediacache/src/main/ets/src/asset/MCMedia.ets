@@ -54,6 +54,11 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   }
 
   getContentLoadersBy(request: IMCMediaDataReadRequest): Promise<IMCMediaContentLoader[]> {
+    // export interface IMCMediaDataReadRequest {
+    //   readonly mediaId: string;
+    //   readonly proxyRequest: IMCHttpRequest;
+    // }
+
     throw new Error("Method not implemented.");
   }
 
