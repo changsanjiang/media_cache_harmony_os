@@ -121,7 +121,7 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
         await fileIo.close(this.mWriter);
         this.mWriter = undefined;
       }
-      await fileIo.unlink(this.mFilePath);
+      try { await fileIo.unlink(this.mFilePath); } catch (e) { }
       this.mDestroyed = true;
       return true;
     });
