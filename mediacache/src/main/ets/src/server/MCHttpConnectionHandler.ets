@@ -1,6 +1,6 @@
 import { socket } from "@kit.NetworkKit";
-import { IMCHttpRequest } from "../common/IMCHttpRequest";
-import { IMCHttpResponse } from "../common/IMCHttpResponse";
+import { IMCHttpRequest } from "../defines/IMCHttpRequest";
+import { IMCHttpResponse } from "../defines/IMCHttpResponse";
 import MCLogger from "../utils/MCLogger";
 import { parseRequest } from "./MCHttpRequest";
 import { MCHttpResponse } from "./MCHttpResponse";

@@ -1,4 +1,4 @@
-import { IMCHttpRequest } from '../common/IMCHttpRequest';
+import { IMCHttpRequest } from '../defines/IMCHttpRequest';
 
 namespace MCIdentifier {
   export function generateMediaIdentifierBy(proxyRequest: IMCHttpRequest): string {

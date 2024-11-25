@@ -1,4 +1,4 @@
-import { IMCReadwriteReference } from "../common/IMCReadwriteReference";
+import { IMCReadwriteReference } from "../defines/IMCReadwriteReference";
 import { ArkTSUtils } from "@kit.ArkTS";
 import MCLogger from "./MCLogger";
 

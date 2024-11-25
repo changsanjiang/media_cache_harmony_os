@@ -1,12 +1,12 @@
 import { ArkTSUtils } from "@kit.ArkTS";
-import { IMCMediaDataReader } from "../common/IMCMediaDataReader";
+import { IMCMediaDataReader } from "../defines/IMCMediaDataReader";
 import MCMediaManager from "../asset/MCMediaManager";
 import MCLogger from "../utils/MCLogger";
-import { IMCHttpRequest } from "../common/IMCHttpRequest";
-import { IMCHttpResponse } from "../common/IMCHttpResponse";
+import { IMCHttpRequest } from "../defines/IMCHttpRequest";
+import { IMCHttpResponse } from "../defines/IMCHttpResponse";
 import { IMCMediaDataOkResponse,
   IMCMediaDataPartialContentResponse,
-  IMCMediaDataResponse, MCMediaDataResponseType } from "../common/IMCMediaDataResponse";
+  IMCMediaDataResponse, MCMediaDataResponseType } from "../defines/IMCMediaDataResponse";
 
 export class MCHttpResponse implements IMCHttpResponse {
   private mClientId: number;

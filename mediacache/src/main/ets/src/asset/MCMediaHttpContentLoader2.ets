@@ -1,7 +1,7 @@
-import { toRequestRangeHeader } from "../common/IMCHttpRequestRange";
-import { parseResponseContentRange } from "../common/IMCHttpResponseContentRange";
-import { IMCMedia } from "../common/IMCMedia";
-import { IMCMediaContent } from "../common/IMCMediaContent";
+import { toRequestRangeHeader } from "../defines/IMCHttpRequestRange";
+import { parseResponseContentRange } from "../defines/IMCHttpResponseContentRange";
+import { IMCMedia } from "../defines/IMCMedia";
+import { IMCMediaContent } from "../defines/IMCMediaContent";
 import { MCAbortController } from "../utils/MCAbortController";
 import MCDownload from "../utils/MCDownload";
 import { MCDownloadResponseHeaders } from "../utils/MCDownloadResponseHeaders";

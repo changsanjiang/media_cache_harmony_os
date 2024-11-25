@@ -1,15 +1,15 @@
-import { IMCMedia } from "../common/IMCMedia";
-import { IMCMediaDataReadRequest } from "../common/IMCMediaDataReadRequest";
-import { IMCMediaContentLoader } from "../common/IMCMediaContentLoader";
-import { IMCMediaContent } from "../common/IMCMediaContent";
+import { IMCMedia } from "../defines/IMCMedia";
+import { IMCMediaDataReadRequest } from "../defines/IMCMediaDataReadRequest";
+import { IMCMediaContentLoader } from "../defines/IMCMediaContentLoader";
+import { IMCMediaContent } from "../defines/IMCMediaContent";
 import { MCReadwriteReference } from "../utils/MCReadwriteReference";
 import { MCMediaContentProvider } from "./MCMediaContentProvider";
 import { MCMediaContentNodeList } from "./MCMediaContentNodeList";
-import { IMCMediaContentNode } from "../common/IMCMediaContentNode";
+import { IMCMediaContentNode } from "../defines/IMCMediaContentNode";
 import { MCRange } from "../utils/MCRange";
 import MCDatabase from "../utils/MCDatabase";
-import { IMCMediaMetadata } from "../common/IMCMediaMetadata";
-import { parseResponseContentRange } from "../common/IMCHttpResponseContentRange";
+import { IMCMediaMetadata } from "../defines/IMCMediaMetadata";
+import { parseResponseContentRange } from "../defines/IMCHttpResponseContentRange";
 import { MCDownloadResponseHeaders } from "../utils/MCDownloadResponseHeaders";
 
 export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {

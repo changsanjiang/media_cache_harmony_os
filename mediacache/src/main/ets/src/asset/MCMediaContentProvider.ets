@@ -1,4 +1,4 @@
-import { IMCMediaContent } from "../common/IMCMediaContent";
+import { IMCMediaContent } from "../defines/IMCMediaContent";
 import { MCMediaContent } from "./MCMediaContent";
 import { fileIo, statfs } from "@kit.CoreFileKit";
 

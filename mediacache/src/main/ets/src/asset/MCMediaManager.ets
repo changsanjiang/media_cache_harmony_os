@@ -1,6 +1,6 @@
-import { IMCMediaDataReader } from '../common/IMCMediaDataReader';
-import { IMCHttpRequest } from '../common/IMCHttpRequest';
-import { IMCMedia } from '../common/IMCMedia';
+import { IMCMediaDataReader } from '../defines/IMCMediaDataReader';
+import { IMCHttpRequest } from '../defines/IMCHttpRequest';
+import { IMCMedia } from '../defines/IMCMedia';
 import { MCMedia } from './MCMedia';
 
 namespace MCMediaManager {

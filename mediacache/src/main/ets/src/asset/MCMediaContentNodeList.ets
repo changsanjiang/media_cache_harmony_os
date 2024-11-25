@@ -1,6 +1,6 @@
-import { IMCMediaContent } from "../common/IMCMediaContent";
-import { IMCMediaContentNode } from "../common/IMCMediaContentNode";
-import { IMCStopFlag } from "../common/IMCStopFlag";
+import { IMCMediaContent } from "../defines/IMCMediaContent";
+import { IMCMediaContentNode } from "../defines/IMCMediaContentNode";
+import { IMCStopFlag } from "../defines/IMCStopFlag";
 import { MCMediaContentNode } from "./MCMediaContentNode";
 
 export class MCMediaContentNodeList {

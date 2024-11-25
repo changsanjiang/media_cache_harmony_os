@@ -1,5 +1,5 @@
-import { IMCHttpRequestRange, toRequestRangeHeader } from "../common/IMCHttpRequestRange";
-import { IMCMedia } from "../common/IMCMedia";
+import { IMCHttpRequestRange, toRequestRangeHeader } from "../defines/IMCHttpRequestRange";
+import { IMCMedia } from "../defines/IMCMedia";
 import { MCAbortController } from "../utils/MCAbortController";
 import MCDownload from "../utils/MCDownload";
 import { MCDownloadResponseHeaders } from "../utils/MCDownloadResponseHeaders";

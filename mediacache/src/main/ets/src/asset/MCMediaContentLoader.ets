@@ -1,8 +1,8 @@
-import { IMCMediaContentLoader } from "../common/IMCMediaContentLoader";
+import { IMCMediaContentLoader } from "../defines/IMCMediaContentLoader";
 import { ArkTSUtils } from "@kit.ArkTS";
-import { IMCMediaContent } from "../common/IMCMediaContent";
+import { IMCMediaContent } from "../defines/IMCMediaContent";
 import { MCRange } from "../utils/MCRange";
-import { IMCMedia } from "../common/IMCMedia";
+import { IMCMedia } from "../defines/IMCMedia";
 
 export class MCMediaContentLoader implements IMCMediaContentLoader {
   private mPreparedCallback?: (loader: IMCMediaContentLoader, range: MCRange) => void = undefined;

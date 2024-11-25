@@ -1,5 +1,5 @@
-import { IMCMedia } from "../common/IMCMedia";
-import { IMCMediaContent } from "../common/IMCMediaContent";
+import { IMCMedia } from "../defines/IMCMedia";
+import { IMCMediaContent } from "../defines/IMCMediaContent";
 import { MCRange } from "../utils/MCRange";
 import { MCMediaContentLoader } from "./MCMediaContentLoader";
 

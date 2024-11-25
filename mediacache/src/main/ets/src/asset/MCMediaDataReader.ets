@@ -1,5 +1,5 @@
-import { IMCMediaDataReader } from "../common/IMCMediaDataReader";
-import { IMCMediaDataResponse } from "../common/IMCMediaDataResponse";
+import { IMCMediaDataReader } from "../defines/IMCMediaDataReader";
+import { IMCMediaDataResponse } from "../defines/IMCMediaDataResponse";
 import MCLogger from "../utils/MCLogger";
 
 export class MCMediaDataReader implements IMCMediaDataReader {

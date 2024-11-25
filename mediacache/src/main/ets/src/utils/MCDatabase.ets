@@ -1,4 +1,4 @@
-import { IMCMediaMetadata } from '../common/IMCMediaMetadata';
+import { IMCMediaMetadata } from '../defines/IMCMediaMetadata';
 
 namespace MCDatabase {
   export function queryMediaMetadata(mediaId: string): Promise<IMCMediaMetadata | undefined> {

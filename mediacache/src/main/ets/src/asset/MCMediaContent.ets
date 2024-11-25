@@ -1,4 +1,4 @@
-import { IMCMediaContent } from "../common/IMCMediaContent";
+import { IMCMediaContent } from "../defines/IMCMediaContent";
 import { MCReadwriteReference } from "../utils/MCReadwriteReference";
 import { fileIo } from '@kit.CoreFileKit';
 
