@@ -78,6 +78,10 @@ export function parseRequestRange(rangeHeader: string): IMCHttpRequestRange {
   );
 }
 
+export function parseRequestRangeIfDefined(rangeHeader?: string): IMCHttpRequestRange | undefined {
+  return rangeHeader ? parseRequestRange(rangeHeader) : undefined;
+}
+
 export function toRequestRangeHeader(rangeStart?: number, rangeEnd?: number, suffixLength?: number): string | undefined {
   if ( suffixLength != undefined ) {
     return `bytes=-${suffixLength}`

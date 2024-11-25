@@ -1,4 +1,3 @@
-import { IMCMedia } from "../defines/IMCMedia";
 import { IMCMediaContent } from "../defines/IMCMediaContent";
 import { MCRange } from "../utils/MCRange";
 import { MCMediaContentLoader } from "./MCMediaContentLoader";
@@ -8,8 +7,8 @@ export class MCMediaFileContentLoader extends MCMediaContentLoader {
   private loadRange: MCRange;
 
   // 传入之前请先对 content 做一次 readwriteRetain, loader 内部会在操作结束后执行对应的 readwriteRelease;
-  constructor(media: IMCMedia, content: IMCMediaContent, loadRange: MCRange) {
-    super(media);
+  constructor(content: IMCMediaContent, loadRange: MCRange) {
+    super();
     this.content = content;
     this.loadRange = loadRange;
   }

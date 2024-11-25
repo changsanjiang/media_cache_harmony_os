@@ -35,7 +35,7 @@ export class MCMediaContentNodeList {
     curNode.addContent(content);
     this.mNodes.set(curNodeKey, curNode);
 
-    // 如果链表为空，直接设置为头和尾节点
+    // 如果链表为空，直接设置头尾节点
     if (!this.mHead || !this.mTail) {
       this.mHead = curNode;
       this.mTail = curNode;
@@ -149,7 +149,7 @@ export class MCMediaContentNodeList {
     const wasMiddle = this.mMiddle === node;
     // 如果中间节点被删除，重新设置
     if (wasMiddle) {
-      this.mMiddle = nextNode || prevNode;
+      this.mMiddle = prevNode || nextNode;
     }
     // 如果总数为奇数，移动中间节点
     else if (this.mNodes.size % 2 !== 0) {
@@ -172,5 +172,25 @@ export class MCMediaContentNodeList {
       cur = cur.next;
       if ( stop.value ) break;
     }
+  }
+
+  findClosestLeftNode(placement: number): IMCMediaContentNode | undefined {
+    if (!this.mMiddle) {
+      return undefined;
+    }
+
+    if (placement <= this.mHead!.placement) {
+      return undefined;
+    }
+
+    if (placement > this.mTail!.placement) {
+      return this.mTail;
+    }
+
+    let closestLeftNode: MCMediaContentNode | undefined = placement < this.mMiddle.placement ? this.mMiddle : this.mTail;
+    while (closestLeftNode && closestLeftNode.placement > placement) {
+      closestLeftNode = closestLeftNode.prev;
+    }
+    return closestLeftNode;
   }
 }

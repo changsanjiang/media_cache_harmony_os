@@ -2,7 +2,6 @@ import { IMCMediaContentLoader } from "../defines/IMCMediaContentLoader";
 import { ArkTSUtils } from "@kit.ArkTS";
 import { IMCMediaContent } from "../defines/IMCMediaContent";
 import { MCRange } from "../utils/MCRange";
-import { IMCMedia } from "../defines/IMCMedia";
 
 export class MCMediaContentLoader implements IMCMediaContentLoader {
   private mPreparedCallback?: (loader: IMCMediaContentLoader, range: MCRange) => void = undefined;
@@ -12,14 +11,8 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
   protected mDone = false;
   protected mAborted = false;
   protected mLock: ArkTSUtils.locks.AsyncLock = new ArkTSUtils.locks.AsyncLock();
-  protected mMedia: IMCMedia;
   protected mContent?: IMCMediaContent = undefined;
   private mRange?: MCRange = undefined;
-
-  // 传入之前请先对 media 做一次 readwriteRetain, loader 内部会在操作结束后执行对应的 readwriteRelease;
-  constructor(media: IMCMedia) {
-    this.mMedia = media;
-  }
 
   get isDone(): Promise<boolean> {
     return this.mLock.lockAsync(() => this.mDone);
@@ -137,7 +130,6 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
       this.mContent.readwriteRelease();
       this.mContent.closeRead();
     }
-    this.mMedia.readwriteRelease();
     this.onClearAfter();
   }
 }

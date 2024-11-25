@@ -11,6 +11,9 @@ import MCDatabase from "../utils/MCDatabase";
 import { IMCMediaMetadata } from "../defines/IMCMediaMetadata";
 import { parseResponseContentRange } from "../defines/IMCHttpResponseContentRange";
 import { MCDownloadResponseHeaders } from "../utils/MCDownloadResponseHeaders";
+import MCProxyURL from "../utils/MCProxyURL";
+import { IMCMediaHttpContentRequest, MCMediaHttpContentLoader } from "./MCMediaHttpContentLoader";
+import { parseRequestRange } from "../defines/IMCHttpRequestRange";
 
 export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   readonly id: string;
@@ -53,13 +56,62 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     })
   }
 
-  getContentLoadersBy(request: IMCMediaDataReadRequest): Promise<IMCMediaContentLoader[]> {
-    // export interface IMCMediaDataReadRequest {
-    //   readonly mediaId: string;
-    //   readonly proxyRequest: IMCHttpRequest;
-    // }
+  getContentLoadersBy(dataRequest: IMCMediaDataReadRequest): Promise<IMCMediaContentLoader[]> {
+    return this.mLock.lockAsync(async () => {
+      if ( dataRequest.mediaId !== this.id ) {
+        throw new Error(`xxx`);
+      }
 
-    throw new Error("Method not implemented.");
+      const url = MCProxyURL.restoreURLFromProxyTarget(dataRequest.proxyRequest.requestTarget);
+      if ( !url ) {
+        throw new Error(`xxx`);
+      }
+
+      if ( this.mMetadata ) {
+        const requestRangeHeader = dataRequest.proxyRequest.headers['range'];
+        if ( requestRangeHeader ) {
+          const requestRange = parseRequestRange(requestRangeHeader);
+          const requestRangeStart = requestRange.rangeStart;
+          const requestRangeEnd = requestRange.rangeEnd;
+          const requestSuffixLength = requestRange.suffixLength;
+
+          const totalLength = this.mMetadata.totalLength;
+          if ( requestRangeStart && requestRangeStart >= totalLength ) {
+            throw new Error('Invalid range: requestRangeStart exceeds total media length.');
+          }
+          if ( requestRangeEnd && requestRangeEnd >= totalLength ) {
+            throw new Error('Invalid range: requestRangeEnd exceeds total media length.');
+          }
+          if ( requestSuffixLength && requestSuffixLength >= totalLength ) {
+            throw new Error('Invalid range: requestSuffixLength exceeds total media length.');
+          }
+
+          let rangeStart: number | undefined;
+          let rangeEnd: number | undefined;
+          if ( requestSuffixLength ) {
+            rangeStart = totalLength - requestSuffixLength;
+            rangeEnd = totalLength - 1;
+          }
+          else if ( requestRangeEnd ) {
+            rangeStart = requestRangeStart!;
+            rangeEnd = requestRangeEnd;
+          }
+          else {
+            rangeStart = requestRangeStart!;
+            rangeEnd = totalLength - 1;
+          }
+
+          let range = new MCRange(rangeStart, rangeEnd + 1 - rangeStart);
+          
+        }
+      }
+
+      const request: IMCMediaHttpContentRequest = {
+        url: url,
+        headers: dataRequest.proxyRequest.headers
+      };
+      return [new MCMediaHttpContentLoader(this, request)];
+    });
   }
 
   createContentBy(headers: MCDownloadResponseHeaders): Promise<IMCMediaContent> {

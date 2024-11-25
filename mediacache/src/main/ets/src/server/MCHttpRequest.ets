@@ -1,6 +1,8 @@
 import { IMCHttpRequest } from "../defines/IMCHttpRequest";
 import { parseRequestRange } from "../defines/IMCHttpRequestRange";
+import MCConfigs from "../utils/MCConfigs";
 import MCLogger from "../utils/MCLogger";
+import MCUtils from "../utils/MCUtils";
 
 /**
  * 解析原始 HTTP 请求消息，仅处理 GET 和 HEAD 请求。
@@ -61,7 +63,7 @@ export function parseRequest(clientId: number, rawMessage: string): IMCHttpReque
   }
 
   // 解析头部字段
-  const headers: Record<string, string> = {};
+  const headers: Map<string, string> = new Map();
   for (const line of headerLines) {
     const separatorIndex = line.indexOf(":");
     if (separatorIndex === -1) {
@@ -71,18 +73,18 @@ export function parseRequest(clientId: number, rawMessage: string): IMCHttpReque
 
     const key = line.slice(0, separatorIndex).trim().toLowerCase();
     const value = line.slice(separatorIndex + 2).trim();
-    headers[key] = value;
+    headers.set(key, value);
   }
 
-  // 验证 Host 头
-  const host = headers["host"];
-  if (!host) {
-    MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest][clientId: ${clientId}] Invalid HTTP/1.1 message: Missing 'Host' header.`);
-    throw new Error("Invalid HTTP/1.1 message: Missing 'Host' header.");
-  }
+  // // 验证 Host 头
+  // const host = headers.get('host');
+  // if (!host) {
+  //   MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpRequest][clientId: ${clientId}] Invalid HTTP/1.1 message: Missing 'Host' header.`);
+  //   throw new Error("Invalid HTTP/1.1 message: Missing 'Host' header.");
+  // }
 
   // 验证 range 格式; 不支持多范围请求;
-  const rangeHeader = headers['range'];
+  const rangeHeader = headers.get('range');
   if (rangeHeader) {
     try {
       parseRequestRange(rangeHeader);
@@ -93,11 +95,14 @@ export function parseRequest(clientId: number, rawMessage: string): IMCHttpReque
     }
   }
 
+  MCConfigs.proxyRequestIgnoredHeaders.forEach((key) => {
+    headers.delete(key);
+  });
+
   const request: IMCHttpRequest = {
     method: method,
     requestTarget: requestTarget,
-    host: host,
-    headers: headers
+    headers: MCUtils.mapToRecord(headers)
   };
 
   MCLogger.log(MCLogger.LogLevel.INFO, `[MCHttpRequest][clientId: ${clientId}] Successfully parsed request: ${JSON.stringify(request)}`);
