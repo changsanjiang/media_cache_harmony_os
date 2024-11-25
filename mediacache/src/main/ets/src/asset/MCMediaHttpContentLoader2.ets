@@ -105,6 +105,7 @@ export class MCMediaHttpContentLoader2 extends MCMediaContentLoader {
       }
       const contentLength = parseInt(contentLengthHeader, 10);
       const loadRange = new MCRange(contentRange.rangeStart, contentLength);
+      this.content.readwriteRetain();
       this.contentReady(this.content, loadRange);
     }).catch((e: Error) => {
       this.abort(e);
