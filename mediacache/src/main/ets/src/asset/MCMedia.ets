@@ -9,8 +9,8 @@ import { IMCMediaContentNode } from "../common/IMCMediaContentNode";
 import { MCRange } from "../utils/MCRange";
 import MCDatabase from "../common/MCDatabase";
 import { IMCMediaMetadata } from "../common/IMCMediaMetadata";
-import MCUtils from "../utils/MCUtils";
 import { parseResponseContentRange } from "../common/IMCHttpResponseContentRange";
+import { MCDownloadResponseHeaders } from "../utils/MCDownloadResponseHeaders";
 
 export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   readonly id: string;
@@ -62,7 +62,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     throw new Error("Method not implemented.");
   }
 
-  createContentBy(responseHeaders: Object): Promise<IMCMediaContent> {
+  createContentBy(headers: MCDownloadResponseHeaders): Promise<IMCMediaContent> {
     /** response headers
      - 206
      {
@@ -79,12 +79,17 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
        "content-type": "image/jpeg"
      }
      */
+    // export interface DownloadResponseHeaders {
+    //   'accept-ranges'?: string;
+    //   'content-range'?: string;
+    //   'content-type'?: string;
+    //   'content-length'?: string;
+    // }
     return this.mLock.lockAsync(() => {
-      const rawHeaders = MCUtils.objectToRecord<string>(responseHeaders);
-      const contentRangeHeader: string | undefined = rawHeaders['content-range'];
-      const acceptRangesHeader: string | undefined = rawHeaders['accept-ranges'];
-      const contentTypeHeader: string | undefined = rawHeaders['content-type'];
-      const contentLengthHeader: string | undefined = rawHeaders['content-length'];
+      const contentRangeHeader: string | undefined = headers['content-range'];
+      const acceptRangesHeader: string | undefined = headers['accept-ranges'];
+      const contentTypeHeader: string | undefined = headers['content-type'];
+      const contentLengthHeader: string | undefined = headers['content-length'];
 
       if (!contentLengthHeader) { // contentRangeHeader must be specified;
         throw new Error("contentRangeHeader is not specified");

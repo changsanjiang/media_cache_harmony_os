@@ -2,6 +2,7 @@ import { MCAbortSignal } from './MCAbortController';
 import { rcp } from '@kit.RemoteCommunicationKit';
 import MCConfigs from './MCConfigs';
 import MCUtils from './MCUtils';
+import { MCDownloadResponseHeaders } from './MCDownloadResponseHeaders';
 
 namespace MCDownload {
   export class DownloadRequest {
@@ -33,15 +34,8 @@ namespace MCDownload {
     }
   }
 
-  export interface DownloadResponseHeaders {
-    'accept-ranges'?: string;
-    'content-range'?: string;
-    'content-type'?: string;
-    'content-length'?: string;
-  }
-
   export interface Options {
-    headersReceive: (headers: DownloadResponseHeaders) => void | Promise<void>;
+    headersReceive: (headers: MCDownloadResponseHeaders) => void | Promise<void>;
     dataReceive: (data: ArrayBuffer) => number | void | Promise<void>;
     signal?: MCAbortSignal;
   }

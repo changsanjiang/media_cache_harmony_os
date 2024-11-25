@@ -10,6 +10,30 @@ export interface IMCHttpRequestRange {
   rangeStart?: number;
   rangeEnd?: number;
   suffixLength?: number;
+
+  // 'bytes=xxx-xxx'
+  toRangeHeader(): string;
+}
+
+class MCHttpRequestRange implements IMCHttpRequestRange {
+  rangeStart?: number;
+  rangeEnd?: number;
+  suffixLength?: number;
+  constructor(rangeStart?: number, rangeEnd?: number, suffixLength?: number) {
+    this.rangeStart = rangeStart;
+    this.rangeEnd = rangeEnd;
+    this.suffixLength = suffixLength;
+  }
+
+  toRangeHeader(): string {
+    if ( this.suffixLength != undefined ) {
+      return `bytes=-${this.suffixLength}`
+    }
+    if ( this.rangeStart != undefined && this.rangeEnd != undefined ) {
+      return `bytes=${this.rangeStart}-${this.rangeEnd}`
+    }
+    return `bytes=${this.rangeStart}-`;
+  }
 }
 
 export function parseRequestRange(rangeHeader: string): IMCHttpRequestRange {
@@ -47,9 +71,19 @@ export function parseRequestRange(rangeHeader: string): IMCHttpRequestRange {
     throw new Error('Invalid Range: rangeStart cannot be greater than rangeEnd.');
   }
 
-  return {
-    rangeStart: rangeStart,
-    rangeEnd: rangeEnd,
-    suffixLength: suffixLength
+  return new MCHttpRequestRange(
+    rangeStart,
+    rangeEnd,
+    suffixLength
+  );
+}
+
+export function toRequestRangeHeader(rangeStart?: number, rangeEnd?: number, suffixLength?: number): string | undefined {
+  if ( suffixLength != undefined ) {
+    return `bytes=-${suffixLength}`
   }
+  if ( rangeStart != undefined ) {
+    return rangeEnd != undefined ? `bytes=${rangeStart}-${rangeEnd}` : `bytes=${rangeStart}-`;
+  }
+  return undefined;
 }
