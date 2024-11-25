@@ -211,9 +211,11 @@ export class MCMediaContentNodeList {
 
   printNodes() {
     console.log('===========');
+    console.log(`nodes=${this.mNodes.size}`)
     console.log(`head.placement=${this.mHead?.placement}`)
     console.log(`middle.placement=${this.mMiddle?.placement}`)
     console.log(`tail.placement=${this.mTail?.placement}`)
+    console.log('>>>>>>>>>>>>>>>>>>>>>>');
     let cur = this.mHead;
     while (cur) {
       console.log(`placement=${cur.placement}`);
