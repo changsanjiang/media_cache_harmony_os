@@ -25,7 +25,7 @@ export default function nodeListUnitTest() {
     });
     it('assertContain', 0, () => {
       // testAdd();
-      testDelete3();
+      testFind();
     });
   });
 }
@@ -184,4 +184,21 @@ function testDelete3() {
   nodeList.printNodes();
   nodeList.removeNode(nodeList.getNodeBy(4)!);
   nodeList.printNodes();
+}
+function testFind() {
+  const nodeList = new MCMediaContentNodeList();
+  const content = new TestMCMediaContent();
+
+  let idx = 20;
+  while (idx > 0) {
+    nodeList.upsertNode(idx, content);
+    idx -= 2;
+  }
+  nodeList.printNodes();
+
+  idx = 1;
+  while (idx < 25) {
+    console.log(`${idx}.closest ==> ${nodeList.findClosestLeftNode(idx)?.placement}`);
+    idx += 2;
+  }
 }

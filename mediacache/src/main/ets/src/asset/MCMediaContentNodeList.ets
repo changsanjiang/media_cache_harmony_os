@@ -180,6 +180,7 @@ export class MCMediaContentNodeList {
     }
   }
 
+  /** 查找左侧最近节点; */
   findClosestLeftNode(placement: number): IMCMediaContentNode | undefined {
     if (!this.mMiddle) {
       return undefined;
