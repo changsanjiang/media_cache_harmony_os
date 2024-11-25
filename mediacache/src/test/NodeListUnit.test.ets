@@ -25,7 +25,7 @@ export default function nodeListUnitTest() {
     });
     it('assertContain', 0, () => {
       // testAdd();
-      testDelete();
+      testDelete2();
     });
   });
 }
@@ -142,5 +142,25 @@ function testDelete() {
 
   console.log("删掉右侧节点");
   nodeList.removeNode(nodeList.getNodeBy(14)!);
+  nodeList.printNodes();
+}
+
+function testDelete2() {
+  const nodeList = new MCMediaContentNodeList();
+  const content = new TestMCMediaContent();
+
+  let idx = 3;
+  while (idx > 0) {
+    nodeList.upsertNode(idx, content);
+    idx -= 1;
+  }
+  nodeList.printNodes();
+
+  console.log("======================delete start");
+  nodeList.removeNode(nodeList.getNodeBy(3)!);
+  nodeList.printNodes();
+  nodeList.removeNode(nodeList.getNodeBy(1)!);
+  nodeList.printNodes();
+  nodeList.removeNode(nodeList.getNodeBy(2)!);
   nodeList.printNodes();
 }
