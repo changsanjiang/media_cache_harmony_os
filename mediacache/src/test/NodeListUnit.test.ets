@@ -25,7 +25,7 @@ export default function nodeListUnitTest() {
     });
     it('assertContain', 0, () => {
       // testAdd();
-      testDelete2();
+      testDelete3();
     });
   });
 }
@@ -102,7 +102,6 @@ function testAdd() {
   nodeList.upsertNode(4, content);
   nodeList.printNodes();
 };
-
 function testDelete() {
   const nodeList = new MCMediaContentNodeList();
   const content = new TestMCMediaContent();
@@ -144,12 +143,11 @@ function testDelete() {
   nodeList.removeNode(nodeList.getNodeBy(14)!);
   nodeList.printNodes();
 }
-
 function testDelete2() {
   const nodeList = new MCMediaContentNodeList();
   const content = new TestMCMediaContent();
 
-  let idx = 3;
+  let idx = 4;
   while (idx > 0) {
     nodeList.upsertNode(idx, content);
     idx -= 1;
@@ -157,10 +155,33 @@ function testDelete2() {
   nodeList.printNodes();
 
   console.log("======================delete start");
+  nodeList.removeNode(nodeList.getNodeBy(4)!);
+  nodeList.printNodes();
   nodeList.removeNode(nodeList.getNodeBy(3)!);
+  nodeList.printNodes();
+  nodeList.removeNode(nodeList.getNodeBy(2)!);
   nodeList.printNodes();
   nodeList.removeNode(nodeList.getNodeBy(1)!);
   nodeList.printNodes();
+}
+function testDelete3() {
+  const nodeList = new MCMediaContentNodeList();
+  const content = new TestMCMediaContent();
+
+  let idx = 4;
+  while (idx > 0) {
+    nodeList.upsertNode(idx, content);
+    idx -= 1;
+  }
+  nodeList.printNodes();
+
+  console.log("======================delete start");
+  nodeList.removeNode(nodeList.getNodeBy(1)!);
+  nodeList.printNodes();
   nodeList.removeNode(nodeList.getNodeBy(2)!);
+  nodeList.printNodes();
+  nodeList.removeNode(nodeList.getNodeBy(3)!);
+  nodeList.printNodes();
+  nodeList.removeNode(nodeList.getNodeBy(4)!);
   nodeList.printNodes();
 }
