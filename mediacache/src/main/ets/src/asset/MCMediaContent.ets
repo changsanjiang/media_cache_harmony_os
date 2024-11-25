@@ -1,5 +1,5 @@
 import { IMCMediaContent } from "../common/IMCMediaContent";
-import { MCReadwriteReference } from "../common/MCReadwriteReference";
+import { MCReadwriteReference } from "../utils/MCReadwriteReference";
 import { fileIo } from '@kit.CoreFileKit';
 
 export class MCMediaContent extends MCReadwriteReference<MCMediaContent> implements IMCMediaContent {

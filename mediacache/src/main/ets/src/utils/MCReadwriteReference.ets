@@ -1,6 +1,6 @@
-import { IMCReadwriteReference } from "./IMCReadwriteReference";
+import { IMCReadwriteReference } from "../common/IMCReadwriteReference";
 import { ArkTSUtils } from "@kit.ArkTS";
-import MCLogger from "../utils/MCLogger";
+import MCLogger from "./MCLogger";
 
 export class MCReadwriteReference<T> implements IMCReadwriteReference<T> {
   protected mReadwriteCount = 0;
