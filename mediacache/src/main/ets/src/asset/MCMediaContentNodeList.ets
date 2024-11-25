@@ -52,6 +52,7 @@ export class MCMediaContentNodeList {
       curNode.next = this.mHead;
       this.mHead.prev = curNode;
       this.mHead = curNode;
+      // 如果节点总数为奇数，中间节点需要向前移动
       if (this.mNodes.size % 2 !== 0) {
         this.mMiddle = this.mMiddle!.prev;
       }
@@ -63,7 +64,8 @@ export class MCMediaContentNodeList {
       curNode.prev = this.mTail;
       this.mTail!.next = curNode;
       this.mTail = curNode;
-      if (this.mNodes.size % 2 !== 0) {
+      // 如果节点总数为偶数，中间节点需要向后移动
+      if (this.mNodes.size % 2 === 0) {
         this.mMiddle = this.mMiddle!.next;
       }
       return;
@@ -94,8 +96,8 @@ export class MCMediaContentNodeList {
       }
       this.insertBetween(curNode, nextNode?.prev, nextNode);
 
-      // 如果节点总数为奇数，中间节点需要向后移动
-      if (this.mNodes.size % 2 !== 0) {
+      // 如果节点总数为偶数，中间节点需要向后移动
+      if (this.mNodes.size % 2 === 0) {
         this.mMiddle = this.mMiddle!.next ?? this.mMiddle;
       }
     }
@@ -149,11 +151,15 @@ export class MCMediaContentNodeList {
     const wasMiddle = this.mMiddle === node;
     // 如果中间节点被删除，重新设置
     if (wasMiddle) {
-      this.mMiddle = prevNode || nextNode;
+      this.mMiddle = nextNode || prevNode;
     }
-    // 如果总数为奇数，移动中间节点
-    else if (this.mNodes.size % 2 !== 0) {
-      this.mMiddle = node.placement < this.mMiddle!.placement ? this.mMiddle!.prev : this.mMiddle!.next;
+    // 如果前面的节点被删除了
+    else if ( node.placement < this.mMiddle!.placement ) {
+      if ( this.mNodes.size % 2 === 0 ) this.mMiddle = this.mMiddle?.next;
+    }
+    // 后面的节点被删除了
+    else {
+      if ( this.mNodes.size % 2 !== 0 ) this.mMiddle = this.mMiddle?.prev;
     }
   }
 
@@ -192,5 +198,26 @@ export class MCMediaContentNodeList {
       closestLeftNode = closestLeftNode.prev;
     }
     return closestLeftNode;
+  }
+
+  getNodeBy(placement: number): IMCMediaContentNode | undefined {
+    let cur = this.mHead;
+    while (cur) {
+      if ( cur.placement === placement ) break;
+      cur = cur.next;
+    }
+    return cur;
+  }
+
+  printNodes() {
+    console.log('===========');
+    console.log(`head.placement=${this.mHead?.placement}`)
+    console.log(`middle.placement=${this.mMiddle?.placement}`)
+    console.log(`tail.placement=${this.mTail?.placement}`)
+    let cur = this.mHead;
+    while (cur) {
+      console.log(`placement=${cur.placement}`);
+      cur = cur.next;
+    }
   }
 }
