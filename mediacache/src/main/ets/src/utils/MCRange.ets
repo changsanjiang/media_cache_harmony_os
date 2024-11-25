@@ -25,8 +25,15 @@ export class MCRange {
   }
 
   isIntersecting(other: MCRange): boolean {
+    return this.intersection(other) !== undefined;
+  }
+
+  intersection(other: MCRange): MCRange | undefined {
     const maxStart = Math.max(this.location, other.location);
     const minEnd = Math.min(this.max, other.max);
-    return maxStart < minEnd; // 存在交集时，交集长度必须大于 0
+    if (maxStart < minEnd) { // 存在交集时，交集长度必须大于 0
+      return new MCRange(maxStart, minEnd - maxStart);
+    }
+    return undefined;
   }
 }

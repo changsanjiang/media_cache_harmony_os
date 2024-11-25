@@ -1,3 +1,5 @@
+import { MCRange } from "../utils/MCRange";
+
 /**
  * - https://datatracker.ietf.org/doc/html/rfc9110#name-range-requests
  * - https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Range#syntax
@@ -90,4 +92,8 @@ export function toRequestRangeHeader(rangeStart?: number, rangeEnd?: number, suf
     return rangeEnd != undefined ? `bytes=${rangeStart}-${rangeEnd}` : `bytes=${rangeStart}-`;
   }
   return undefined;
+}
+
+export function toRequestRange(range: MCRange): IMCHttpRequestRange {
+  return new MCHttpRequestRange(range.location, range.max - 1, undefined);
 }

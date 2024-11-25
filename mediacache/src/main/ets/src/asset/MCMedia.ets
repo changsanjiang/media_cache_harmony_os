@@ -13,7 +13,9 @@ import { parseResponseContentRange } from "../defines/IMCHttpResponseContentRang
 import { MCDownloadResponseHeaders } from "../utils/MCDownloadResponseHeaders";
 import MCProxyURL from "../utils/MCProxyURL";
 import { IMCMediaHttpContentRequest, MCMediaHttpContentLoader } from "./MCMediaHttpContentLoader";
-import { parseRequestRange } from "../defines/IMCHttpRequestRange";
+import { parseRequestRange, toRequestRange } from "../defines/IMCHttpRequestRange";
+import { MCMediaFileContentLoader } from "./MCMediaFileContentLoader";
+import MCLogger from "../utils/MCLogger";
 
 export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   readonly id: string;
@@ -26,6 +28,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   constructor(id: string) {
     super();
     this.id = id;
+    MCLogger.log(MCLogger.LogLevel.INFO, `[MCMedia][mediaId: ${id}]: MCMedia instance created.`);
   }
 
   get metadataReady(): Promise<boolean> {
@@ -46,71 +49,95 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
 
   async prepare(rootDir: string): Promise<void> {
     return this.mLock.lockAsync(async () => {
-      this.mContentProvider = new MCMediaContentProvider(rootDir, this.id);
-      const contents = await this.mContentProvider.prepare();
-      contents?.forEach((content) => this.mNodeList.upsertNode(content.contentOffset, content));
-      this.mMetadata = await MCDatabase.queryMediaMetadata(this.id);
-      if ( this.mMetadata ) {
-        this.restructureContents();
+      MCLogger.log(MCLogger.LogLevel.INFO, `[MCMedia][mediaId: ${this.id}]: Preparing media with rootDir: ${rootDir}`);
+      try {
+        this.mContentProvider = new MCMediaContentProvider(rootDir, this.id);
+        const contents = await this.mContentProvider.prepare();
+        contents?.forEach((content) => this.mNodeList.upsertNode(content.contentOffset, content));
+        this.mMetadata = await MCDatabase.queryMediaMetadata(this.id);
+        if (this.mMetadata) {
+          MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCMedia][mediaId: ${this.id}]: Metadata loaded. ContentType: ${this.mMetadata.contentType}, TotalLength: ${this.mMetadata.totalLength}.`);
+          this.restructureContents();
+        }
+      } catch (error) {
+        MCLogger.log(MCLogger.LogLevel.ERROR, `[MCMedia][mediaId: ${this.id}]: Error during preparation: ${error.message}\nStack: ${error.stack}`);
+        throw error as Error;
       }
-    })
+    });
   }
 
   getContentLoadersBy(dataRequest: IMCMediaDataReadRequest): Promise<IMCMediaContentLoader[]> {
     return this.mLock.lockAsync(async () => {
-      if ( dataRequest.mediaId !== this.id ) {
-        throw new Error(`xxx`);
-      }
+      MCLogger.log(MCLogger.LogLevel.INFO, `[MCMedia][mediaId: ${this.id}]: Resolving content loaders for request: ${JSON.stringify(dataRequest)}.`);
 
-      const url = MCProxyURL.restoreURLFromProxyTarget(dataRequest.proxyRequest.requestTarget);
-      if ( !url ) {
-        throw new Error(`xxx`);
-      }
-
-      if ( this.mMetadata ) {
-        const requestRangeHeader = dataRequest.proxyRequest.headers['range'];
-        if ( requestRangeHeader ) {
-          const requestRange = parseRequestRange(requestRangeHeader);
-          const requestRangeStart = requestRange.rangeStart;
-          const requestRangeEnd = requestRange.rangeEnd;
-          const requestSuffixLength = requestRange.suffixLength;
-
-          const totalLength = this.mMetadata.totalLength;
-          if ( requestRangeStart && requestRangeStart >= totalLength ) {
-            throw new Error('Invalid range: requestRangeStart exceeds total media length.');
-          }
-          if ( requestRangeEnd && requestRangeEnd >= totalLength ) {
-            throw new Error('Invalid range: requestRangeEnd exceeds total media length.');
-          }
-          if ( requestSuffixLength && requestSuffixLength >= totalLength ) {
-            throw new Error('Invalid range: requestSuffixLength exceeds total media length.');
-          }
-
-          let rangeStart: number | undefined;
-          let rangeEnd: number | undefined;
-          if ( requestSuffixLength ) {
-            rangeStart = totalLength - requestSuffixLength;
-            rangeEnd = totalLength - 1;
-          }
-          else if ( requestRangeEnd ) {
-            rangeStart = requestRangeStart!;
-            rangeEnd = requestRangeEnd;
-          }
-          else {
-            rangeStart = requestRangeStart!;
-            rangeEnd = totalLength - 1;
-          }
-
-          let range = new MCRange(rangeStart, rangeEnd + 1 - rangeStart);
-          
+      try {
+        if ( dataRequest.mediaId !== this.id ) {
+          throw new Error(`Mismatched media ID: expected ${this.id}, got ${dataRequest.mediaId}`);
         }
-      }
 
-      const request: IMCMediaHttpContentRequest = {
-        url: url,
-        headers: dataRequest.proxyRequest.headers
-      };
-      return [new MCMediaHttpContentLoader(this, request)];
+        const url = MCProxyURL.restoreURLFromProxyTarget(dataRequest.proxyRequest.requestTarget);
+        if ( !url ) {
+          throw new Error("Failed to restore URL from the provided proxy target.");
+        }
+
+        if ( this.mMetadata && this.mNodeList.head ) {
+          const requestRangeHeader = dataRequest.proxyRequest.headers['range'];
+          const totalLength = this.mMetadata.totalLength;
+          let loadRange = requestRangeHeader ? this.parseLoadRange(requestRangeHeader, totalLength) : new MCRange(0, totalLength);
+          const loaders = new Array<IMCMediaContentLoader>();
+          let curNode: IMCMediaContentNode | undefined = this.mNodeList.findClosestLeftNode(loadRange.location) ?? this.mNodeList.head;
+
+          MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCMedia][mediaId: ${this.id}]: Load range parsed as: ${JSON.stringify(loadRange)}`);
+
+          while (curNode) {
+            // 获取当前长度最长的内容
+            const content = curNode.longestContent!; // 每个节点中都包含至少一个内容;
+            // 可读取的范围
+            const readableRange = new MCRange(content.contentOffset, await content.length);
+            const intersection = loadRange.intersection(readableRange);
+            // 如果存在交集
+            if ( intersection ) {
+              // 获取左侧未下载的部分
+              if ( intersection.location > loadRange.location ) {
+                const leftRange = new MCRange(loadRange.location, intersection.location - loadRange.location);
+                loaders.push(new MCMediaHttpContentLoader(this, {
+                  url: url,
+                  range: toRequestRange(leftRange),
+                  headers: dataRequest.proxyRequest.headers,
+                }));
+              }
+              loaders.push(new MCMediaFileContentLoader(content, intersection));
+              loadRange = new MCRange(intersection.max, loadRange.max - intersection.max);
+            }
+            if ( loadRange.length === 0 || readableRange.location > loadRange.max ) {
+              break;
+            }
+            curNode = curNode.next;
+          }
+          // 剩余未下载的部分;
+          if ( loadRange.length !== 0 ) {
+            loaders.push(new MCMediaHttpContentLoader(this, {
+              url: url,
+              range: toRequestRange(loadRange),
+              headers: dataRequest.proxyRequest.headers,
+            }));
+          }
+
+          MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCMedia][mediaId: ${this.id}]: Resolved ${loaders.length} loaders.`);
+
+          return loaders;
+        }
+
+        const request: IMCMediaHttpContentRequest = {
+          url: url,
+          headers: dataRequest.proxyRequest.headers
+        };
+        return [new MCMediaHttpContentLoader(this, request)];
+      }
+      catch (error) {
+        MCLogger.log(MCLogger.LogLevel.ERROR, `[MCMedia][mediaId: ${this.id}]: Error while resolving content loaders: ${error.message}\nStack: ${error.stack}`);
+        throw error as Error;
+      }
     });
   }
 
@@ -132,39 +159,53 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
      }
      */
     return this.mLock.lockAsync(async () => {
-      const acceptRangesHeader: string | undefined = headers['accept-ranges'];
-      const contentRangeHeader: string | undefined = headers['content-range'];
-      const contentTypeHeader: string | undefined = headers['content-type'];
-      const contentLengthHeader: string | undefined = headers['content-length'];
+      MCLogger.log(MCLogger.LogLevel.INFO, `[MCMedia][mediaId: ${this.id}]: Creating content by headers: ${JSON.stringify(headers)}.`);
 
-      if (!contentLengthHeader) { // contentLengthHeader must be specified;
-        throw new Error("xxx"); // 服务器必须返回响应 content-length;
+      try {
+        const acceptRangesHeader: string | undefined = headers['accept-ranges'];
+        const contentRangeHeader: string | undefined = headers['content-range'];
+        const contentTypeHeader: string | undefined = headers['content-type'];
+        const contentLengthHeader: string | undefined = headers['content-length'];
+
+        if (!contentLengthHeader) {
+          const errorMsg = "Missing 'content-length' in response headers.";
+          MCLogger.log(MCLogger.LogLevel.ERROR, `[MCMedia][mediaId: ${this.id}]: ${errorMsg}`);
+          throw new Error(errorMsg);
+        }
+
+        const contentRange = contentRangeHeader ? parseResponseContentRange(contentRangeHeader) : undefined;
+        const contentType = contentTypeHeader ? contentTypeHeader : 'application/octet-stream';
+        const contentLength = parseInt(contentLengthHeader, 10);
+        const totalLength = contentRange ? contentRange.size : contentLength;
+
+        const byteRangeAccessSupported = acceptRangesHeader === 'bytes' || contentRange !== undefined;
+        if (!byteRangeAccessSupported) {
+          const errorMsg = "Byte range access not supported by server. Missing 'accept-ranges' or 'content-range'.";
+          MCLogger.log(MCLogger.LogLevel.ERROR, `[MCMedia][mediaId: ${this.id}]: ${errorMsg}`);
+          throw new Error(errorMsg);
+        }
+
+        if ( !this.mMetadata ) {
+          const metadata: IMCMediaMetadata = {
+            contentType: contentType,
+            totalLength: totalLength,
+          };
+          this.mMetadata = metadata;
+          await MCDatabase.saveMediaMetadata(this.id, metadata);
+          MCLogger.log(MCLogger.LogLevel.INFO, `[MCMedia][mediaId: ${this.id}]: Metadata saved. ContentType: ${contentType}, TotalLength: ${totalLength}.`);
+        }
+
+        const contentOffset = contentRange ? contentRange.rangeStart : 0;
+        const content = this.mContentProvider!.createContent(contentOffset);
+        await content.readwriteRetain();
+        this.mNodeList.upsertNode(contentOffset, content);
+        MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCMedia][mediaId: ${this.id}]: Content created at offset: ${contentOffset}.`);
+        return content;
       }
-
-      const contentRange = contentRangeHeader ? parseResponseContentRange(contentRangeHeader) : undefined;
-      const contentType = contentTypeHeader ? contentTypeHeader : 'application/octet-stream';
-      const contentLength = parseInt(contentLengthHeader, 10);
-      const totalLength = contentRange ? contentRange.size : contentLength;
-
-      const byteRangeAccessSupported = acceptRangesHeader === 'bytes' || contentRange !== undefined;
-      if (!byteRangeAccessSupported) {
-        throw new Error(`xxx`); // 服务器必须支持范围请求, 必须指定 accept-ranges 或响应中包含 content-range;
+      catch (error) {
+        MCLogger.log(MCLogger.LogLevel.ERROR, `[MCMedia][mediaId: ${this.id}]: Error in createContentBy: ${error.message}\nStack: ${error.stack}`);
+        throw error as Error;
       }
-
-      if ( !this.mMetadata ) {
-        const metadata: IMCMediaMetadata = {
-          contentType: contentType,
-          totalLength: totalLength,
-        };
-        this.mMetadata = metadata;
-        await MCDatabase.saveMediaMetadata(this.id, metadata);
-      }
-
-      const contentOffset = contentRange ? contentRange.rangeStart : 0;
-      const content = this.mContentProvider!.createContent(contentOffset);
-      await content.readwriteRetain();
-      this.mNodeList.upsertNode(contentOffset, content);
-      return content;
     });
   }
 
@@ -181,56 +222,67 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   // 重组内容. 合并数据并移除多余内容;
   private async restructureContents(): Promise<void> {
     if ( !this.mFullyTrimmed && this.mMetadata ) {
-      const head = this.mNodeList.head;
-      let curNode = head;
-      while (curNode) {
-        if ( curNode.numberOfContents > 1 ) {
-          this.trimRedundantContents(curNode);
-        }
-        const nextNode = curNode.next;
-        if ( !nextNode ) break;  // break;
-        if ( nextNode.numberOfContents > 1 ) {
-          this.trimRedundantContents(curNode);
-        }
-        const writer = curNode.longestContent;
-        const reader = nextNode.longestContent;
-        let isNextNodeRemoved = false;
-        if ( writer != null && reader != null ) {
-          const isMerged = await this.mergeData(writer, reader);
-          if ( isMerged ) {
-            await reader.destroy();
-            nextNode.removeContent(reader);
-            if ( nextNode.numberOfContents == 0 ) {
-              this.mNodeList.removeNode(nextNode);
-              isNextNodeRemoved = true;
+      try {
+        const head = this.mNodeList.head;
+        let curNode = head;
+
+        while (curNode) {
+          if ( curNode.numberOfContents > 1 ) {
+            this.trimRedundantContents(curNode);
+          }
+          const nextNode = curNode.next;
+          if ( !nextNode ) break;  // break;
+
+          if ( nextNode.numberOfContents > 1 ) {
+            this.trimRedundantContents(curNode);
+          }
+
+          const writer = curNode.longestContent;
+          const reader = nextNode.longestContent;
+          let isNextNodeRemoved = false;
+
+          if ( writer && reader ) {
+            const isMerged = await this.mergeData(writer, reader);
+            if ( isMerged ) {
+              await reader.destroy();
+              nextNode.removeContent(reader);
+              MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCMedia][mediaId: ${this.id}]: Merged content from nextNode into currentNode.`);
+              if ( nextNode.numberOfContents == 0 ) {
+                this.mNodeList.removeNode(nextNode);
+                isNextNodeRemoved = true;
+                MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCMedia][mediaId: ${this.id}]: Removed empty nextNode.`);
+              }
+            }
+            if ( !isNextNodeRemoved ) {
+              curNode = nextNode;
             }
           }
-          if ( !isNextNodeRemoved ) {
-            curNode = nextNode;
-          }
-        }
 
-        if ( head && head.longestContent?.unsafeLength === this.mMetadata.totalLength ) {
-          if ( !this.mAssembled ) {
+          if (head && head.longestContent?.unsafeLength === this.mMetadata.totalLength) {
             this.mAssembled = true;
-          }
-
-          if ( !this.mFullyTrimmed ) {
             this.mFullyTrimmed = this.mNodeList.count === 1 && head.numberOfContents === 1;
+            MCLogger.log(MCLogger.LogLevel.INFO, `[MCMedia][mediaId: ${this.id}]: Content restructuring completed. Assembled: ${this.mAssembled}, FullyTrimmed: ${this.mFullyTrimmed}.`);
+            break;
           }
         }
+      } catch (error) {
+        MCLogger.log(MCLogger.LogLevel.ERROR, `[MCMedia][mediaId: ${this.id}]: Error during content restructuring: ${error.message}\nStack: ${error.stack}`);
+        throw error as Error;
       }
     }
   }
 
   private trimRedundantContents(node: IMCMediaContentNode): void {
     if ( node.numberOfContents > 1 ) {
+      MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCMedia][mediaId: ${this.id}]: Trimming redundant contents for node at offset: ${node.placement}.`);
+
       // 同一段位置可能存在多个文件
       // 删除多余的无用的content
       const longestContent = node.longestContent!;
       node.trimExcessContentsWithTest((content) => {
         if ( content !== longestContent ) {
           content.destroy();
+          MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCMedia][mediaId: ${this.id}]: Destroyed redundant content at offset: ${content.contentOffset}.`);
           return true;
         }
         return false;
@@ -240,10 +292,12 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
 
   // 合并数据; 被合并后返回 true;
   private async mergeData(writer: IMCMediaContent, reader: IMCMediaContent): Promise<boolean> {
+    MCLogger.log(MCLogger.LogLevel.INFO, `[MCMedia][mediaId: ${this.id}]: Attempting to merge data between writer at offset ${writer.contentOffset} and reader at offset ${reader.contentOffset}.`);
     const curRange = new MCRange(writer.contentOffset, writer.unsafeLength);
     const nextRange = new MCRange(reader.contentOffset, reader.unsafeLength);
     // 如果 writer 中包含 reader 的所有数据, return YES;
     if (curRange.contains(nextRange)) {
+      MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCMedia][mediaId: ${this.id}]: Writer range fully contains reader range. Skipping merge.`);
       return true;
     }
 
@@ -258,28 +312,67 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       try {
         await writer.readwriteRetain();
         await reader.readwriteRelease();
-        while (true) {
+        while (position < readRange.max) {
           const len = await reader.readData(position, buffer, buffer.byteLength);
-          if (len == 0) {
-            break;
-          }
+          if (len === 0) break;
           position += await writer.writeData(buffer, len);
-          if (position == readRange.max) {
-            break;
-          }
         }
+        await writer.readwriteRelease();
+        await reader.readwriteRelease();
+        await reader.closeRead();
+        await writer.closeWrite();
+
+        MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCMedia][mediaId: ${this.id}]: Merge completed. Data from reader successfully written to writer.`);
+        return true;
       }
-      catch (e) {
-        writer.readwriteRelease();
-        reader.readwriteRelease();
-        return Promise.reject(e);
+      catch (error) {
+        MCLogger.log(MCLogger.LogLevel.ERROR, `[MCMedia][mediaId: ${this.id}]: Error during merge: ${error.message}\nStack: ${error.stack}`);
+        await writer.readwriteRelease();
+        await reader.readwriteRelease();
+        throw error as Error;
       }
-      await writer.readwriteRelease();
-      await reader.readwriteRelease();
-      await reader.closeRead();
-      await writer.closeWrite();
-      return true;
     }
+    MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCMedia][mediaId: ${this.id}]: Ranges are not intersecting or contiguous. No merge performed.`);
     return false;
+  }
+
+  private parseLoadRange(requestRangeHeader: string, totalLength: number): MCRange {
+    if (!requestRangeHeader) {
+      throw new Error("Missing range header in the request.");
+    }
+
+    const requestRange = parseRequestRange(requestRangeHeader);
+    const requestRangeStart = requestRange.rangeStart;
+    const requestRangeEnd = requestRange.rangeEnd;
+    const requestSuffixLength = requestRange.suffixLength;
+
+    // 检查范围合法性;
+    if ( requestRangeStart && requestRangeStart >= totalLength ) {
+      throw new Error('Invalid range: requestRangeStart exceeds total media length.');
+    }
+    if ( requestRangeEnd && requestRangeEnd >= totalLength ) {
+      throw new Error('Invalid range: requestRangeEnd exceeds total media length.');
+    }
+    if ( requestSuffixLength && requestSuffixLength >= totalLength ) {
+      throw new Error('Invalid range: requestSuffixLength exceeds total media length.');
+    }
+
+    // 转为 range;
+    let rangeStart: number | undefined;
+    let rangeEnd: number | undefined;
+
+    if ( requestSuffixLength ) {
+      rangeStart = totalLength - requestSuffixLength;
+      rangeEnd = totalLength - 1;
+    }
+    else if ( requestRangeEnd ) {
+      rangeStart = requestRangeStart!;
+      rangeEnd = requestRangeEnd;
+    }
+    else {
+      rangeStart = requestRangeStart!;
+      rangeEnd = totalLength - 1;
+    }
+    return new MCRange(rangeStart, rangeEnd + 1 - rangeStart);
   }
 }
