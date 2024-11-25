@@ -39,7 +39,7 @@ export class MCMediaHttpContentLoader2 extends MCMediaContentLoader {
 
     // 检测 rangeStart 的合法性;
     if ( requestRangeStart > this.content.contentOffset ) {
-      throw new Error('xxx');
+      throw new Error('Invalid range: rangeStart exceeds the current content offset.');
     }
 
     // 调整请求范围
@@ -51,7 +51,7 @@ export class MCMediaHttpContentLoader2 extends MCMediaContentLoader {
     if ( requestRangeEnd ) {
       const totalLength = await this.mMedia.totalLength;
       if ( requestRangeEnd >= totalLength ) {
-        throw new Error(`xxx`);
+        throw new Error('Invalid range: rangeEnd exceeds total media length.');
       }
 
       const loadRange = new MCRange(requestRangeStart!, requestRangeEnd);
@@ -63,7 +63,7 @@ export class MCMediaHttpContentLoader2 extends MCMediaContentLoader {
       }
     }
 
-    // 进行下载
+    // 进行下载: 设置 Range 头并发送 HTTP 请求;
     const downloadRangeHeader = toRequestRangeHeader(downloadRangeStart, downloadRangeEnd, downloadSuffixLength); // 'bytes=xxx-xxx'
     const downloadRequest = new MCDownload.DownloadRequest(this.request.url, this.request.headers);
     downloadRequest.setHeader('range', downloadRangeHeader);
@@ -97,14 +97,21 @@ export class MCMediaHttpContentLoader2 extends MCMediaContentLoader {
       }
 
       const contentRange = parseResponseContentRange(contentRangeHeader);
-      // 获取数据长度
+
+      // 确保服务器返回的 rangeStart 与请求一致；
+      if ( contentRange.rangeStart !== this.request.range!.rangeStart ) {
+        throw new Error('Invalid server response: mismatched rangeStart.');
+      }
+
+      // 检查 Content-Length 是否存在；
       const contentLengthHeader = headers['content-length'];
-      // 服务器响应中必须指定 content-length;
       if ( contentLengthHeader === undefined ) {
         throw new Error('Server response must specify content-length.');
       }
+
       const contentLength = parseInt(contentLengthHeader, 10);
       const loadRange = new MCRange(contentRange.rangeStart, contentLength);
+
       this.content.readwriteRetain();
       this.contentReady(this.content, loadRange);
     }).catch((e: Error) => {
