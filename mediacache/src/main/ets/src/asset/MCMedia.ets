@@ -25,14 +25,14 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     this.id = id;
   }
 
+  get metadataReady(): Promise<boolean> {
+    return this.mLock.lockAsync(() => this.mMetadata !== undefined);
+  }
   get contentType(): Promise<string | undefined> {
     return this.mLock.lockAsync(() => this.mMetadata?.contentType);
   }
   get totalLength(): Promise<number> {
     return this.mLock.lockAsync(() => this.mMetadata ? this.mMetadata.totalLength : 0);
-  }
-  get byteRangeAccessSupported(): Promise<boolean> {
-    return this.mLock.lockAsync(() => this.mAssembled || (this.mMetadata ? this.mMetadata.byteRangeAccessSupported : false));
   }
   get isStored(): Promise<boolean> {
     return this.mLock.lockAsync(() => this.mAssembled);
@@ -79,20 +79,14 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
        "content-type": "image/jpeg"
      }
      */
-    // export interface DownloadResponseHeaders {
-    //   'accept-ranges'?: string;
-    //   'content-range'?: string;
-    //   'content-type'?: string;
-    //   'content-length'?: string;
-    // }
-    return this.mLock.lockAsync(() => {
-      const contentRangeHeader: string | undefined = headers['content-range'];
+    return this.mLock.lockAsync(async () => {
       const acceptRangesHeader: string | undefined = headers['accept-ranges'];
+      const contentRangeHeader: string | undefined = headers['content-range'];
       const contentTypeHeader: string | undefined = headers['content-type'];
       const contentLengthHeader: string | undefined = headers['content-length'];
 
-      if (!contentLengthHeader) { // contentRangeHeader must be specified;
-        throw new Error("contentRangeHeader is not specified");
+      if (!contentLengthHeader) { // contentLengthHeader must be specified;
+        throw new Error("xxx"); // 服务器必须返回响应 content-length;
       }
 
       const contentRange = contentRangeHeader ? parseResponseContentRange(contentRangeHeader) : undefined;
@@ -100,19 +94,23 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       const contentLength = parseInt(contentLengthHeader, 10);
       const totalLength = contentRange ? contentRange.size : contentLength;
 
+      const byteRangeAccessSupported = acceptRangesHeader === 'bytes' || contentRange !== undefined;
+      if (!byteRangeAccessSupported) {
+        throw new Error(`xxx`); // 服务器必须支持范围请求, 必须指定 accept-ranges 或响应中包含 content-range;
+      }
+
       if ( !this.mMetadata ) {
-        const byteRangeAccessSupported = acceptRangesHeader === 'bytes' || contentRange !== undefined;
         const metadata: IMCMediaMetadata = {
           contentType: contentType,
           totalLength: totalLength,
-          byteRangeAccessSupported: byteRangeAccessSupported,
         };
         this.mMetadata = metadata;
+        await MCDatabase.saveMediaMetadata(this.id, metadata);
       }
 
       const contentOffset = contentRange ? contentRange.rangeStart : 0;
       const content = this.mContentProvider!.createContent(contentOffset);
-      content.readwriteRetain();
+      await content.readwriteRetain();
       this.mNodeList.upsertNode(contentOffset, content);
       return content;
     });
