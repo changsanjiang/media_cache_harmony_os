@@ -51,7 +51,7 @@ namespace MCLogger {
   }
 
   export function info(module: MCLogModule, messageFn: () => string): void {
-    log(module, LogLevel.DEBUG, messageFn);
+    log(module, LogLevel.INFO, messageFn);
   }
 
   export function warn(module: MCLogModule, messageFn: () => string): void {
