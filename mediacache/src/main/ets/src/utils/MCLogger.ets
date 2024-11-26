@@ -15,7 +15,7 @@ namespace MCLogger {
   /** 是否启用日志; */
   export let enabled = true;
 
-  /** 禁止哪些模块的打印日志; */
+  /** 禁止哪些模块的日志; */
   export let disabledModules: MCLogModule[] = [];
 
   export function log(module: MCLogModule, level: LogLevel, messageFn: () => string): void {
