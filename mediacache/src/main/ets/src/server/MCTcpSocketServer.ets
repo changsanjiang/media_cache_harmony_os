@@ -31,38 +31,38 @@ export class MCTcpSocketServer implements IMCTcpSocketServer {
   private mConnectionCallback?: (connection: socket.TCPSocketConnection) => void = undefined;
 
   constructor() {
-    MCLogger.info(MCLogModule.MCTcpSocketServer, () => ` New Server instance created.`);
+    MCLogger.info(MCLogModule.MCTcpSocketServer, () => `New Server instance created.`);
   }
 
   get isRunning(): Promise<boolean> { return this.mLock.lockAsync(() => this.mRunning); }
   get port(): Promise<number> { return this.mLock.lockAsync(() => this.mPort); }
 
   start(): Promise<number> {
-    MCLogger.debug(MCLogModule.MCTcpSocketServer, () => ` Start Server; Checking server state...`);
+    MCLogger.debug(MCLogModule.MCTcpSocketServer, () => `Start Server; Checking server state...`);
     return this.mLock.lockAsync(async () => {
       try {
         if ( !this.mRunning ) {
           const ipAddress: socket.NetAddress = {
             address: "127.0.0.1"
           };
-          MCLogger.debug(MCLogModule.MCTcpSocketServer, () => ` Server not running, initializing with address ${ipAddress.address}...`);
+          MCLogger.debug(MCLogModule.MCTcpSocketServer, () => `Server not running, initializing with address ${ipAddress.address}...`);
           await this.mTcpServer.listen(ipAddress);
-          MCLogger.info(MCLogModule.MCTcpSocketServer, () => ` Server successfully bound to ${ipAddress.address}, waiting for connections...`);
+          MCLogger.info(MCLogModule.MCTcpSocketServer, () => `Server successfully bound to ${ipAddress.address}, waiting for connections...`);
           this.mTcpServer.on("connect", (connection: socket.TCPSocketConnection) => {
-            MCLogger.info(MCLogModule.MCTcpSocketServer, () => ` New connection received with client ID: ${connection.clientId}.`);
+            MCLogger.info(MCLogModule.MCTcpSocketServer, () => `New connection received with client ID: ${connection.clientId}.`);
             this.mConnectionCallback ? this.mConnectionCallback?.(connection) : connection.close();
           });
           this.mPort = (await this.mTcpServer.getLocalAddress()).port as number;
           this.mRunning = true;
-          MCLogger.info(MCLogModule.MCTcpSocketServer, () => ` Server is now running on port ${this.mPort}.`);
+          MCLogger.info(MCLogModule.MCTcpSocketServer, () => `Server is now running on port ${this.mPort}.`);
         }
         else {
-          MCLogger.warn(MCLogModule.MCTcpSocketServer, () => ` Attempted to start server, but it is already running on port ${this.mPort}.`);
+          MCLogger.warn(MCLogModule.MCTcpSocketServer, () => `Attempted to start server, but it is already running on port ${this.mPort}.`);
         }
         return this.mPort;
       }
       catch (e) {
-        MCLogger.error(MCLogModule.MCTcpSocketServer, () => ` Failed to start server due to error: ${(e as Error).message}`);
+        MCLogger.error(MCLogModule.MCTcpSocketServer, () => `Failed to start server due to error: ${(e as Error).message}`);
         return Promise.reject(e);
       }
     })
@@ -84,14 +84,14 @@ export class MCTcpSocketServer implements IMCTcpSocketServer {
   on(event: 'connect', callback: (connection: socket.TCPSocketConnection) => void): Promise<void> {
     return this.mLock.lockAsync(() => {
       this.mConnectionCallback = callback;
-      MCLogger.debug(MCLogModule.MCTcpSocketServer, () => ` Event listener for '${event}' registered;`);
+      MCLogger.debug(MCLogModule.MCTcpSocketServer, () => `Event listener for '${event}' registered;`);
     });
   }
 
   off(event: 'connect'): Promise<void> {
     return this.mLock.lockAsync(() => {
       this.mConnectionCallback = undefined;
-      MCLogger.debug(MCLogModule.MCTcpSocketServer, () => ` Event listener for '${event}' unregistered;`);
+      MCLogger.debug(MCLogModule.MCTcpSocketServer, () => `Event listener for '${event}' unregistered;`);
     });
   }
 }

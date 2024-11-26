@@ -2,6 +2,8 @@ import { IMCMediaContentLoader } from "../defines/IMCMediaContentLoader";
 import { ArkTSUtils } from "@kit.ArkTS";
 import { IMCMediaContent } from "../defines/IMCMediaContent";
 import { MCRange } from "../utils/MCRange";
+import { MCLogModule } from "../defines/MCLogModule";
+import MCLogger from "../utils/MCLogger";
 
 export class MCMediaContentLoader implements IMCMediaContentLoader {
   private mPreparedCallback?: (loader: IMCMediaContentLoader, range: MCRange) => void = undefined;
@@ -31,65 +33,80 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
   }
 
   prepare(): Promise<void> {
+    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => 'Preparing loader...');
     return this.mLock.lockAsync(() => this.onPrepare());
   }
 
   readData(buffer: ArrayBuffer): Promise<number> {
     return this.mLock.lockAsync(async () => {
-      if ( !this.mContent || this.mAborted || this.mDone ) {
-        return 0;
-      }
+      try {
+        if ( !this.mContent || this.mAborted || this.mDone ) {
+          MCLogger.warn(MCLogModule.MCMediaContentLoader, () => 'Read aborted or loader is done.');
+          return 0;
+        }
 
-      const readLength = await this.mContent.readData(this.mOffset, buffer, Math.min(buffer.byteLength, this.mRange!.max - this.mOffset));
-      this.increaseOffset(readLength);
-      return readLength;
+        const readLength = await this.mContent.readData(this.mOffset, buffer, Math.min(buffer.byteLength, this.mRange!.max - this.mOffset));
+        MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Read ${readLength} bytes at offset ${this.mOffset}.`);
+
+        this.increaseOffset(readLength);
+        return readLength;
+      } catch (error) {
+        this.abortUnsafe(error);
+        MCLogger.error(MCLogModule.MCMediaContentLoader, () => `Error reading data: ${(error as Error).message}`);
+        throw error as Error;
+      }
     });
   }
 
   seekToEndOfReadableRange(): Promise<number> {
     return this.mLock.lockAsync(async () => {
       const readableLength = await this.getReadableLengthUnsafe();
+      MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Seeked to the end of readable range. Length: ${readableLength}.`);
       this.increaseOffset(readableLength);
       return readableLength;
     });
   }
 
   abort(error?: Error | undefined): Promise<void> {
-    return this.mLock.lockAsync(() => {
-      if ( this.mAborted || this.mDone ) {
-        return undefined;
-      }
-      this.mAborted = true;
-      this.clear();
-      return this.mAbortedCallback;
-    }).then((callback) => callback?.(this, error));
+    return this.mLock.lockAsync(() => this.abortUnsafe(error));
   }
 
   on(event: "prepared" | "dataLoaded" | "aborted", callback: ((loader: IMCMediaContentLoader, readRange: MCRange) => void) | ((loader: IMCMediaContentLoader, length: number) => void) | ((loader: IMCMediaContentLoader, error?: Error | undefined) => void)): Promise<void> {
     return this.mLock.lockAsync(() => {
-      if      ( event === 'prepared' ) {
-        this.mPreparedCallback = callback as (loader: IMCMediaContentLoader, range: MCRange) => void;
+      switch (event) {
+        case 'prepared': {
+          this.mPreparedCallback = callback as (loader: IMCMediaContentLoader, range: MCRange) => void;
+        }
+          break;
+        case 'dataLoaded': {
+          this.mDataLoadedCallback = callback as (loader: IMCMediaContentLoader, length: number) => void;
+        }
+          break;
+        case 'aborted': {
+          this.mAbortedCallback = callback as (loader: IMCMediaContentLoader, error?: Error) => void;
+        }
+          break;
       }
-      else if ( event === 'dataLoaded' ) {
-        this.mDataLoadedCallback = callback as (loader: IMCMediaContentLoader, length: number) => void;
-      }
-      else if ( event === 'aborted') {
-        this.mAbortedCallback = callback as (loader: IMCMediaContentLoader, error?: Error) => void;
-      }
+
+      MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Registered "${event}" callback.`);
     });
   }
 
   off(event: "prepared" | "dataLoaded" | "aborted"): Promise<void> {
     return this.mLock.lockAsync(() => {
-      if      ( event === 'prepared' ) {
-        this.mPreparedCallback = undefined;
+      switch (event) {
+        case 'prepared':
+          this.mPreparedCallback = undefined;
+          break;
+        case 'dataLoaded':
+          this.mDataLoadedCallback = undefined;
+          break;
+        case 'aborted':
+          this.mAbortedCallback = undefined;
+          break;
       }
-      else if ( event === 'dataLoaded' ) {
-        this.mDataLoadedCallback = undefined;
-      }
-      else if ( event === 'aborted' ) {
-        this.mAbortedCallback = undefined;
-      }
+
+      MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Unregistered "${event}" callback.`);
     });
   }
 
@@ -100,16 +117,21 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
   protected contentReady(content: IMCMediaContent, range: MCRange) {
     this.mLock.lockAsync(() => {
       if ( this.mAborted ) {
+        MCLogger.warn(MCLogModule.MCMediaContentLoader, () => 'Content ready event ignored due to aborted loader.');
         return undefined;
       }
       if ( range.location > content.contentOffset ) {
-        throw new Error(`Invalid range location: ${range.location} exceeds content offset ${content.contentOffset}.`);
+        const errorMessage = `Invalid range location: ${range.location} exceeds content offset ${content.contentOffset}.`;
+        MCLogger.error(MCLogModule.MCMediaContentLoader, () => errorMessage);
+        throw new Error(errorMessage);
       }
+
       this.mContent = content;
       this.mRange = range;
       this.mOffset = range.location;
       this.mDone = range.length === 0;
       this.mContent.on('dataWritten', this.onDataLoaded); // 实现类通知抽象类可加载数据了;
+      MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Content ready. Range: ${JSON.stringify(range)}.`);
       return this.mPreparedCallback;
     }).then((callback) => {
       if ( callback != undefined ) callback?.(this, range);
@@ -126,8 +148,20 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
   // 清理操作执行之后, 子类可以做一些自定义操作;
   protected onClearAfter() { }
 
-  private onDataLoaded(_: IMCMediaContent, length: number): void {
-    this.mLock.lockAsync(() => !this.mDone && !this.mAborted ? this.mDataLoadedCallback : undefined).then((callback) => callback?.(this, length));
+  protected abortUnsafe(error?: Error | undefined): void {
+    if ( this.mAborted || this.mDone ) {
+      return undefined;
+    }
+
+    MCLogger.warn(MCLogModule.MCMediaContentLoader, () => `Aborting loader with error: ${error?.message}`);
+
+    this.mAborted = true;
+
+    this.clear();
+
+    MCLogger.warn(MCLogModule.MCMediaContentLoader, () => `Loader aborted with error: ${error?.message}`);
+
+    Promise.resolve(this.mAbortedCallback).then((callback) => callback?.(this, error));
   }
 
   private clear() {
@@ -136,17 +170,27 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
       this.mContent.off('dataWritten', this.onDataLoaded);
       this.mContent.readwriteRelease();
       this.mContent.closeRead();
+      this.mContent = undefined;
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => 'Cleared content.');
     }
     this.onClearAfter();
   }
 
+  private onDataLoaded(_: IMCMediaContent, length: number): void {
+    this.mLock.lockAsync(() => !this.mDone && !this.mAborted ? this.mDataLoadedCallback : undefined).then((callback) => callback?.(this, length));
+
+    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Data loaded: ${length} bytes.`);
+  }
+
   private async getReadableLengthUnsafe(): Promise<number> {
     if ( !this.mContent || !this.mRange || this.mAborted || this.mDone ) {
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => 'No readable data available.');
       return 0;
     }
     const offset = this.mContent.contentOffset;
     const length = await this.mContent.length;
     const readableLength = Math.min((offset + length), this.mRange.max) - this.mOffset;
+    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Readable length: ${readableLength}.`);
     return readableLength;
   }
 
@@ -154,7 +198,10 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
     if ( length > 0 ) {
       this.mOffset += length;
       this.mDone = this.mOffset === this.mRange!.max;
+
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Increased offset by ${length}, current offset: ${this.mOffset}.`);
       if ( this.mDone ) {
+        MCLogger.info(MCLogModule.MCMediaContentLoader, () => 'Loading complete.');
         this.clear();
       }
     }

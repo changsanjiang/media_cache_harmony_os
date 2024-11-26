@@ -20,6 +20,7 @@ namespace MCLogger {
 
   export function log(module: MCLogModule, level: LogLevel, messageFn: () => string): void {
     if ( enabled && level >= logLevel && !disabledModules.includes(module) ) {
+      const message = `[${module}] ${messageFn()}`;
       switch (level) {
         case LogLevel.TRACE:
         case LogLevel.DEBUG: {
