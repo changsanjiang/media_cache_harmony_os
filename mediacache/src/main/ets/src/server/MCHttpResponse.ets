@@ -39,127 +39,145 @@ export class MCHttpResponse implements IMCHttpResponse {
 
   prepare(proxyRequest: IMCHttpRequest): Promise<void> {
     return this.mLock.lockAsync(async () => {
-      if (this.mDataReader) {
-        MCLogger.error(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] A request is already being processed. Unable to prepare response.`);
-        throw new Error("A request is already being processed.");
+      try {
+        if (this.mDataReader) {
+          throw new Error("A request is already being processed.");
+        }
+
+        MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Preparing data reader for request: ${JSON.stringify(proxyRequest)}`);
+
+        this.mDataReader = new MCMediaDataReader(this.mClientId, proxyRequest);
+        this.mDataReader.on('responseReady', (_) => this.mLock.lockAsync(() => this.mNewDataCallback).then((callback) => callback?.(this)));
+        this.mDataReader.on('newDataReadable', (_) => this.mLock.lockAsync(() => this.mNewDataCallback).then((callback) => callback?.(this)));
+        this.mDataReader.on('aborted', (_, error) => this.abort(error));
+        await this.mDataReader.prepare();
+        MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Data reader prepared successfully.`);
       }
-
-      MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Preparing data reader for request: ${JSON.stringify(proxyRequest)}`);
-
-      this.mDataReader = new MCMediaDataReader(this.mClientId, proxyRequest);
-      this.mDataReader.on('responseReady', (_) => this.mLock.lockAsync(() => this.mNewDataCallback).then((callback) => callback?.(this)));
-      this.mDataReader.on('newDataReadable', (_) => this.mLock.lockAsync(() => this.mNewDataCallback).then((callback) => callback?.(this)));
-      this.mDataReader.on('aborted', (_, error) => this.abort(error));
-      await this.mDataReader?.prepare();
-      MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Data reader prepared successfully.`);
+      catch (error) {
+        MCLogger.error(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Failed to prepare data reader: ${error.message}`);
+        this.abortUnsafe(error as Error);
+        throw error as Error;
+      }
     });
   }
 
   readData(): Promise<string | ArrayBuffer | undefined> {
     return this.mLock.lockAsync(async () => {
-      if ( this.mDone || this.mAborted ) {
-        MCLogger.warn(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Attempt to read data after response completion or abortion.`);
-        return undefined;
-      }
+      try {
+        if ( this.mDone || this.mAborted ) {
+          MCLogger.warn(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Attempt to read data after response completion or abortion.`);
+          return undefined;
+        }
 
-      const reader = this.mDataReader;
-      if ( !reader ) {
-        MCLogger.error(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] No data reader found while attempting to read data.`);
-        return undefined;
-      }
+        const reader = this.mDataReader;
+        if ( !reader ) {
+          MCLogger.error(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] No data reader found while attempting to read data.`);
+          return undefined;
+        }
 
-      // 先向客户端发送响应头消息
-      if ( !this.mHeadersSent ) {
-        MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Generating response headers for data response.`);
-        const responseHeaders = this.generateResponseHeaders(await reader.response);
-        if ( responseHeaders ) {
-          this.mHeadersSent = true;
-          MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Headers sent to client: ${JSON.stringify(responseHeaders)}`);
-          this.mDone = await reader.isDone;
-          if ( this.mDone ) {
-            reader.off('responseReady');
-            reader.off('newDataReadable');
-            reader.off('aborted');
-            this.mDataReader = undefined;
+        // 先向客户端发送响应头消息
+        if ( !this.mHeadersSent ) {
+          MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Generating response headers for data response.`);
+          const responseHeaders = this.generateResponseHeaders(await reader.response);
+          if ( responseHeaders ) {
+            this.mHeadersSent = true;
+            MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Response headers sent to client: ${JSON.stringify(responseHeaders)}`);
+            this.mDone = await reader.isDone;
+            if ( this.mDone ) {
+              this.clear();
+            }
+          }
+          return responseHeaders;
+        }
+
+        // 读取可读数据
+        const readableLength = await reader.readableLength;
+        if ( readableLength > 0 ) {
+          const bufferSize = Math.min(4 * 1024 * 1024, readableLength);
+          const buffer = new ArrayBuffer(bufferSize);
+          const length = await reader.readData(buffer);
+          if (length > 0) {
+            this.mDone = await reader.isDone;
+            if ( this.mDone ) {
+              this.clear();
+            }
+            MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Data chunk read (${length} bytes), Done=${this.mDone}`);
+            return length === bufferSize ? buffer : buffer.slice(0, length);
           }
         }
-        return responseHeaders;
-      }
 
-      // 读取可读数据
-      const readableLength = await reader.readableLength;
-      if ( readableLength > 0 ) {
-        const bufferSize = Math.min(4 * 1024 * 1024, readableLength);
-        const buffer = new ArrayBuffer(bufferSize);
-        const length = await reader.readData(buffer);
-        if (length > 0) {
-          this.mDone = await reader.isDone;
-          if ( this.mDone ) {
-            reader.off('responseReady');
-            reader.off('newDataReadable');
-            reader.off('aborted');
-            this.mDataReader = undefined;
-          }
-          MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Data chunk read (${length} bytes), Done=${this.mDone}`);
-          return length === bufferSize ? buffer : buffer.slice(0, length);
-        }
+        MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] No data available for reading.`);
+        return undefined;
       }
-
-      MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] No data available for reading.`);
-      return undefined;
+      catch (error) {
+        MCLogger.error(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Error during data read: ${error.message}`);
+        this.abortUnsafe(error as Error);
+        throw error as Error;
+      }
     })
   }
 
   abort(error?: Error): Promise<void> {
-    return this.mLock.lockAsync(() => {
-      if ( this.mAborted || this.mDone ) {
-        MCLogger.warn(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Abort called after response completion or previous abortion.`);
-        return undefined;
-      }
-
-      this.mAborted = true;
-
-      if ( this.mDataReader ) {
-        this.mDataReader?.off('newDataReadable');
-        this.mDataReader?.off('aborted');
-        this.mDataReader?.abort(error);
-        this.mDataReader = undefined;
-      }
-
-      MCLogger.error(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Response aborted${error ? ` due to error: ${error.message}` : ""}.`);
-
-      return this.mAbortedCallback;
-    }).then((callback) => callback?.(this, error));
+    return this.mLock.lockAsync(() => this.abortUnsafe(error));
   }
 
-  on(event: string, callback: Object): Promise<void> {
+  on(event: 'newDataAvailable' | 'aborted', callback: Object): Promise<void> {
     return this.mLock.lockAsync(() => {
-      if ( event === 'newDataAvailable' ) {
-        if (this.mNewDataCallback) {
-          MCLogger.warn(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Event listener for 'newDataAvailable' is already registered.`);
+      switch (event) {
+        case 'newDataAvailable': {
+          if (this.mNewDataCallback) MCLogger.warn(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Event listener for 'newDataAvailable' is already registered.`);
+          this.mNewDataCallback = callback as (reader: IMCHttpResponse) => void;
         }
-        this.mNewDataCallback = callback as (reader: IMCHttpResponse) => void;
-      }
-      else if ( event === 'aborted' ) {
-        if (this.mAbortedCallback) {
-          MCLogger.warn(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Event listener for '${event}' is being replaced.`);
+          break;
+        case 'aborted': {
+          if (this.mAbortedCallback) MCLogger.warn(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Event listener for '${event}' is being replaced.`);
+          this.mAbortedCallback = callback as (reader: IMCHttpResponse, error?: Error) => void;
         }
-        this.mAbortedCallback = callback as (reader: IMCHttpResponse, error?: Error) => void;
+          break;
       }
       MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Event listener for '${event}' registered.`);
     });
   }
 
-  off(event: string): Promise<void> {
+  off(event: 'newDataAvailable' | 'aborted'): Promise<void> {
     return this.mLock.lockAsync(() => {
-      if ( event === 'newDataAvailable' ) {
-        this.mNewDataCallback = undefined;
-      }
-      else if ( event === 'aborted' ) {
-        this.mAbortedCallback = undefined;
+      switch (event) {
+        case 'newDataAvailable': {
+          this.mNewDataCallback = undefined;
+        }
+          break;
+        case 'aborted': {
+          this.mAbortedCallback = undefined;
+        }
+          break;
       }
       MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Event listener for '${event}' unregistered.`);
     });
+  }
+
+  private clear(shouldAborted: boolean = false, error?: Error) {
+    if ( this.mDataReader ) {
+      this.mDataReader.off('responseReady');
+      this.mDataReader.off('newDataReadable');
+      this.mDataReader.off('aborted');
+      if ( shouldAborted ) this.mDataReader.abort(error);
+      this.mDataReader = undefined;
+    }
+  }
+
+  private abortUnsafe(error?: Error): void {
+    if ( this.mAborted || this.mDone ) {
+      MCLogger.warn(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Abort called after response completion or previous abortion.`);
+      return undefined;
+    }
+
+    this.mAborted = true;
+
+    this.clear(true, error);
+
+    MCLogger.error(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Response aborted${error ? ` due to error: ${error.message}` : ""}.`);
+
+    Promise.resolve(this.mAbortedCallback).then((callback) => callback?.(this, error));
   }
 
   private generateResponseHeaders(dataResponse?: IMCMediaDataResponse): string | undefined {
