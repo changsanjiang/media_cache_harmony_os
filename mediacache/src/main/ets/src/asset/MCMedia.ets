@@ -1,5 +1,4 @@
 import { IMCMedia } from "../defines/IMCMedia";
-import { IMCMediaDataReadRequest } from "../defines/IMCMediaDataReadRequest";
 import { IMCMediaContentLoader } from "../defines/IMCMediaContentLoader";
 import { IMCMediaContent } from "../defines/IMCMediaContent";
 import { MCReadwriteReference } from "../utils/MCReadwriteReference";
@@ -16,6 +15,7 @@ import { MCMediaHttpContentLoader } from "./MCMediaHttpContentLoader";
 import { parseRequestRange, toRequestRange } from "../defines/IMCHttpRequestRange";
 import { MCMediaFileContentLoader } from "./MCMediaFileContentLoader";
 import MCLogger from "../utils/MCLogger";
+import { IMCHttpRequest } from "../defines/IMCHttpRequest";
 
 export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   readonly id: string;
@@ -92,22 +92,18 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     });
   }
 
-  getContentLoadersBy(dataRequest: IMCMediaDataReadRequest): Promise<IMCMediaContentLoader[]> {
+  getContentLoadersBy(proxyRequest: IMCHttpRequest): Promise<IMCMediaContentLoader[]> {
     return this.mLock.lockAsync(async () => {
-      MCLogger.log(MCLogger.LogLevel.INFO, () => `[MCMedia][mediaId: ${this.id}]: Resolving content loaders for request: ${JSON.stringify(dataRequest)}.`);
+      MCLogger.log(MCLogger.LogLevel.INFO, () => `[MCMedia][mediaId: ${this.id}]: Resolving content loaders for request: ${JSON.stringify(proxyRequest)}.`);
       try {
-        if (dataRequest.mediaId !== this.id) {
-          throw new Error(`Mismatched media ID: expected ${this.id}, got ${dataRequest.mediaId}`);
-        }
-
-        const url = MCProxyURL.restoreURLFromProxyTarget(dataRequest.proxyRequest.requestTarget);
+        const url = MCProxyURL.restoreURLFromProxyTarget(proxyRequest.requestTarget);
         if (!url) {
           throw new Error("Failed to restore URL from the provided proxy target.");
         }
 
         const loaders: IMCMediaContentLoader[] = [];
         if (this.mMetadata && this.mNodeList.head) {
-          const requestRangeHeader = dataRequest.proxyRequest.headers['range'];
+          const requestRangeHeader = proxyRequest.headers['range'];
           const totalLength = this.mMetadata.totalLength;
           let loadRange = requestRangeHeader ? this.parseLoadRange(requestRangeHeader, totalLength) : new MCRange(0, totalLength);
           let curNode: IMCMediaContentNode | undefined = this.mNodeList.findClosestLeftNode(loadRange.location) ?? this.mNodeList.head;
@@ -128,7 +124,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
                 loaders.push(new MCMediaHttpContentLoader(this, {
                   url: url,
                   range: toRequestRange(leftRange),
-                  headers: dataRequest.proxyRequest.headers,
+                  headers: proxyRequest.headers,
                 }));
               }
               loaders.push(new MCMediaFileContentLoader(content, intersection));
@@ -144,14 +140,14 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
             loaders.push(new MCMediaHttpContentLoader(this, {
               url: url,
               range: toRequestRange(loadRange),
-              headers: dataRequest.proxyRequest.headers,
+              headers: proxyRequest.headers,
             }));
           }
         }
         else {
           loaders.push(new MCMediaHttpContentLoader(this, {
             url: url,
-            headers: dataRequest.proxyRequest.headers
+            headers: proxyRequest.headers
           }));
         }
 

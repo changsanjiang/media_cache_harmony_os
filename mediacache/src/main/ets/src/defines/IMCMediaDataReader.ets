@@ -1,13 +1,13 @@
 import { IMCMediaDataResponse } from "./IMCMediaDataResponse";
 
 export interface IMCMediaDataReader {
-  readonly readableLength: Promise<number>;
+  readonly readableLength: Promise<number>; // 当前已准备好的可进行读取的数据的长度;
   readonly response: Promise<IMCMediaDataResponse | undefined>;
   readonly isDone: Promise<boolean>;
   readonly isAborted: Promise<boolean>;
 
   prepare(): Promise<void>
-  readData(capacity: number): Promise<ArrayBuffer | undefined>;
+  readData(buffer: ArrayBuffer): Promise<number>;
   seekToEndOfReadableRange(): Promise<number>; // 跳转到当前可读范围的尾部，并返回跳转了的长度(readableLength);
   abort(error?: Error): Promise<void>;
 

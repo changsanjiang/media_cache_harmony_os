@@ -1,15 +1,8 @@
-import { IMCMediaDataReader } from '../defines/IMCMediaDataReader';
-import { IMCHttpRequest } from '../defines/IMCHttpRequest';
 import { IMCMedia } from '../defines/IMCMedia';
-import { MCMedia } from './MCMedia';
 
 namespace MCMediaManager {
-  export function createDataReader(proxyRequest: IMCHttpRequest): IMCMediaDataReader {
+  export function getMediaBy(proxyRequestTarget: string): Promise<IMCMedia> {
     throw new Error("Method not implemented.");
-  }
-
-  export function getMediaBy(identifier: string): IMCMedia {
-    return new MCMedia(identifier);
   }
 }
 

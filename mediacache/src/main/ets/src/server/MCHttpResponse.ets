@@ -1,12 +1,12 @@
 import { ArkTSUtils } from "@kit.ArkTS";
 import { IMCMediaDataReader } from "../defines/IMCMediaDataReader";
-import MCMediaManager from "../asset/MCMediaManager";
 import MCLogger from "../utils/MCLogger";
 import { IMCHttpRequest } from "../defines/IMCHttpRequest";
 import { IMCHttpResponse } from "../defines/IMCHttpResponse";
 import { IMCMediaDataOkResponse,
   IMCMediaDataPartialContentResponse,
   IMCMediaDataResponse, MCMediaDataResponseType } from "../defines/IMCMediaDataResponse";
+import { MCMediaDataReader } from "../asset/MCMediaDataReader";
 
 export class MCHttpResponse implements IMCHttpResponse {
   private mClientId: number;
@@ -21,7 +21,7 @@ export class MCHttpResponse implements IMCHttpResponse {
 
   constructor(clientId: number) {
     this.mClientId = clientId;
-    MCLogger.log(MCLogger.LogLevel.INFO, () => `[MCHttpResponse][clientId: ${this.mClientId}] New Response instance created.`);
+    MCLogger.log(MCLogger.LogLevel.INFO, () => `[MCHttpResponse][clientId: ${this.mClientId}] New MCHttpResponse instance created.`);
   }
 
   get isDone(): Promise<boolean> {
@@ -45,7 +45,7 @@ export class MCHttpResponse implements IMCHttpResponse {
 
       MCLogger.log(MCLogger.LogLevel.INFO, () => `[MCHttpResponse][clientId: ${this.mClientId}] Preparing data reader for request: ${JSON.stringify(proxyRequest)}`);
 
-      this.mDataReader = MCMediaManager.createDataReader(proxyRequest);
+      this.mDataReader = new MCMediaDataReader(this.mClientId, proxyRequest);
       this.mDataReader.on('responseReady', (_) => this.mLock.lockAsync(() => this.mNewDataCallback).then((callback) => callback?.(this)));
       this.mDataReader.on('newDataReadable', (_) => this.mLock.lockAsync(() => this.mNewDataCallback).then((callback) => callback?.(this)));
       this.mDataReader.on('aborted', (_, error) => this.abort(error));
@@ -88,16 +88,20 @@ export class MCHttpResponse implements IMCHttpResponse {
       // 读取可读数据
       const readableLength = await reader.readableLength;
       if ( readableLength > 0 ) {
-        const data = await reader.readData(4 * 1024 * 1024);
-        this.mDone = await reader.isDone;
-        if ( this.mDone ) {
-          reader.off('responseReady');
-          reader.off('newDataReadable');
-          reader.off('aborted');
-          this.mDataReader = undefined;
+        const bufferSize = Math.min(4 * 1024 * 1024, readableLength);
+        const buffer = new ArrayBuffer(bufferSize);
+        const length = await reader.readData(buffer);
+        if (length > 0) {
+          this.mDone = await reader.isDone;
+          if ( this.mDone ) {
+            reader.off('responseReady');
+            reader.off('newDataReadable');
+            reader.off('aborted');
+            this.mDataReader = undefined;
+          }
+          MCLogger.log(MCLogger.LogLevel.DEBUG, () => `[MCHttpResponse][clientId: ${this.mClientId}] Data chunk read (${length} bytes), Done=${this.mDone}`);
+          return length === bufferSize ? buffer : buffer.slice(0, length);
         }
-        MCLogger.log(MCLogger.LogLevel.DEBUG, () => `[MCHttpResponse][clientId: ${this.mClientId}] Data chunk read (${data?.byteLength || 0} bytes), Done=${this.mDone}`);
-        return data;
       }
 
       MCLogger.log(MCLogger.LogLevel.DEBUG, () => `[MCHttpResponse][clientId: ${this.mClientId}] No data available for reading.`);

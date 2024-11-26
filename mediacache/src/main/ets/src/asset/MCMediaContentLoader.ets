@@ -24,7 +24,11 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
 
   get range(): Promise<MCRange | undefined> {
     return this.mLock.lockAsync(() => this.mRange);
-}
+  }
+
+  get readableLength(): Promise<number> {
+    return this.mLock.lockAsync(() => this.getReadableLengthUnsafe());
+  }
 
   prepare(): Promise<void> {
     return this.mLock.lockAsync(() => this.onPrepare());
@@ -36,15 +40,17 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
         return 0;
       }
 
-      const len = await this.mContent.readData(this.mOffset, buffer, Math.min(buffer.byteLength, this.mRange!.max - this.mOffset));
-      if ( len > 0 ) {
-        this.mOffset += len;
-        this.mDone = this.mOffset === this.mRange!.max;
-        if ( this.mDone ) {
-          this.clear();
-        }
-      }
-      return len;
+      const readLength = await this.mContent.readData(this.mOffset, buffer, Math.min(buffer.byteLength, this.mRange!.max - this.mOffset));
+      this.increaseOffset(readLength);
+      return readLength;
+    });
+  }
+
+  seekToEndOfReadableRange(): Promise<number> {
+    return this.mLock.lockAsync(async () => {
+      const readableLength = await this.getReadableLengthUnsafe();
+      this.increaseOffset(readableLength);
+      return readableLength;
     });
   }
 
@@ -131,5 +137,25 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
       this.mContent.closeRead();
     }
     this.onClearAfter();
+  }
+
+  private async getReadableLengthUnsafe(): Promise<number> {
+    if ( !this.mContent || !this.mRange || this.mAborted || this.mDone ) {
+      return 0;
+    }
+    const offset = this.mContent.contentOffset;
+    const length = await this.mContent.length;
+    const readableLength = Math.min((offset + length), this.mRange.max) - this.mOffset;
+    return readableLength;
+  }
+
+  private increaseOffset(length: number) {
+    if ( length > 0 ) {
+      this.mOffset += length;
+      this.mDone = this.mOffset === this.mRange!.max;
+      if ( this.mDone ) {
+        this.clear();
+      }
+    }
   }
 }

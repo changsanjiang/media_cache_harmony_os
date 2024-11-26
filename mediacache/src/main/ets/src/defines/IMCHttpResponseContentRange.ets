@@ -1,4 +1,4 @@
-import { IMCHttpRequestRange } from "./IMCHttpRequestRange";
+import { IMCHttpRequestRange, parseRequestRange } from "./IMCHttpRequestRange";
 
 /// https://datatracker.ietf.org/doc/html/rfc9110#field.content-range
 /// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Range#syntax
@@ -28,11 +28,12 @@ export function parseResponseContentRange(contentRangeHeader: string): IMCHttpRe
   const rangeEnd: number | undefined = matches[2] ? parseInt(matches[2], 10) : undefined;
   const size: number | undefined = matches[3] ? parseInt(matches[3], 10) : undefined;
   // 校验解析后的值
+  // rangeStart, rangeEnd, size 必须有值
   if (rangeStart === undefined || rangeEnd === undefined || size === undefined) {
     throw new Error('Invalid Content Range format. range-start, range-end and size should be specified.');
   }
 
-  if (rangeStart && isNaN(rangeStart) || rangeEnd && isNaN(rangeEnd) || size && isNaN(size)) {
+  if (isNaN(rangeStart) || isNaN(rangeEnd) || isNaN(size)) {
     throw new Error('Invalid Content Range values: range-start, range-end, and size must be integers.');
   }
 
@@ -52,42 +53,52 @@ export function parseResponseContentRange(contentRangeHeader: string): IMCHttpRe
 }
 
 
-function generateContentRange(requestRange: IMCHttpRequestRange, fileSize: number): string {
-  let rangeStart: number;
-  let rangeEnd: number;
+export function generateResponseContentRange(requestRangeHeader: string, totalLength: number): IMCHttpResponseContentRange {
+  if (!requestRangeHeader) {
+    throw new Error("Missing range header in the request.");
+  }
 
-  // 处理 rangeStart 和 rangeEnd 的情况
-  if (requestRange.rangeStart !== undefined && requestRange.rangeEnd !== undefined) {
-    rangeStart = requestRange.rangeStart;
-    rangeEnd = requestRange.rangeEnd;
+  const requestRange = parseRequestRange(requestRangeHeader);
+  const requestRangeStart = requestRange.rangeStart;
+  const requestRangeEnd = requestRange.rangeEnd;
+  const requestSuffixLength = requestRange.suffixLength;
+
+  // 检查范围合法性;
+  if ( requestRangeStart && requestRangeStart >= totalLength ) {
+    throw new Error('Invalid range: requestRangeStart exceeds total media length.');
   }
-  // 只有 rangeStart，默认 rangeEnd 为文件末尾
-  else if (requestRange.rangeStart !== undefined && requestRange.rangeEnd === undefined) {
-    rangeStart = requestRange.rangeStart;
-    rangeEnd = fileSize - 1;
+  if ( requestRangeEnd && requestRangeEnd >= totalLength ) {
+    throw new Error('Invalid range: requestRangeEnd exceeds total media length.');
   }
-  // 只有 suffixLength，根据文件大小计算范围
-  else if (requestRange.suffixLength !== undefined) {
-    rangeStart = fileSize - Math.min(requestRange.suffixLength, fileSize);
-    rangeEnd = fileSize - 1;
+  if ( requestSuffixLength && requestSuffixLength >= totalLength ) {
+    throw new Error('Invalid range: requestSuffixLength exceeds total media length.');
   }
-  // 没有指定范围，返回整个文件
+
+  // 转为 range;
+  let rangeStart: number | undefined;
+  let rangeEnd: number | undefined;
+
+  if ( requestSuffixLength ) {
+    rangeStart = totalLength - requestSuffixLength;
+    rangeEnd = totalLength - 1;
+  }
+  else if ( requestRangeEnd ) {
+    rangeStart = requestRangeStart!;
+    rangeEnd = requestRangeEnd;
+  }
   else {
-    rangeStart = 0;
-    rangeEnd = fileSize - 1;
+    rangeStart = requestRangeStart!;
+    rangeEnd = totalLength - 1;
   }
 
-  // 如果 rangeStart 大于 fileSize，返回整个文件的范围
-  if (rangeStart >= fileSize) {
-    rangeStart = 0;
-    rangeEnd = fileSize - 1;
+  return {
+    rangeStart: rangeStart,
+    rangeEnd: rangeEnd,
+    size: totalLength,
   }
+}
 
-  // 确保 rangeEnd 不超过文件大小
-  if (rangeEnd >= fileSize) {
-    rangeEnd = fileSize - 1;
-  }
-
+export function toResponseContentRangeHeader(rangeStart: number, rangeEnd: number, totalLength: number): string {
   // 返回 Content-Range 字段
-  return `bytes ${rangeStart}-${rangeEnd}/${fileSize}`;
+  return `bytes ${rangeStart}-${rangeEnd}/${totalLength}`;
 }
