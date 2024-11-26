@@ -1,5 +1,6 @@
 namespace MCLogger {
   export enum LogLevel {
+    TRACE,
     DEBUG,
     INFO,
     WARN,
@@ -9,37 +10,24 @@ namespace MCLogger {
   export let logLevel = LogLevel.DEBUG;
   export let enabled = true;
 
-  export function log(level: LogLevel, message: string): void {
-    // log_level => info
-
-    // 1. 打印
-    // level => err
-    // level > log_level
-
-    // 2. 打印
-    // level -> info
-    // level == log_level
-
-    // 3. 不打印
-    // level => debug
-    // level < log_level
-
+  export function log(level: LogLevel, messageFn: () => string): void {
     if ( enabled && level >= logLevel ) {
       switch (level) {
+        case LogLevel.TRACE:
         case LogLevel.DEBUG: {
-          console.debug(message);
+          console.debug(messageFn());
           break;
         }
         case LogLevel.INFO: {
-          console.info(message);
+          console.info(messageFn());
           break;
         }
         case LogLevel.WARN: {
-          console.warn(message);
+          console.warn(messageFn());
           break;
         }
         case LogLevel.ERROR: {
-          console.error(message);
+          console.error(messageFn());
           break;
         }
       }

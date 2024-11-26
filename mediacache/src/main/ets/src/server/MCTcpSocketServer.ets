@@ -30,38 +30,38 @@ export class MCTcpSocketServer implements IMCTcpSocketServer {
   private mConnectionCallback?: (connection: socket.TCPSocketConnection) => void = undefined;
 
   constructor() {
-    MCLogger.log(MCLogger.LogLevel.INFO, `[MCTcpSocketServer] New Server instance created.`);
+    MCLogger.log(MCLogger.LogLevel.INFO, () => `[MCTcpSocketServer] New Server instance created.`);
   }
 
   get isRunning(): Promise<boolean> { return this.mLock.lockAsync(() => this.mRunning); }
   get port(): Promise<number> { return this.mLock.lockAsync(() => this.mPort); }
 
   start(): Promise<number> {
-    MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCTcpSocketServer] Start Server; Checking server state...`);
+    MCLogger.log(MCLogger.LogLevel.DEBUG, () => `[MCTcpSocketServer] Start Server; Checking server state...`);
     return this.mLock.lockAsync(async () => {
       try {
         if ( !this.mRunning ) {
           const ipAddress: socket.NetAddress = {
             address: "127.0.0.1"
           };
-          MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCTcpSocketServer] Server not running, initializing with address ${ipAddress.address}...`);
+          MCLogger.log(MCLogger.LogLevel.DEBUG, () => `[MCTcpSocketServer] Server not running, initializing with address ${ipAddress.address}...`);
           await this.mTcpServer.listen(ipAddress);
-          MCLogger.log(MCLogger.LogLevel.INFO, `[MCTcpSocketServer] Server successfully bound to ${ipAddress.address}, waiting for connections...`);
+          MCLogger.log(MCLogger.LogLevel.INFO, () => `[MCTcpSocketServer] Server successfully bound to ${ipAddress.address}, waiting for connections...`);
           this.mTcpServer.on("connect", (connection: socket.TCPSocketConnection) => {
-            MCLogger.log(MCLogger.LogLevel.INFO, `[MCTcpSocketServer] New connection received with client ID: ${connection.clientId}.`);
+            MCLogger.log(MCLogger.LogLevel.INFO, () => `[MCTcpSocketServer] New connection received with client ID: ${connection.clientId}.`);
             this.mConnectionCallback ? this.mConnectionCallback?.(connection) : connection.close();
           });
           this.mPort = (await this.mTcpServer.getLocalAddress()).port as number;
           this.mRunning = true;
-          MCLogger.log(MCLogger.LogLevel.INFO, `[MCTcpSocketServer] Server is now running on port ${this.mPort}.`);
+          MCLogger.log(MCLogger.LogLevel.INFO, () => `[MCTcpSocketServer] Server is now running on port ${this.mPort}.`);
         }
         else {
-          MCLogger.log(MCLogger.LogLevel.WARN, `[MCTcpSocketServer] Attempted to start server, but it is already running on port ${this.mPort}.`);
+          MCLogger.log(MCLogger.LogLevel.WARN, () => `[MCTcpSocketServer] Attempted to start server, but it is already running on port ${this.mPort}.`);
         }
         return this.mPort;
       }
       catch (e) {
-        MCLogger.log(MCLogger.LogLevel.ERROR, `[MCTcpSocketServer] Failed to start server due to error: ${(e as Error).message}`);
+        MCLogger.log(MCLogger.LogLevel.ERROR, () => `[MCTcpSocketServer] Failed to start server due to error: ${(e as Error).message}`);
         return Promise.reject(e);
       }
     })
@@ -83,14 +83,14 @@ export class MCTcpSocketServer implements IMCTcpSocketServer {
   on(event: 'connect', callback: (connection: socket.TCPSocketConnection) => void): Promise<void> {
     return this.mLock.lockAsync(() => {
       this.mConnectionCallback = callback;
-      MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCTcpSocketServer] Event listener for '${event}' registered;`);
+      MCLogger.log(MCLogger.LogLevel.DEBUG, () => `[MCTcpSocketServer] Event listener for '${event}' registered;`);
     });
   }
 
   off(event: 'connect'): Promise<void> {
     return this.mLock.lockAsync(() => {
       this.mConnectionCallback = undefined;
-      MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCTcpSocketServer] Event listener for '${event}' unregistered;`);
+      MCLogger.log(MCLogger.LogLevel.DEBUG, () => `[MCTcpSocketServer] Event listener for '${event}' unregistered;`);
     });
   }
 }

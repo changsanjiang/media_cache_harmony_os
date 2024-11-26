@@ -14,7 +14,9 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
     super();
     this.contentOffset = contentOffset;
     this.mFilePath = filePath;
-    if ( length != 0 ) this.mLength = length;
+    if (length > 0) {
+      this.mLength = length;
+    }
   }
 
   readonly contentOffset: number;
@@ -32,99 +34,23 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
   }
 
   readData(position: number, buffer: ArrayBuffer, length: number): Promise<number> {
-    if (buffer.byteLength === 0) {
-      throw new Error("Buffer cannot be empty.");
-    }
-    return this.mLock.lockAsync(async () => {
-      if (this.mDestroyed) {
-        throw new Error("Content has been destroyed, cannot read data.");
-      }
-
-      if (this.mReadwriteCount === 0) {
-        throw new Error("Please retain a readwrite count before reading data.");
-      }
-
-      if (position < this.contentOffset || position >= this.contentOffset + this.mLength) {
-        throw new Error("Position is out of content range.");
-      }
-
-      if ( this.mReader == undefined ) {
-        this.mReader = await fileIo.open(this.mFilePath, fileIo.OpenMode.READ_ONLY | fileIo.OpenMode.CREATE);
-      }
-
-      return fileIo.read(this.mReader.fd, buffer, { offset: position - this.contentOffset, length: length });
-    });
+    return this.mLock.lockAsync(async () => this.readDataUnsafe(position, buffer, length));
   }
 
   closeRead(): Promise<boolean> {
-    return this.mLock.lockAsync(async () => {
-      if ( this.mReadwriteCount > 0 ) {
-        return false;
-      }
-      if ( this.mReader != undefined ) {
-        await fileIo.close(this.mReader);
-        this.mReader = undefined;
-      }
-      return true;
-    });
+    return this.mLock.lockAsync(async () => this.closeReadUnsafe());
   }
 
   writeData(data: ArrayBuffer, length: number): Promise<number> {
-    return this.mLock.lockAsync(async () => {
-      if ( this.mDestroyed ) {
-        throw new Error("内容已被销毁, 无法再写入数据了");
-      }
-      if ( this.mReadwriteCount === 0 ) {
-        throw new Error("写入数据之前请增加一次读写计数");
-      }
-
-      if ( this.mWriter == undefined ) {
-        this.mWriter = await fileIo.open(this.mFilePath, fileIo.OpenMode.WRITE_ONLY | fileIo.OpenMode.APPEND | fileIo.OpenMode.CREATE);
-      }
-      const lengthWritten = await fileIo.write(this.mWriter.fd, data, { length: length });
-      this.mLength += lengthWritten;
-      return lengthWritten;
-    }).then((lengthWritten) => {
-      this.mDataWrittenCallbacks.forEach((callback) => callback(this, lengthWritten));
-      return lengthWritten;
-    });
+    return this.mLock.lockAsync(async () => this.writeDataUnsafe(data, length));
   }
 
   closeWrite(): Promise<boolean> {
-    return this.mLock.lockAsync(async () => {
-      if ( this.mReadwriteCount > 0 ) {
-        return false;
-      }
-      if ( this.mWriter != undefined ) {
-        await fileIo.close(this.mWriter);
-        this.mWriter = undefined;
-      }
-      return true;
-    });
+    return this.mLock.lockAsync(async () => this.closeWriteUnsafe());
   }
 
   destroy(): Promise<boolean> {
-    return this.mLock.lockAsync(async () => {
-      if ( this.mDestroyed ) {
-        return true;
-      }
-
-      if ( this.mReadwriteCount > 0 ) {
-        return false;
-      }
-
-      if ( this.mReader != undefined ) {
-        await fileIo.close(this.mReader);
-        this.mReader = undefined;
-      }
-      if ( this.mWriter != undefined ) {
-        await fileIo.close(this.mWriter);
-        this.mWriter = undefined;
-      }
-      try { await fileIo.unlink(this.mFilePath); } catch (e) { }
-      this.mDestroyed = true;
-      return true;
-    });
+    return this.mLock.lockAsync(async () => this.destroyUnsafe());
   }
 
   on(_: "dataWritten", callback: (content: IMCMediaContent, length: number) => void): Promise<void> {
@@ -133,5 +59,94 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
 
   off(_: "dataWritten", callback: (content: IMCMediaContent, length: number) => void): Promise<void> {
     return this.mLock.lockAsync(() => { this.mDataWrittenCallbacks.delete(callback) });
+  }
+
+  async readDataUnsafe(position: number, buffer: ArrayBuffer, length: number): Promise<number> {
+    if (buffer.byteLength === 0) {
+      throw new Error("Buffer cannot be empty.");
+    }
+
+    if (this.mDestroyed) {
+      throw new Error("Content has been destroyed, cannot read data.");
+    }
+
+    if (this.mReadwriteCount === 0) {
+      throw new Error("Please retain a readwrite count before reading data.");
+    }
+
+    if (position < this.contentOffset || position >= this.contentOffset + this.mLength) {
+      throw new Error("Position is out of content range.");
+    }
+
+    if ( this.mReader == undefined ) {
+      this.mReader = await fileIo.open(this.mFilePath, fileIo.OpenMode.READ_ONLY | fileIo.OpenMode.CREATE);
+    }
+
+    return fileIo.read(this.mReader.fd, buffer, { offset: position - this.contentOffset, length: Math.min(buffer.byteLength, length) });
+  }
+
+  async closeReadUnsafe(): Promise<boolean> {
+    if ( this.mReadwriteCount > 0 ) {
+      return false;
+    }
+    if ( this.mReader != undefined ) {
+      await fileIo.close(this.mReader);
+      this.mReader = undefined;
+    }
+    return true;
+  }
+
+  async writeDataUnsafe(data: ArrayBuffer, length: number): Promise<number> {
+    if ( this.mDestroyed ) {
+      throw new Error("Content has been destroyed. Cannot write data.");
+    }
+    if ( this.mReadwriteCount === 0 ) {
+      throw new Error("Please retain a readwrite count before writing data.");
+    }
+
+    if ( this.mWriter == undefined ) {
+      this.mWriter = await fileIo.open(this.mFilePath, fileIo.OpenMode.WRITE_ONLY | fileIo.OpenMode.APPEND | fileIo.OpenMode.CREATE);
+    }
+    const lengthWritten = await fileIo.write(this.mWriter.fd, data, { length: length });
+    this.mLength += lengthWritten;
+    Promise.resolve(this.mDataWrittenCallbacks.values()).then((callbacks) => {
+      for (let callback of callbacks) {
+        callback(this, lengthWritten);
+      }
+    });
+    return lengthWritten;
+  }
+
+  async closeWriteUnsafe(): Promise<boolean> {
+    if ( this.mReadwriteCount > 0 ) {
+      return false;
+    }
+    if ( this.mWriter != undefined ) {
+      await fileIo.close(this.mWriter);
+      this.mWriter = undefined;
+    }
+    return true;
+  }
+
+  async destroyUnsafe(): Promise<boolean> {
+    if ( this.mDestroyed ) {
+      return true;
+    }
+
+    if ( this.mReadwriteCount > 0 ) {
+      return false;
+    }
+
+    if ( this.mReader != undefined ) {
+      await fileIo.close(this.mReader);
+      this.mReader = undefined;
+    }
+    if ( this.mWriter != undefined ) {
+      await fileIo.close(this.mWriter);
+      this.mWriter = undefined;
+    }
+    try { await fileIo.unlink(this.mFilePath); } catch (e) { }
+    this.mDestroyed = true;
+    return true;
   }
 }

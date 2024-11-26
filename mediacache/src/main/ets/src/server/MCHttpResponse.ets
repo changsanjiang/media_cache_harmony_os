@@ -21,7 +21,7 @@ export class MCHttpResponse implements IMCHttpResponse {
 
   constructor(clientId: number) {
     this.mClientId = clientId;
-    MCLogger.log(MCLogger.LogLevel.INFO, `[MCHttpResponse][clientId: ${this.mClientId}] New Response instance created.`);
+    MCLogger.log(MCLogger.LogLevel.INFO, () => `[MCHttpResponse][clientId: ${this.mClientId}] New Response instance created.`);
   }
 
   get isDone(): Promise<boolean> {
@@ -39,41 +39,41 @@ export class MCHttpResponse implements IMCHttpResponse {
   prepare(proxyRequest: IMCHttpRequest): Promise<void> {
     return this.mLock.lockAsync(async () => {
       if (this.mDataReader) {
-        MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpResponse][clientId: ${this.mClientId}] A request is already being processed. Unable to prepare response.`);
+        MCLogger.log(MCLogger.LogLevel.ERROR, () => `[MCHttpResponse][clientId: ${this.mClientId}] A request is already being processed. Unable to prepare response.`);
         throw new Error("A request is already being processed.");
       }
 
-      MCLogger.log(MCLogger.LogLevel.INFO, `[MCHttpResponse][clientId: ${this.mClientId}] Preparing data reader for request: ${JSON.stringify(proxyRequest)}`);
+      MCLogger.log(MCLogger.LogLevel.INFO, () => `[MCHttpResponse][clientId: ${this.mClientId}] Preparing data reader for request: ${JSON.stringify(proxyRequest)}`);
 
       this.mDataReader = MCMediaManager.createDataReader(proxyRequest);
       this.mDataReader.on('responseReady', (_) => this.mLock.lockAsync(() => this.mNewDataCallback).then((callback) => callback?.(this)));
       this.mDataReader.on('newDataReadable', (_) => this.mLock.lockAsync(() => this.mNewDataCallback).then((callback) => callback?.(this)));
       this.mDataReader.on('aborted', (_, error) => this.abort(error));
       await this.mDataReader?.prepare();
-      MCLogger.log(MCLogger.LogLevel.INFO, `[MCHttpResponse][clientId: ${this.mClientId}] Data reader prepared successfully.`);
+      MCLogger.log(MCLogger.LogLevel.INFO, () => `[MCHttpResponse][clientId: ${this.mClientId}] Data reader prepared successfully.`);
     });
   }
 
   readData(): Promise<string | ArrayBuffer | undefined> {
     return this.mLock.lockAsync(async () => {
       if ( this.mDone || this.mAborted ) {
-        MCLogger.log(MCLogger.LogLevel.WARN, `[MCHttpResponse][clientId: ${this.mClientId}] Attempt to read data after response completion or abortion.`);
+        MCLogger.log(MCLogger.LogLevel.WARN, () => `[MCHttpResponse][clientId: ${this.mClientId}] Attempt to read data after response completion or abortion.`);
         return undefined;
       }
 
       const reader = this.mDataReader;
       if ( !reader ) {
-        MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpResponse][clientId: ${this.mClientId}] No data reader found while attempting to read data.`);
+        MCLogger.log(MCLogger.LogLevel.ERROR, () => `[MCHttpResponse][clientId: ${this.mClientId}] No data reader found while attempting to read data.`);
         return undefined;
       }
 
       // 先向客户端发送响应头消息
       if ( !this.mHeadersSent ) {
-        MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCHttpResponse][clientId: ${this.mClientId}] Generating response headers for data response.`);
+        MCLogger.log(MCLogger.LogLevel.DEBUG, () => `[MCHttpResponse][clientId: ${this.mClientId}] Generating response headers for data response.`);
         const responseHeaders = this.generateResponseHeaders(await reader.response);
         if ( responseHeaders ) {
           this.mHeadersSent = true;
-          MCLogger.log(MCLogger.LogLevel.INFO, `[MCHttpResponse][clientId: ${this.mClientId}] Headers sent to client: ${JSON.stringify(responseHeaders)}`);
+          MCLogger.log(MCLogger.LogLevel.INFO, () => `[MCHttpResponse][clientId: ${this.mClientId}] Headers sent to client: ${JSON.stringify(responseHeaders)}`);
           this.mDone = await reader.isDone;
           if ( this.mDone ) {
             reader.off('responseReady');
@@ -96,11 +96,11 @@ export class MCHttpResponse implements IMCHttpResponse {
           reader.off('aborted');
           this.mDataReader = undefined;
         }
-        MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCHttpResponse][clientId: ${this.mClientId}] Data chunk read (${data?.byteLength || 0} bytes), Done=${this.mDone}`);
+        MCLogger.log(MCLogger.LogLevel.DEBUG, () => `[MCHttpResponse][clientId: ${this.mClientId}] Data chunk read (${data?.byteLength || 0} bytes), Done=${this.mDone}`);
         return data;
       }
 
-      MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCHttpResponse][clientId: ${this.mClientId}] No data available for reading.`);
+      MCLogger.log(MCLogger.LogLevel.DEBUG, () => `[MCHttpResponse][clientId: ${this.mClientId}] No data available for reading.`);
       return undefined;
     })
   }
@@ -108,7 +108,7 @@ export class MCHttpResponse implements IMCHttpResponse {
   abort(error?: Error): Promise<void> {
     return this.mLock.lockAsync(() => {
       if ( this.mAborted || this.mDone ) {
-        MCLogger.log(MCLogger.LogLevel.WARN, `[MCHttpResponse][clientId: ${this.mClientId}] Abort called after response completion or previous abortion.`);
+        MCLogger.log(MCLogger.LogLevel.WARN, () => `[MCHttpResponse][clientId: ${this.mClientId}] Abort called after response completion or previous abortion.`);
         return undefined;
       }
 
@@ -121,7 +121,7 @@ export class MCHttpResponse implements IMCHttpResponse {
         this.mDataReader = undefined;
       }
 
-      MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpResponse][clientId: ${this.mClientId}] Response aborted${error ? ` due to error: ${error.message}` : ""}.`);
+      MCLogger.log(MCLogger.LogLevel.ERROR, () => `[MCHttpResponse][clientId: ${this.mClientId}] Response aborted${error ? ` due to error: ${error.message}` : ""}.`);
 
       return this.mAbortedCallback;
     }).then((callback) => callback?.(this, error));
@@ -131,17 +131,17 @@ export class MCHttpResponse implements IMCHttpResponse {
     return this.mLock.lockAsync(() => {
       if ( event === 'newDataAvailable' ) {
         if (this.mNewDataCallback) {
-          MCLogger.log(MCLogger.LogLevel.WARN, `[MCHttpResponse][clientId: ${this.mClientId}] Event listener for 'newDataAvailable' is already registered.`);
+          MCLogger.log(MCLogger.LogLevel.WARN, () => `[MCHttpResponse][clientId: ${this.mClientId}] Event listener for 'newDataAvailable' is already registered.`);
         }
         this.mNewDataCallback = callback as (reader: IMCHttpResponse) => void;
       }
       else if ( event === 'aborted' ) {
         if (this.mAbortedCallback) {
-          MCLogger.log(MCLogger.LogLevel.WARN, `[MCHttpResponse][clientId: ${this.mClientId}] Event listener for '${event}' is being replaced.`);
+          MCLogger.log(MCLogger.LogLevel.WARN, () => `[MCHttpResponse][clientId: ${this.mClientId}] Event listener for '${event}' is being replaced.`);
         }
         this.mAbortedCallback = callback as (reader: IMCHttpResponse, error?: Error) => void;
       }
-      MCLogger.log(MCLogger.LogLevel.INFO, `[MCHttpResponse][clientId: ${this.mClientId}] Event listener for '${event}' registered.`);
+      MCLogger.log(MCLogger.LogLevel.INFO, () => `[MCHttpResponse][clientId: ${this.mClientId}] Event listener for '${event}' registered.`);
     });
   }
 
@@ -153,7 +153,7 @@ export class MCHttpResponse implements IMCHttpResponse {
       else if ( event === 'aborted' ) {
         this.mAbortedCallback = undefined;
       }
-      MCLogger.log(MCLogger.LogLevel.INFO, `[MCHttpResponse][clientId: ${this.mClientId}] Event listener for '${event}' unregistered.`);
+      MCLogger.log(MCLogger.LogLevel.INFO, () => `[MCHttpResponse][clientId: ${this.mClientId}] Event listener for '${event}' unregistered.`);
     });
   }
 
@@ -185,7 +185,7 @@ export class MCHttpResponse implements IMCHttpResponse {
     //
 
     if (!dataResponse) {
-      MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpResponse][clientId: ${this.mClientId}] Cannot generate headers: Response data is undefined.`);
+      MCLogger.log(MCLogger.LogLevel.ERROR, () => `[MCHttpResponse][clientId: ${this.mClientId}] Cannot generate headers: Response data is undefined.`);
       return undefined;
     }
 
@@ -218,7 +218,7 @@ export class MCHttpResponse implements IMCHttpResponse {
         return `HTTP/1.1 400 Bad Request\r\nDate: ${currentDate}\r\n\r\n`;
       default: {
         if ( dataResponse.type !== MCMediaDataResponseType.INTERNAL_ERROR ) {
-          MCLogger.log(MCLogger.LogLevel.ERROR, `[MCHttpResponse][clientId: ${this.mClientId}] Unsupported response type: ${dataResponse.type}`);
+          MCLogger.log(MCLogger.LogLevel.ERROR, () => `[MCHttpResponse][clientId: ${this.mClientId}] Unsupported response type: ${dataResponse.type}`);
         }
         return `HTTP/1.1 500 Internal Server Error\r\nDate: ${currentDate}\r\n\r\n`;
       }

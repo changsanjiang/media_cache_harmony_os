@@ -7,7 +7,7 @@ export class MCMediaDataReader implements IMCMediaDataReader {
 
   constructor(clientId: number) {
     this.mClientId = clientId;
-    MCLogger.log(MCLogger.LogLevel.INFO, `[MCMediaDataReader][clientId: ${this.mClientId}] New DataReader instance created.`);
+    MCLogger.log(MCLogger.LogLevel.INFO, () => `[MCMediaDataReader][clientId: ${this.mClientId}] New DataReader instance created.`);
   }
 
   get readableLength(): Promise<number> {

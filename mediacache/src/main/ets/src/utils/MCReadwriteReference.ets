@@ -11,24 +11,28 @@ export class MCReadwriteReference<T> implements IMCReadwriteReference<T> {
   }
 
   readwriteRetain(): Promise<T> {
-    return this.mLock.lockAsync(() => {
-      this.mReadwriteCount += 1;
-      return this.getInstance();
-    })
+    return this.mLock.lockAsync(() => this.readwriteRetain());
   }
 
   readwriteRelease(): Promise<void> {
-    return this.mLock.lockAsync(() => {
-      if (this.mReadwriteCount <= 0) {
-        MCLogger.log(MCLogger.LogLevel.ERROR, `[MCReadwriteReference] Release called but count is already zero. Possible logic error.`);
-        throw new Error("Release called with zero references.");
-      }
+    return this.mLock.lockAsync(() => this.readwriteRelease());
+  }
 
-      this.mReadwriteCount -= 1;
-      if ( this.mReadwriteCount == 0 ) {
-        this.onReadwriteZeroReferences();
-      }
-    })
+  readwriteRetainUnsafe(): T {
+    this.mReadwriteCount += 1;
+    return this.getInstance();
+  }
+
+  readwriteReleaseUnsafe(): void {
+    if (this.mReadwriteCount <= 0) {
+      MCLogger.log(MCLogger.LogLevel.ERROR, () => `[MCReadwriteReference] Release called but count is already zero. Possible logic error.`);
+      throw new Error("Release called with zero references.");
+    }
+
+    this.mReadwriteCount -= 1;
+    if ( this.mReadwriteCount == 0 ) {
+      this.onReadwriteZeroReferences();
+    }
   }
 
   // 获取当前对象；子类需实现此方法以返回具体类型的实例
