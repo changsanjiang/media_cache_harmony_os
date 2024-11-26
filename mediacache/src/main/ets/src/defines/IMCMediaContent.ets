@@ -17,7 +17,7 @@ export interface IMCMediaContent extends IMCReadwriteReference<IMCMediaContent> 
   off(event: 'dataWritten', callback: (content: IMCMediaContent, length: number) => void): Promise<void>;
 
   // 无锁数据操作（需谨慎使用）
-  readonly unsafeLength: number;
+  readonly lengthUnsafe: number;
 
   readDataUnsafe(position: number, buffer: ArrayBuffer, length: number): Promise<number>; // 读取指定位置的数据, 返回已读取的数据长度; 在执行读取前请增加一次读写计数, 当不再需要读取时, 释放读写计数, 并记得关闭读取操作;): Promise<number>; // 读取指定位置的数据, 返回已读取的数据长度; 在执行读取前请增加一次读写计数, 当不再需要读取时, 释放读写计数, 并记得关闭读取操作;
   closeReadUnsafe(): Promise<boolean>; // 尝试关闭读取操作; 读写计数为 0 时关闭并返回 true, 否则返回 false;

@@ -68,7 +68,7 @@ class TestMCMediaContent implements IMCMediaContent {
     throw new Error('Method not implemented.');
   }
 
-  unsafeLength: number = 0;
+  lengthUnsafe: number = 0;
 
   readDataUnsafe(position: number, buffer: ArrayBuffer, length: number): Promise<number> {
     throw new Error('Method not implemented.');

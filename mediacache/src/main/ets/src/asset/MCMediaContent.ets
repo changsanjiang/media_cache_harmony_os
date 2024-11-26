@@ -31,7 +31,7 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
     return this.mLock.lockAsync(() => this.mLength);
   }
 
-  get unsafeLength(): number {
+  get lengthUnsafe(): number {
     return this.mLength;
   }
 

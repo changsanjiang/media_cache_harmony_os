@@ -291,7 +291,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
           }
 
           // 执行 restructureContents 时, 当前 media 的读写计数为 0, 所以访问 content 的 length 直接通过 unsafeLength 获取即可, 无需加锁;
-          if (head && head.longestContent?.unsafeLength === this.mMetadata.totalLength) {
+          if (head && head.longestContent?.lengthUnsafe === this.mMetadata.totalLength) {
             this.mAssembled = true;
             this.mFullyTrimmed = this.mNodeList.count === 1 && head.numberOfContents === 1;
             MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Content restructuring completed. Assembled: ${this.mAssembled}, FullyTrimmed: ${this.mFullyTrimmed}.`);
@@ -332,8 +332,8 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       throw new Error(errorMsg);
     }
 
-    const curRange = new MCRange(writer.contentOffset, writer.unsafeLength);
-    const nextRange = new MCRange(reader.contentOffset, reader.unsafeLength);
+    const curRange = new MCRange(writer.contentOffset, writer.lengthUnsafe);
+    const nextRange = new MCRange(reader.contentOffset, reader.lengthUnsafe);
     // 如果 writer 中包含 reader 的所有数据, return YES;
     if (curRange.contains(nextRange)) {
       MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Writer range fully contains reader range. Skipping merge.`);
