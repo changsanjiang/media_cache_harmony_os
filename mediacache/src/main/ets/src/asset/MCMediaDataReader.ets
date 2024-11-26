@@ -345,6 +345,10 @@ export class MCMediaDataReader implements IMCMediaDataReader {
             this.mResponse = response;
           }
 
+          if (totalLength === 0) { // empty content;
+            this.mDone = true;
+          }
+          
           Promise.resolve(this.mResponseReadyCallback).then((callback) => {
             if ( callback ) MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Response prepared. Executing callback.`);
             callback?.(this, this.mResponse!);
