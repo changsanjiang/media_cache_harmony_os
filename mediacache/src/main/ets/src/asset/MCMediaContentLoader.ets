@@ -13,7 +13,7 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
   protected mDone = false;
   protected mAborted = false;
   protected mLock: ArkTSUtils.locks.AsyncLock = new ArkTSUtils.locks.AsyncLock();
-  protected mContent?: IMCMediaContent = undefined;
+  private mContent?: IMCMediaContent = undefined;
   private mRange?: MCRange = undefined;
 
   get isDone(): Promise<boolean> {
@@ -34,7 +34,17 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
 
   prepare(): Promise<void> {
     MCLogger.debug(MCLogModule.MCMediaContentLoader, () => 'Preparing loader...');
-    return this.mLock.lockAsync(() => this.onPrepare());
+    return this.mLock.lockAsync(async () => {
+      try {
+        await this.onPrepare();
+        MCLogger.info(MCLogModule.MCMediaContentLoader, () => 'Loader preparation complete.');
+      }
+      catch (error) {
+        MCLogger.error(MCLogModule.MCMediaContentLoader, () => `Error during preparation: ${(error as Error).message}`);
+        this.abortUnsafe(error);
+        throw error as Error;
+      }
+    });
   }
 
   readData(buffer: ArrayBuffer): Promise<number> {
@@ -51,8 +61,8 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
         this.increaseOffset(readLength);
         return readLength;
       } catch (error) {
-        this.abortUnsafe(error);
         MCLogger.error(MCLogModule.MCMediaContentLoader, () => `Error reading data: ${(error as Error).message}`);
+        this.abortUnsafe(error);
         throw error as Error;
       }
     });

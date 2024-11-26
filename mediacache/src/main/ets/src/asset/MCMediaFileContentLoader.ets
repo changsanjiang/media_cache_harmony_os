@@ -1,4 +1,6 @@
 import { IMCMediaContent } from "../defines/IMCMediaContent";
+import { MCLogModule } from "../defines/MCLogModule";
+import MCLogger from "../utils/MCLogger";
 import { MCRange } from "../utils/MCRange";
 import { MCMediaContentLoader } from "./MCMediaContentLoader";
 
@@ -13,23 +15,27 @@ export class MCMediaFileContentLoader extends MCMediaContentLoader {
     this.loadRange = loadRange;
   }
 
-  protected onPrepare(): Promise<void> {
-    return new Promise<void>(async (resolve, reject) => {
-      const start = this.loadRange.location;
-      const end = this.loadRange.max;
-      const contentStart = this.content.contentOffset;
-      const contentEnd = this.content.contentOffset + await this.content.length;
-      if (start < contentStart || end > contentEnd) {
-        reject(new Error(`Load range [${start}, ${end}) is out of bounds for content range [${contentStart}, ${contentEnd}).`));
-        return;
-      }
-      this.content.readwriteRetain();
-      this.contentReady(this.content, this.loadRange);
-      resolve();
-    });
+  protected async onPrepare(): Promise<void> {
+    const start = this.loadRange.location;
+    const end = this.loadRange.max;
+    const contentStart = this.content.contentOffset;
+    const contentEnd = this.content.contentOffset + await this.content.length;
+
+    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Preparing MCMediaFileContentLoader with range [${start}, ${end}) and content range [${contentStart}, ${contentEnd}).`);
+
+    if (start < contentStart || end > contentEnd) {
+      const error = new Error(`Load range [${start}, ${end}) is out of bounds for content range [${contentStart}, ${contentEnd}).`);
+      MCLogger.error(MCLogModule.MCMediaContentLoader, () => error.message);
+      throw error;
+    }
+
+    this.content.readwriteRetain();
+    MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Content retained. Content range: [${contentStart}, ${contentEnd}).`);
+    this.contentReady(this.content, this.loadRange);
   }
 
   protected onClearBefore(): void {
+    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => 'Releasing retained content in MCMediaFileContentLoader.');
     this.content.readwriteRelease();
   }
 }
