@@ -221,7 +221,10 @@ export class MCMediaDataReader implements IMCMediaDataReader {
 
         loader.on("dataLoaded", (_: IMCMediaContentLoader, __: number) => {
           MCLogger.log(MCLogger.LogLevel.DEBUG, () => `[MCMediaDataReader][clientId: ${this.mClientId}] Data loaded event received for loader at index ${nextIndex}.`);
-          this.mLock.lockAsync(() => this.mNewDataReadableCallback).then((callback) => callback?.(this));
+          this.mLock.lockAsync(() => this.mNewDataReadableCallback).then((callback) => {
+            if ( callback ) MCLogger.log(MCLogger.LogLevel.DEBUG, () => `[MCMediaDataReader][clientId: ${this.mClientId}] Data loaded. Executing callback.`);
+            callback?.(this);
+          });
         });
 
         loader.on("aborted", (_: IMCMediaContentLoader, error?: Error) => {
@@ -266,7 +269,7 @@ export class MCMediaDataReader implements IMCMediaDataReader {
     }
     this.mMedia?.readwriteRelease();
     Promise.resolve(this.mAbortedCallback).then((callback) => {
-
+      if ( callback ) MCLogger.log(MCLogger.LogLevel.DEBUG, () => `[MCMediaDataReader][clientId: ${this.mClientId}] Executing aborted callback.`);
       callback?.(this, error);
     });
   }
