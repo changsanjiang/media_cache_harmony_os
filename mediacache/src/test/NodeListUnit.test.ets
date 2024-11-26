@@ -1,6 +1,7 @@
 import { describe, beforeAll, beforeEach, afterEach, afterAll, it, expect } from '@ohos/hypium';
 import { MCMediaContentNodeList } from '../main/ets/src/asset/MCMediaContentNodeList';
 import { IMCMediaContent } from '../main/ets/src/defines/IMCMediaContent';
+import MCLogger from '../main/ets/src/utils/MCLogger';
 
 export default function nodeListUnitTest() {
   describe('nodeListUnitTest', () => {
@@ -25,9 +26,14 @@ export default function nodeListUnitTest() {
     });
     it('assertContain', 0, () => {
       // testAdd();
-      testFind();
+      // testFind();
+      testEnum();
     });
   });
+}
+
+function testEnum() {
+  console.log(`LEVEL_DEBUG=${MCLogger.LogLevel.DEBUG.toString()}`);
 }
 
 class TestMCMediaContent implements IMCMediaContent {

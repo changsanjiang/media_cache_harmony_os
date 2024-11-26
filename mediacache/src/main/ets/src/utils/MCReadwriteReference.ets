@@ -25,7 +25,6 @@ export class MCReadwriteReference<T> implements IMCReadwriteReference<T> {
 
   readwriteReleaseUnsafe(): void {
     if (this.mReadwriteCount <= 0) {
-      MCLogger.log(MCLogger.LogLevel.ERROR, () => `[MCReadwriteReference] Release called but count is already zero. Possible logic error.`);
       throw new Error("Release called with zero references.");
     }
 

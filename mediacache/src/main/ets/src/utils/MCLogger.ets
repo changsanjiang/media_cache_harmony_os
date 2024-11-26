@@ -1,3 +1,5 @@
+import { MCLogModule } from '../defines/MCLogModule';
+
 namespace MCLogger {
   export enum LogLevel {
     TRACE,
@@ -7,11 +9,17 @@ namespace MCLogger {
     ERROR,
   }
 
+  /** 日志等级; */
   export let logLevel = LogLevel.DEBUG;
+
+  /** 是否启用日志; */
   export let enabled = true;
 
-  export function log(level: LogLevel, messageFn: () => string): void {
-    if ( enabled && level >= logLevel ) {
+  /** 禁止哪些模块的打印日志; */
+  export let disabledModules: MCLogModule[] = [];
+
+  export function log(module: MCLogModule, level: LogLevel, messageFn: () => string): void {
+    if ( enabled && level >= logLevel && !disabledModules.includes(module) ) {
       switch (level) {
         case LogLevel.TRACE:
         case LogLevel.DEBUG: {
@@ -32,6 +40,26 @@ namespace MCLogger {
         }
       }
     }
+  }
+
+  export function trace(module: MCLogModule, messageFn: () => string): void {
+    log(module, LogLevel.TRACE, messageFn);
+  }
+
+  export function debug(module: MCLogModule, messageFn: () => string): void {
+    log(module, LogLevel.DEBUG, messageFn);
+  }
+
+  export function info(module: MCLogModule, messageFn: () => string): void {
+    log(module, LogLevel.DEBUG, messageFn);
+  }
+
+  export function warn(module: MCLogModule, messageFn: () => string): void {
+    log(module, LogLevel.WARN, messageFn);
+  }
+
+  export function error(module: MCLogModule, messageFn: () => string): void {
+    log(module, LogLevel.ERROR, messageFn);
   }
 };
 
