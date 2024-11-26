@@ -32,7 +32,7 @@ export function parseResponseContentRange(contentRangeHeader: string): IMCHttpRe
     throw new Error('Invalid Content Range format. range-start, range-end and size should be specified.');
   }
 
-  if (isNaN(rangeStart) || isNaN(rangeEnd) || isNaN(size)) {
+  if (rangeStart && isNaN(rangeStart) || rangeEnd && isNaN(rangeEnd) || size && isNaN(size)) {
     throw new Error('Invalid Content Range values: range-start, range-end, and size must be integers.');
   }
 

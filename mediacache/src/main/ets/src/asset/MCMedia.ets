@@ -80,11 +80,12 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
           throw new Error("Failed to restore URL from the provided proxy target.");
         }
 
+        const loaders = new Array<IMCMediaContentLoader>();
+
         if ( this.mMetadata && this.mNodeList.head ) {
           const requestRangeHeader = dataRequest.proxyRequest.headers['range'];
           const totalLength = this.mMetadata.totalLength;
           let loadRange = requestRangeHeader ? this.parseLoadRange(requestRangeHeader, totalLength) : new MCRange(0, totalLength);
-          const loaders = new Array<IMCMediaContentLoader>();
           let curNode: IMCMediaContentNode | undefined = this.mNodeList.findClosestLeftNode(loadRange.location) ?? this.mNodeList.head;
 
           MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCMedia][mediaId: ${this.id}]: Load range parsed as: ${JSON.stringify(loadRange)}`);
@@ -122,17 +123,15 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
               headers: dataRequest.proxyRequest.headers,
             }));
           }
-
-          MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCMedia][mediaId: ${this.id}]: Resolved ${loaders.length} loaders.`);
-
-          return loaders;
         }
-
-        const request: IMCMediaHttpContentRequest = {
-          url: url,
-          headers: dataRequest.proxyRequest.headers
-        };
-        return [new MCMediaHttpContentLoader(this, request)];
+        else {
+          loaders.push(new MCMediaHttpContentLoader(this, {
+            url: url,
+            headers: dataRequest.proxyRequest.headers
+          }));
+        }
+        MCLogger.log(MCLogger.LogLevel.DEBUG, `[MCMedia][mediaId: ${this.id}]: Resolved ${loaders.length} loaders.`);
+        return loaders;
       }
       catch (error) {
         MCLogger.log(MCLogger.LogLevel.ERROR, `[MCMedia][mediaId: ${this.id}]: Error while resolving content loaders: ${error.message}\nStack: ${error.stack}`);
