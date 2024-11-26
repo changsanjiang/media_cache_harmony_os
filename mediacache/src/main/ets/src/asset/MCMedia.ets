@@ -135,7 +135,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
                   headers: proxyRequest.headers,
                 }));
               }
-              loaders.push(new MCMediaFileContentLoader(content, intersection));
+              loaders.push(new MCMediaFileContentLoader(await content.readwriteRetain(), intersection));
               loadRange = new MCRange(intersection.max, loadRange.max - intersection.max);
             }
             if ( loadRange.length === 0 || readableRange.location > loadRange.max ) {
@@ -153,7 +153,8 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
           }
         }
         else if (this.mMetadata && this.mMetadata.totalLength !== 0) { // empty content;
-          loaders.push(new MCMediaFileContentLoader(new MCMediaContent(this.id, 0, ''), new MCRange(0, 0)));
+          const emptyContent = new MCMediaContent(this.id, 0, '');
+          loaders.push(new MCMediaFileContentLoader(await emptyContent.readwriteRetain(), new MCRange(0, 0)));
         }
         else {
           loaders.push(new MCMediaHttpContentLoader(this, {
