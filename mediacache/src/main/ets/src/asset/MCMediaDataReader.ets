@@ -343,10 +343,10 @@ export class MCMediaDataReader implements IMCMediaDataReader {
               byteRangeAccessSupported: true,
             };
             this.mResponse = response;
-          }
 
-          if (totalLength === 0) { // empty content;
-            this.mDone = true;
+            if (totalLength === 0) { // empty content;
+              this.mDone = true;
+            }
           }
           
           Promise.resolve(this.mResponseReadyCallback).then((callback) => {
