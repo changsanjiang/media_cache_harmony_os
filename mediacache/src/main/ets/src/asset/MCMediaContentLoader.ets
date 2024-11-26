@@ -108,6 +108,7 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
       this.mContent = content;
       this.mRange = range;
       this.mOffset = range.location;
+      this.mDone = range.length === 0;
       this.mContent.on('dataWritten', this.onDataLoaded); // 实现类通知抽象类可加载数据了;
       return this.mPreparedCallback;
     }).then((callback) => {

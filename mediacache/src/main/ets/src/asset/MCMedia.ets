@@ -17,6 +17,7 @@ import { MCMediaFileContentLoader } from "./MCMediaFileContentLoader";
 import MCLogger from "../utils/MCLogger";
 import { IMCHttpRequest } from "../defines/IMCHttpRequest";
 import { MCLogModule } from "../defines/MCLogModule";
+import { MCMediaContent } from "./MCMediaContent";
 
 export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   readonly id: string;
@@ -83,7 +84,13 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
         this.mMetadata = await MCDatabase.queryMediaMetadata(this.id);
         if (this.mMetadata) {
           MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Metadata loaded. ContentType: ${this.mMetadata?.contentType}, TotalLength: ${this.mMetadata?.totalLength}.`);
-          this.restructureContents();
+          if (this.mMetadata.totalLength !== 0) {
+            this.restructureContents();
+          }
+          else {
+            this.mAssembled = true;
+            this.mFullyTrimmed = true;
+          }
         }
       }
       catch (error) {
@@ -103,7 +110,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
         }
 
         const loaders: IMCMediaContentLoader[] = [];
-        if (this.mMetadata && this.mNodeList.head) {
+        if (this.mMetadata && this.mMetadata.totalLength !== 0 && this.mNodeList.head) {
           const requestRangeHeader = proxyRequest.headers['range'];
           const totalLength = this.mMetadata.totalLength;
           let loadRange = requestRangeHeader ? this.parseLoadRange(requestRangeHeader, totalLength) : new MCRange(0, totalLength);
@@ -144,6 +151,9 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
               headers: proxyRequest.headers,
             }));
           }
+        }
+        else if (this.mMetadata && this.mMetadata.totalLength !== 0) { // empty content;
+          loaders.push(new MCMediaFileContentLoader(new MCMediaContent(this.id, 0, ''), new MCRange(0, 0)));
         }
         else {
           loaders.push(new MCMediaHttpContentLoader(this, {
@@ -200,7 +210,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
         const totalLength = contentRange ? contentRange.size : contentLength;
 
         const byteRangeAccessSupported = acceptRangesHeader === 'bytes' || contentRange !== undefined;
-        if (!byteRangeAccessSupported) {
+        if (totalLength !== 0 && !byteRangeAccessSupported) {
           const errorMsg = "Byte range access not supported by server. Missing 'accept-ranges' or 'content-range'.";
           MCLogger.error(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: ${errorMsg}`);
           throw new Error(errorMsg);
