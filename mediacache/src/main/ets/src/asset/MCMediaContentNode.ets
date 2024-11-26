@@ -32,16 +32,8 @@ export class MCMediaContentNode implements IMCMediaContentNode {
     this.mContents.push(content);
   }
 
-  trimExcessContentsWithTest(predicate: (content: IMCMediaContent, stop: IMCStopFlag) => boolean): void {
-    const stop: IMCStopFlag = { value: false };
-    for (let i = this.mContents.length - 1; i >= 0; i--) {
-      const content = this.mContents[i];
-      const shouldRemove = predicate(content, stop);
-      if ( shouldRemove ) {
-        this.mContents.splice(i, 1);
-      }
-      if ( stop.value ) break;
-    }
+  filterContents(predicate: (content: IMCMediaContent) => boolean): IMCMediaContent[] {
+    return this.mContents.filter(predicate);
   }
 
   removeContent(content: IMCMediaContent): void {

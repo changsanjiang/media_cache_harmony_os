@@ -7,6 +7,6 @@ export interface IMCMediaContentNode {
   readonly placement: number;
   readonly numberOfContents: number;
   readonly longestContent?: IMCMediaContent;
-  trimExcessContentsWithTest(predicate: (content: IMCMediaContent, stop: IMCStopFlag) => boolean): void;
+  filterContents(predicate: (content: IMCMediaContent) => boolean): IMCMediaContent[];
   removeContent(content: IMCMediaContent): void;
 }

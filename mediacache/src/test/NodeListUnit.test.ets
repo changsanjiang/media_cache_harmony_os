@@ -63,6 +63,27 @@ class TestMCMediaContent implements IMCMediaContent {
   }
 
   unsafeLength: number = 0;
+
+  readDataUnsafe(position: number, buffer: ArrayBuffer, length: number): Promise<number> {
+    throw new Error('Method not implemented.');
+  }
+
+  closeReadUnsafe(): Promise<boolean> {
+    throw new Error('Method not implemented.');
+  }
+
+  writeDataUnsafe(data: ArrayBuffer, length: number): Promise<number> {
+    throw new Error('Method not implemented.');
+  }
+
+  closeWriteUnsafe(): Promise<boolean> {
+    throw new Error('Method not implemented.');
+  }
+
+  destroyUnsafe(): Promise<boolean> {
+    throw new Error('Method not implemented.');
+  }
+
   readwriteCount: Promise<number> = Promise.resolve(0);
 
   readwriteRetain(): Promise<IMCMediaContent> {
@@ -73,6 +94,13 @@ class TestMCMediaContent implements IMCMediaContent {
     throw new Error('Method not implemented.');
   }
 
+  readwriteRetainUnsafe(): IMCMediaContent {
+    throw new Error('Method not implemented.');
+  }
+
+  readwriteReleaseUnsafe(): void {
+    throw new Error('Method not implemented.');
+  }
 }
 
 function testAdd() {

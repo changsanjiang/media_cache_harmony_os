@@ -1,8 +1,10 @@
 import { IMCMediaContent } from "../defines/IMCMediaContent";
 import { MCReadwriteReference } from "../utils/MCReadwriteReference";
 import { fileIo } from '@kit.CoreFileKit';
+import MCLogger from "../utils/MCLogger";
 
 export class MCMediaContent extends MCReadwriteReference<MCMediaContent> implements IMCMediaContent {
+  private mMediaId: string;
   private mLength = 0;
   private mFilePath: string;
   private mDestroyed = false;
@@ -10,13 +12,16 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
   private mWriter?: fileIo.File = undefined;
   private mDataWrittenCallbacks: Set<(content: IMCMediaContent, length: number) => void> = new Set();
 
-  constructor(contentOffset: number, filePath: string, length: number = 0) {
+  constructor(mediaId: string, contentOffset: number, filePath: string, length: number = 0) {
     super();
+    this.mMediaId = mediaId;
     this.contentOffset = contentOffset;
     this.mFilePath = filePath;
     if (length > 0) {
       this.mLength = length;
     }
+
+    MCLogger.log(MCLogger.LogLevel.INFO, () => `[MCMediaContent][media: ${this.mMediaId}, offset: ${this.contentOffset}]: MCMediaContent instance created with length ${length}.`);
   }
 
   readonly contentOffset: number;
@@ -49,9 +54,9 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
     return this.mLock.lockAsync(async () => this.closeWriteUnsafe());
   }
 
-  destroy(): Promise<boolean> {
-    return this.mLock.lockAsync(async () => this.destroyUnsafe());
-  }
+  // destroy(): Promise<boolean> {
+  //   return this.mLock.lockAsync(async () => this.destroyUnsafe());
+  // }
 
   on(_: "dataWritten", callback: (content: IMCMediaContent, length: number) => void): Promise<void> {
     return this.mLock.lockAsync(() => { this.mDataWrittenCallbacks.add(callback) });
@@ -62,91 +67,160 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
   }
 
   async readDataUnsafe(position: number, buffer: ArrayBuffer, length: number): Promise<number> {
-    if (buffer.byteLength === 0) {
-      throw new Error("Buffer cannot be empty.");
-    }
+    MCLogger.log(MCLogger.LogLevel.DEBUG, () => `[MCMediaContent][media: ${this.mMediaId}, offset: ${this.contentOffset}] Attempting to read data from position ${position} with length ${length}.`);
 
-    if (this.mDestroyed) {
-      throw new Error("Content has been destroyed, cannot read data.");
-    }
+    try {
+      if (buffer.byteLength === 0) {
+        MCLogger.log(MCLogger.LogLevel.ERROR, () => `[MCMediaContent][media: ${this.mMediaId}, offset: ${this.contentOffset}] Buffer is empty. Read operation failed.`);
+        throw new Error("Buffer cannot be empty.");
+      }
 
-    if (this.mReadwriteCount === 0) {
-      throw new Error("Please retain a readwrite count before reading data.");
-    }
+      if (this.mDestroyed) {
+        MCLogger.log(MCLogger.LogLevel.ERROR, () => `[MCMediaContent][media: ${this.mMediaId}, offset: ${this.contentOffset}] Content has been destroyed, cannot read data.`);
+        throw new Error("Content has been destroyed, cannot read data.");
+      }
 
-    if (position < this.contentOffset || position >= this.contentOffset + this.mLength) {
-      throw new Error("Position is out of content range.");
-    }
+      if (this.mReadwriteCount === 0) {
+        MCLogger.log(MCLogger.LogLevel.ERROR, () => `[MCMediaContent][media: ${this.mMediaId}, offset: ${this.contentOffset}] Readwrite count is 0. Cannot read data.`);
+        throw new Error("Please retain a readwrite count before reading data.");
+      }
 
-    if ( this.mReader == undefined ) {
-      this.mReader = await fileIo.open(this.mFilePath, fileIo.OpenMode.READ_ONLY | fileIo.OpenMode.CREATE);
-    }
+      if (position < this.contentOffset || position >= this.contentOffset + this.mLength) {
+        MCLogger.log(MCLogger.LogLevel.ERROR, () => `[MCMediaContent][media: ${this.mMediaId}, offset: ${this.contentOffset}] Position out of range: position ${position}, content length ${this.mLength}.`);
+        throw new Error("Position is out of content range.");
+      }
 
-    return fileIo.read(this.mReader.fd, buffer, { offset: position - this.contentOffset, length: Math.min(buffer.byteLength, length) });
+      if (!this.mReader) {
+        this.mReader = await fileIo.open(this.mFilePath, fileIo.OpenMode.READ_ONLY | fileIo.OpenMode.CREATE);
+        MCLogger.log(MCLogger.LogLevel.DEBUG, () => `[MCMediaContent][media: ${this.mMediaId}, offset: ${this.contentOffset}] Reader created.`);
+      }
+
+      const len = await fileIo.read(this.mReader.fd, buffer, { offset: position - this.contentOffset, length: Math.min(buffer.byteLength, length) });
+      MCLogger.log(MCLogger.LogLevel.DEBUG, () => `[MCMediaContent][media: ${this.mMediaId}, offset: ${this.contentOffset}] Read data successful: ${len} bytes.`);
+      return len;
+    } catch (error) {
+      MCLogger.log(MCLogger.LogLevel.ERROR, () => `[MCMediaContent][media: ${this.mMediaId}, offset: ${this.contentOffset}] Error during read: ${error.message}`);
+      throw error as Error;
+    }
   }
 
   async closeReadUnsafe(): Promise<boolean> {
-    if ( this.mReadwriteCount > 0 ) {
+    MCLogger.log(MCLogger.LogLevel.DEBUG, () => `[MCMediaContent][media: ${this.mMediaId}, offset: ${this.contentOffset}] Attempting to close read operation.`);
+
+    if (this.mReadwriteCount > 0) {
+      MCLogger.log(MCLogger.LogLevel.DEBUG, () => `[MCMediaContent][media: ${this.mMediaId}, offset: ${this.contentOffset}] Cannot close read operation. Readwrite count is greater than 0.`);
       return false;
     }
-    if ( this.mReader != undefined ) {
-      await fileIo.close(this.mReader);
-      this.mReader = undefined;
+
+    try {
+      if (this.mReader != undefined) {
+        await fileIo.close(this.mReader);
+        this.mReader = undefined;
+        MCLogger.log(MCLogger.LogLevel.DEBUG, () => `[MCMediaContent][media: ${this.mMediaId}, offset: ${this.contentOffset}] Reader closed.`);
+      }
+      return true;
     }
-    return true;
+    catch (error) {
+      MCLogger.log(MCLogger.LogLevel.ERROR, () => `[MCMediaContent][media: ${this.mMediaId}, offset: ${this.contentOffset}] Error closing read operation: ${error.message}`);
+      throw error as Error;
+    }
   }
 
   async writeDataUnsafe(data: ArrayBuffer, length: number): Promise<number> {
-    if ( this.mDestroyed ) {
-      throw new Error("Content has been destroyed. Cannot write data.");
-    }
-    if ( this.mReadwriteCount === 0 ) {
-      throw new Error("Please retain a readwrite count before writing data.");
-    }
+    MCLogger.log(MCLogger.LogLevel.DEBUG, () => `[MCMediaContent][media: ${this.mMediaId}, offset: ${this.contentOffset}] Attempting to write data of length ${length}.`);
 
-    if ( this.mWriter == undefined ) {
-      this.mWriter = await fileIo.open(this.mFilePath, fileIo.OpenMode.WRITE_ONLY | fileIo.OpenMode.APPEND | fileIo.OpenMode.CREATE);
-    }
-    const lengthWritten = await fileIo.write(this.mWriter.fd, data, { length: length });
-    this.mLength += lengthWritten;
-    Promise.resolve(this.mDataWrittenCallbacks.values()).then((callbacks) => {
-      for (let callback of callbacks) {
-        callback(this, lengthWritten);
+    try {
+      if (data.byteLength < length) {
+        MCLogger.log(MCLogger.LogLevel.ERROR, () => `[MCMediaContent][media: ${this.mMediaId}, offset: ${this.contentOffset}] Data length mismatch. Cannot write data.`);
+        throw new Error("Data length mismatch.");
       }
-    });
-    return lengthWritten;
+
+      if (this.mDestroyed) {
+        MCLogger.log(MCLogger.LogLevel.ERROR, () => `[MCMediaContent][media: ${this.mMediaId}, offset: ${this.contentOffset}] Content has been destroyed. Cannot write data.`);
+        throw new Error("Content has been destroyed. Cannot write data.");
+      }
+
+      if (this.mReadwriteCount === 0) {
+        MCLogger.log(MCLogger.LogLevel.ERROR, () => `[MCMediaContent][media: ${this.mMediaId}, offset: ${this.contentOffset}] Readwrite count is 0. Cannot write data.`);
+        throw new Error("Please retain a readwrite count before writing data.");
+      }
+
+      if (this.mWriter == undefined) {
+        this.mWriter = await fileIo.open(this.mFilePath, fileIo.OpenMode.WRITE_ONLY | fileIo.OpenMode.APPEND | fileIo.OpenMode.CREATE);
+        MCLogger.log(MCLogger.LogLevel.DEBUG, () => `[MCMediaContent][media: ${this.mMediaId}, offset: ${this.contentOffset}] Writer created.`);
+      }
+
+      const lengthWritten = await fileIo.write(this.mWriter.fd, data, { length: length });
+      this.mLength += lengthWritten;
+      MCLogger.log(MCLogger.LogLevel.DEBUG, () => `[MCMediaContent][media: ${this.mMediaId}, offset: ${this.contentOffset}] Successfully wrote data: ${lengthWritten} bytes.`);
+
+      Promise.resolve(this.mDataWrittenCallbacks.values()).then((callbacks) => {
+        for (let callback of callbacks) {
+          callback(this, lengthWritten);
+        }
+      });
+
+      return lengthWritten;
+    }
+    catch (error) {
+      MCLogger.log(MCLogger.LogLevel.ERROR, () => `[MCMediaContent][media: ${this.mMediaId}, offset: ${this.contentOffset}] Error during write: ${error.message}`);
+      throw error as Error;
+    }
   }
 
   async closeWriteUnsafe(): Promise<boolean> {
-    if ( this.mReadwriteCount > 0 ) {
+    MCLogger.log(MCLogger.LogLevel.DEBUG, () => `[MCMediaContent][media: ${this.mMediaId}, offset: ${this.contentOffset}] Attempting to close write operation.`);
+
+    if (this.mReadwriteCount > 0) {
+      MCLogger.log(MCLogger.LogLevel.DEBUG, () => `[MCMediaContent][media: ${this.mMediaId}, offset: ${this.contentOffset}] Cannot close write operation. Readwrite count is greater than 0.`);
       return false;
     }
-    if ( this.mWriter != undefined ) {
-      await fileIo.close(this.mWriter);
-      this.mWriter = undefined;
+
+    try {
+      if (this.mWriter != undefined) {
+        await fileIo.close(this.mWriter);
+        this.mWriter = undefined;
+        MCLogger.log(MCLogger.LogLevel.DEBUG, () => `[MCMediaContent][media: ${this.mMediaId}, offset: ${this.contentOffset}] Writer closed.`);
+      }
+      return true;
     }
-    return true;
+    catch (error) {
+      MCLogger.log(MCLogger.LogLevel.ERROR, () => `[MCMediaContent][media: ${this.mMediaId}, offset: ${this.contentOffset}] Error closing write operation: ${error.message}`);
+      throw error as Error;
+    }
   }
 
   async destroyUnsafe(): Promise<boolean> {
-    if ( this.mDestroyed ) {
+    MCLogger.log(MCLogger.LogLevel.INFO, () => `[MCMediaContent][media: ${this.mMediaId}, offset: ${this.contentOffset}] Attempting to destroy content.`);
+
+    if (this.mDestroyed) {
+      MCLogger.log(MCLogger.LogLevel.DEBUG, () => `[MCMediaContent][media: ${this.mMediaId}, offset: ${this.contentOffset}] Content already destroyed.`);
       return true;
     }
 
-    if ( this.mReadwriteCount > 0 ) {
+    if (this.mReadwriteCount > 0) {
+      MCLogger.log(MCLogger.LogLevel.DEBUG, () => `[MCMediaContent][media: ${this.mMediaId}, offset: ${this.contentOffset}] Cannot destroy content. Readwrite count is greater than 0.`);
       return false;
     }
 
-    if ( this.mReader != undefined ) {
-      await fileIo.close(this.mReader);
-      this.mReader = undefined;
+    try {
+      if (this.mReader != undefined) {
+        await fileIo.close(this.mReader);
+        this.mReader = undefined;
+      }
+      if (this.mWriter != undefined) {
+        await fileIo.close(this.mWriter);
+        this.mWriter = undefined;
+      }
+      try { await fileIo.unlink(this.mFilePath); } catch (e) { }
+      this.mDestroyed = true;
+
+      MCLogger.log(MCLogger.LogLevel.INFO, () => `[MCMediaContent][media: ${this.mMediaId}, offset: ${this.contentOffset}] Content destroyed successfully.`);
+      return true;
     }
-    if ( this.mWriter != undefined ) {
-      await fileIo.close(this.mWriter);
-      this.mWriter = undefined;
+    catch (error) {
+      MCLogger.log(MCLogger.LogLevel.ERROR, () => `[MCMediaContent][media: ${this.mMediaId}, offset: ${this.contentOffset}] Error during destruction: ${error.message}`);
+      throw error as Error;
     }
-    try { await fileIo.unlink(this.mFilePath); } catch (e) { }
-    this.mDestroyed = true;
-    return true;
   }
 }

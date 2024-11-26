@@ -3,11 +3,13 @@ import { MCMediaContent } from "./MCMediaContent";
 import { fileIo, statfs } from "@kit.CoreFileKit";
 
 export class MCMediaContentProvider {
+  private mMediaId: string;
   private mDir: string;
   private mPrefix: string; // file name prefix of content
   private mLastIndexes = new Map<number, number>(); // key: contentOffset, value: index;
 
-  constructor(dir: string, prefix: string) {
+  constructor(mediaId: string, dir: string, prefix: string) {
+    this.mMediaId = mediaId;
     this.mDir = dir;
     this.mPrefix = prefix;
   }
@@ -23,7 +25,7 @@ export class MCMediaContentProvider {
       const index = parseInt(props[1], 10);
       const lastIndex = this.mLastIndexes.get(contentOffset);
       if ( lastIndex === undefined || lastIndex < index ) this.mLastIndexes.set(contentOffset, index);
-      return new MCMediaContent(contentOffset, filePath, fileSize);
+      return new MCMediaContent(this.mMediaId, contentOffset, filePath, fileSize);
     }));
   }
 
@@ -32,7 +34,7 @@ export class MCMediaContentProvider {
     const index = lastIndex === undefined ? 0 : lastIndex + 1;
     const fileName = this.generateFileName(contentOffset, index);
     const filePath = `${this.mDir}/${fileName}`;
-    const content = new MCMediaContent(contentOffset, filePath);
+    const content = new MCMediaContent(this.mMediaId, contentOffset, filePath);
     this.mLastIndexes.set(contentOffset, index);
     return content;
   }
