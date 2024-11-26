@@ -345,8 +345,10 @@ export class MCMediaDataReader implements IMCMediaDataReader {
             this.mResponse = response;
 
             if (totalLength === 0) { // empty content;
-              MCLogger.info(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Empty content.`);
-              this.prepareNextLoader();
+              this.mDone = true;
+              MCLogger.info(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Empty content. Marking reader as done.`);
+              this.clear(this.mLoaders[this.mIndex]);
+              this.mMedia?.readwriteRelease();
             }
           }
 
