@@ -2,8 +2,8 @@ import { IMCAsset } from "../../defines/IMCAsset";
 import { IMCAssetReader } from "../../defines/IMCAssetReader";
 import { IMCHttpRequest } from "../../defines/IMCHttpRequest";
 import { IMCMedia } from "../../defines/IMCMedia";
+import { MCDataDecryptHandler } from "../../defines/MCDataDecryptHandler";
 import { MCMedia } from "../../media/MCMedia";
-import { MCMediaDataReader } from "../../media/MCMediaDataReader";
 import { MCReadwriteReference } from "../../utils/MCReadwriteReference";
 import MCRoot from "../../utils/MCRoot";
 
@@ -31,7 +31,7 @@ export class FILEAsset extends MCReadwriteReference<FILEAsset> implements IMCAss
     return this.mMedia.prepare();
   }
 
-  async createReaderBy(clientId: number, request: IMCHttpRequest, decrypt?: (request: IMCHttpRequest, offset: number, data: ArrayBuffer, len: number) => number | Promise<number>): Promise<IMCAssetReader> {
+  async createReaderBy(clientId: number, request: IMCHttpRequest, decrypt?: MCDataDecryptHandler): Promise<IMCAssetReader> {
     // TODO: 创建 AssetReader;
     throw new Error(``);
   }

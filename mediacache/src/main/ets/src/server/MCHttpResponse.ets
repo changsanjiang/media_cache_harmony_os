@@ -1,11 +1,12 @@
 import { ArkTSUtils } from "@kit.ArkTS";
-import { IMCMediaDataReader } from "../defines/IMCMediaDataReader";
+import { IMCDataReader } from "../defines/IMCDataReader";
 import MCLogger from "../utils/MCLogger";
 import { IMCHttpRequest } from "../defines/IMCHttpRequest";
 import { IMCHttpResponse } from "../defines/IMCHttpResponse";
-import { IMCMediaDataOkResponse,
-  IMCMediaDataPartialContentResponse,
-  IMCMediaDataResponse, MCMediaDataResponseType } from "../defines/IMCMediaDataResponse";
+import { IMCDataOkResponse,
+  IMCDataPartialContentResponse,
+  IMCDataResponse,
+  MCDataResponseStatusCode } from "../defines/IMCDataResponse";
 import { MCMediaDataReader } from "../media/MCMediaDataReader";
 import { MCLogModule } from "../defines/MCLogModule";
 
@@ -13,7 +14,7 @@ export class MCHttpResponse implements IMCHttpResponse {
   private mClientId: number;
   /// headers是否已发送给客户端;
   private mHeadersSent = false;
-  private mDataReader?: IMCMediaDataReader = undefined;
+  private mDataReader?: IMCDataReader = undefined;
   private mNewDataCallback?: (response: IMCHttpResponse) => void = undefined;
   private mAbortedCallback?: (response: IMCHttpResponse, error?: Error) => void = undefined;
   private mAborted = false;
@@ -180,7 +181,7 @@ export class MCHttpResponse implements IMCHttpResponse {
     Promise.resolve(this.mAbortedCallback).then((callback) => callback?.(this, error));
   }
 
-  private generateResponseHeaders(dataResponse?: IMCMediaDataResponse): string | undefined {
+  private generateResponseHeaders(dataResponse?: IMCDataResponse): string | undefined {
     // https://datatracker.ietf.org/doc/html/rfc9110#name-example-message-exchange
     //
     // HTTP/1.1 200 OK
@@ -208,14 +209,14 @@ export class MCHttpResponse implements IMCHttpResponse {
     //
 
     if (!dataResponse) {
-      MCLogger.error(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Cannot generate headers: Response data is undefined.`);
+      MCLogger.warn(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Cannot generate headers: Response data is undefined.`);
       return undefined;
     }
 
     const currentDate = new Date().toUTCString();
-    switch (dataResponse.type) {
-      case MCMediaDataResponseType.OK: {
-        const okResponse = dataResponse as IMCMediaDataOkResponse;
+    switch (dataResponse.statusCode) {
+      case MCDataResponseStatusCode.OK: {
+        const okResponse = dataResponse as IMCDataOkResponse;
         return (
           `HTTP/1.1 200 OK\r\n` +
             `Content-Type: ${okResponse.contentType}\r\n` +
@@ -225,8 +226,8 @@ export class MCHttpResponse implements IMCHttpResponse {
             `\r\n`
         );
       }
-      case MCMediaDataResponseType.PARTIAL_CONTENT: {
-        const partialResponse = dataResponse as IMCMediaDataPartialContentResponse;
+      case MCDataResponseStatusCode.PARTIAL_CONTENT: {
+        const partialResponse = dataResponse as IMCDataPartialContentResponse;
         return (
           `HTTP/1.1 206 Partial Content\r\n` +
             `Content-Range: bytes ${partialResponse.contentOffset}-${partialResponse.contentOffset + partialResponse.contentLength - 1}/${partialResponse.totalLength}\r\n` +
@@ -237,11 +238,11 @@ export class MCHttpResponse implements IMCHttpResponse {
             `\r\n`
         );
       }
-      case MCMediaDataResponseType.BAD_REQUEST:
+      case MCDataResponseStatusCode.BAD_REQUEST:
         return `HTTP/1.1 400 Bad Request\r\nDate: ${currentDate}\r\n\r\n`;
       default: {
-        if ( dataResponse.type !== MCMediaDataResponseType.INTERNAL_ERROR ) {
-          MCLogger.error(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Unsupported response type: ${dataResponse.type}`);
+        if ( dataResponse.statusCode !== MCDataResponseStatusCode.INTERNAL_ERROR ) {
+          MCLogger.warn(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Unsupported response with status code: ${dataResponse.statusCode}`);
         }
         return `HTTP/1.1 500 Internal Server Error\r\nDate: ${currentDate}\r\n\r\n`;
       }

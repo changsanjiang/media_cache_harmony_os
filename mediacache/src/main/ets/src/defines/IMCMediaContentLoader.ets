@@ -21,4 +21,7 @@ export interface IMCMediaContentLoader {
 
   on(event: 'aborted', callback: (loader: IMCMediaContentLoader, error?: Error) => void): Promise<void>;
   off(event: 'aborted'): Promise<void>;
+
+  on(event: 'done', callback: (loader: IMCMediaContentLoader) => void): Promise<void>;
+  off(event: 'done'): Promise<void>;
 }

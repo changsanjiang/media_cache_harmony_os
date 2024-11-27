@@ -1,6 +1,7 @@
-import { IMCAssetReader } from "./IMCAssetReader";
+import { IMCDataReader } from "./IMCDataReader";
 import { IMCHttpRequest } from "./IMCHttpRequest";
 import { IMCReadwriteReference } from "./IMCReadwriteReference";
+import { MCDataDecryptHandler } from "./MCDataDecryptHandler";
 
 /**
  一个资产中包含单个或多个媒体, 每个媒体对应一个 http 地址;
@@ -16,5 +17,5 @@ export interface IMCAsset extends IMCReadwriteReference<IMCAsset> {
   readonly completeness: Promise<number>; // 完成度; [0, 1];
 
   prepare(): Promise<void>;
-  createReaderBy(clientId: number, request: IMCHttpRequest, decrypt?: (request: IMCHttpRequest, offset: number, data: ArrayBuffer, len: number) => number | Promise<number>): Promise<IMCAssetReader>;
+  createReaderBy(clientId: number, request: IMCHttpRequest, decrypt?: MCDataDecryptHandler): Promise<IMCDataReader>;
 }
