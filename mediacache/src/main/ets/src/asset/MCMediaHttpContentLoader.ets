@@ -33,7 +33,7 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
   }
 
   protected async onPrepare(): Promise<void> {
-    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Preparing MCMediaHttpContentLoader for URL: ${this.request.url}.`);
+    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Preparing content loader for URL: ${this.request.url}.`);
 
     const requestRange = this.request.range ? this.request.range : parseRequestRangeIfDefined(this.request.headers['range']);
     const downloadRangeHeader = requestRange?.toRangeHeader(); // 'bytes=xxx-xxx'
@@ -65,7 +65,7 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
     return this.mLock.lockAsync(async () => {
       try {
         if ( this.mAborted || this.mDone ) {
-          MCLogger.warn(MCLogModule.MCMediaContentLoader, () => 'Loader is aborted or done, ignoring headers.');
+          MCLogger.warn(MCLogModule.MCMediaContentLoader, () => 'Content loader is aborted or done, ignoring headers.');
           return;
         }
 
@@ -111,7 +111,7 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
 
     return this.mLock.lockAsync(async () => {
       if ( this.mAborted || this.mDone ) {
-        MCLogger.warn(MCLogModule.MCMediaContentLoader, () => 'Loader is aborted or done, ignoring received data.');
+        MCLogger.warn(MCLogModule.MCMediaContentLoader, () => 'Content loader is aborted or done, ignoring received data.');
         return;
       }
 
