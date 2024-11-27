@@ -17,19 +17,19 @@ namespace MCLogger {
       switch (level) {
         case MCLogLevel.TRACE:
         case MCLogLevel.DEBUG: {
-          console.debug(messageFn());
+          console.debug(message);
           break;
         }
         case MCLogLevel.INFO: {
-          console.info(messageFn());
+          console.info(message);
           break;
         }
         case MCLogLevel.WARN: {
-          console.warn(messageFn());
+          console.warn(message);
           break;
         }
         case MCLogLevel.ERROR: {
-          console.error(messageFn());
+          console.error(message);
           break;
         }
       }
