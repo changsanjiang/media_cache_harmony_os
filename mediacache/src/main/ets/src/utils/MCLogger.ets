@@ -1,16 +1,9 @@
+import { MCLogLevel } from '../defines/MCLogLevel';
 import { MCLogModule } from '../defines/MCLogModule';
 
 namespace MCLogger {
-  export enum LogLevel {
-    TRACE,
-    DEBUG,
-    INFO,
-    WARN,
-    ERROR,
-  }
-
   /** 日志等级; */
-  export let logLevel = LogLevel.DEBUG;
+  export let logLevel = MCLogLevel.DEBUG;
 
   /** 是否启用日志; */
   export let enabled = true;
@@ -18,24 +11,24 @@ namespace MCLogger {
   /** 禁止哪些模块的日志; */
   export let disabledModules: MCLogModule[] = [];
 
-  export function log(module: MCLogModule, level: LogLevel, messageFn: () => string): void {
+  export function log(module: MCLogModule, level: MCLogLevel, messageFn: () => string): void {
     if ( enabled && level >= logLevel && !disabledModules.includes(module) ) {
       const message = `[${module}] ${messageFn()}`;
       switch (level) {
-        case LogLevel.TRACE:
-        case LogLevel.DEBUG: {
+        case MCLogLevel.TRACE:
+        case MCLogLevel.DEBUG: {
           console.debug(messageFn());
           break;
         }
-        case LogLevel.INFO: {
+        case MCLogLevel.INFO: {
           console.info(messageFn());
           break;
         }
-        case LogLevel.WARN: {
+        case MCLogLevel.WARN: {
           console.warn(messageFn());
           break;
         }
-        case LogLevel.ERROR: {
+        case MCLogLevel.ERROR: {
           console.error(messageFn());
           break;
         }
@@ -44,23 +37,23 @@ namespace MCLogger {
   }
 
   export function trace(module: MCLogModule, messageFn: () => string): void {
-    log(module, LogLevel.TRACE, messageFn);
+    log(module, MCLogLevel.TRACE, messageFn);
   }
 
   export function debug(module: MCLogModule, messageFn: () => string): void {
-    log(module, LogLevel.DEBUG, messageFn);
+    log(module, MCLogLevel.DEBUG, messageFn);
   }
 
   export function info(module: MCLogModule, messageFn: () => string): void {
-    log(module, LogLevel.INFO, messageFn);
+    log(module, MCLogLevel.INFO, messageFn);
   }
 
   export function warn(module: MCLogModule, messageFn: () => string): void {
-    log(module, LogLevel.WARN, messageFn);
+    log(module, MCLogLevel.WARN, messageFn);
   }
 
   export function error(module: MCLogModule, messageFn: () => string): void {
-    log(module, LogLevel.ERROR, messageFn);
+    log(module, MCLogLevel.ERROR, messageFn);
   }
 };
 
