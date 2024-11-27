@@ -1,5 +1,5 @@
 import { describe, beforeAll, beforeEach, afterEach, afterAll, it, expect } from '@ohos/hypium';
-import { MCMediaContentNodeList } from '../main/ets/src/asset/MCMediaContentNodeList';
+import { MCMediaContentNodeList } from '../main/ets/src/media/MCMediaContentNodeList';
 import { IMCMediaContent } from '../main/ets/src/defines/IMCMediaContent';
 import { MCLogLevel } from '../main/ets/src/defines/MCLogLevel';
 import MCLogger from '../main/ets/src/utils/MCLogger';

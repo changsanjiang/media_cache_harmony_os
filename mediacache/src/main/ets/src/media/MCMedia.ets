@@ -21,16 +21,18 @@ import { MCMediaContent } from "./MCMediaContent";
 
 export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   readonly id: string;
+  private mDir: string;
   private mMetadata?: IMCMediaMetadata = undefined;
   private mContentProvider?: MCMediaContentProvider = undefined;
   private mNodeList = new MCMediaContentNodeList();
   private mAssembled = false; // 是否已组合完成, 是否已得到完整内容; 虽然得到了完整内容, 但是文件夹下可能还存在正在读取的冗余数据;
   private mFullyTrimmed = false; // 所有冗余数据都已删除;
 
-  constructor(id: string) {
+  constructor(id: string, dir: string) {
     super();
     this.id = id;
-    MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${id}]: MCMedia instance created.`);
+    this.mDir = dir;
+    MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${id}]: MCMedia instance created with dir ${dir}.`);
   }
 
   get metadataReady(): Promise<boolean> {
@@ -74,11 +76,11 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     });
   }
 
-  async prepare(rootDir: string): Promise<void> {
+  async prepare(): Promise<void> {
     return this.mLock.lockAsync(async () => {
-      MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Preparing media with rootDir: ${rootDir}`);
+      MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Preparing media`);
       try {
-        this.mContentProvider = new MCMediaContentProvider(this.id, rootDir, this.id);
+        this.mContentProvider = new MCMediaContentProvider(this.id, this.mDir, this.id);
         const contents = await this.mContentProvider.prepare();
         contents?.forEach((content) => this.mNodeList.upsertNode(content.contentOffset, content));
         this.mMetadata = await MCDatabase.queryMediaMetadata(this.id);

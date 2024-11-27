@@ -7,7 +7,7 @@ import {
   IMCMediaDataPartialContentResponse,
   IMCMediaDataResponse, MCMediaDataResponseType } from "../defines/IMCMediaDataResponse";
 import MCLogger from "../utils/MCLogger";
-import MCAssetManager from "./MCAssetManager";
+import MCAssetManager from "../asset/MCAssetManager";
 import { ArkTSUtils } from "@kit.ArkTS";
 import { MCRange } from "../utils/MCRange";
 import { generateResponseContentRange } from "../defines/IMCHttpResponseContentRange";
@@ -16,6 +16,7 @@ import { MCLogModule } from "../defines/MCLogModule";
 export class MCMediaDataReader implements IMCMediaDataReader {
   private mClientId: number;
   private mProxyRequest: IMCHttpRequest;
+  private mDecrypt?: (request: IMCHttpRequest, offset: number, data: ArrayBuffer, len: number) => number | Promise<number>;
   private mLock: ArkTSUtils.locks.AsyncLock = new ArkTSUtils.locks.AsyncLock();
   private mMedia?: IMCMedia = undefined;
   private mIndex = -1;
@@ -28,9 +29,10 @@ export class MCMediaDataReader implements IMCMediaDataReader {
   private mResponse?: IMCMediaDataResponse = undefined;
   private mOffset = 0;
 
-  constructor(clientId: number, proxyRequest: IMCHttpRequest) {
+  constructor(clientId: number, proxyRequest: IMCHttpRequest, decrypt?: (request: IMCHttpRequest, offset: number, data: ArrayBuffer, len: number) => number | Promise<number>) {
     this.mClientId = clientId;
     this.mProxyRequest = proxyRequest;
+    this.mDecrypt = decrypt;
     MCLogger.info(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Instance created with request target: ${proxyRequest.requestTarget}`);
   }
 
@@ -88,6 +90,11 @@ export class MCMediaDataReader implements IMCMediaDataReader {
         const loader = this.mLoaders[this.mIndex];
         const len = await loader.readData(buffer);
         if (len > 0) {
+          if ( this.mDecrypt ) {
+            if (await this.mDecrypt(this.mProxyRequest, this.mOffset, buffer, len) != len) {
+              throw new Error(`xxx`); // 解密后的数据长度不能发生改变;
+            }
+          }
           this.mOffset += len;
           MCLogger.trace(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Read ${len} bytes. Current offset: ${this.mOffset}.`);
           if (await loader.isDone) {

@@ -6,7 +6,7 @@ import { IMCHttpResponse } from "../defines/IMCHttpResponse";
 import { IMCMediaDataOkResponse,
   IMCMediaDataPartialContentResponse,
   IMCMediaDataResponse, MCMediaDataResponseType } from "../defines/IMCMediaDataResponse";
-import { MCMediaDataReader } from "../asset/MCMediaDataReader";
+import { MCMediaDataReader } from "../media/MCMediaDataReader";
 import { MCLogModule } from "../defines/MCLogModule";
 
 export class MCHttpResponse implements IMCHttpResponse {
