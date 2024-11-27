@@ -7,7 +7,7 @@ import {
   IMCMediaDataPartialContentResponse,
   IMCMediaDataResponse, MCMediaDataResponseType } from "../defines/IMCMediaDataResponse";
 import MCLogger from "../utils/MCLogger";
-import MCMediaManager from "./MCMediaManager";
+import MCAssetManager from "./MCAssetManager";
 import { ArkTSUtils } from "@kit.ArkTS";
 import { MCRange } from "../utils/MCRange";
 import { generateResponseContentRange } from "../defines/IMCHttpResponseContentRange";
@@ -63,7 +63,7 @@ export class MCMediaDataReader implements IMCMediaDataReader {
           MCLogger.warn(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Cannot prepare as the reader has been aborted.`);
           return;
         }
-        const media = await MCMediaManager.getMediaBy(this.mProxyRequest.requestTarget);
+        const media = await MCAssetManager.getMediaBy(this.mProxyRequest.requestTarget);
         await media.readwriteRetain();
         this.mMedia = media;
         this.mLoaders = await media.getContentLoadersBy(this.mProxyRequest);

@@ -1,12 +1,12 @@
 import { IMCMedia } from '../defines/IMCMedia';
 
-namespace MCMediaManager {
+namespace MCAssetManager {
   export function getMediaBy(proxyRequestTarget: string): Promise<IMCMedia> {
     throw new Error("Method not implemented.");
   }
 }
 
-export default MCMediaManager;
+export default MCAssetManager;
 
 // @protocol MCSResponse <NSObject>
 // @property (nonatomic, readonly) NSUInteger totalLength;

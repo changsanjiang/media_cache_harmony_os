@@ -1,7 +1,9 @@
 import { describe, beforeAll, beforeEach, afterEach, afterAll, it, expect } from '@ohos/hypium';
 import { MCMediaContentNodeList } from '../main/ets/src/asset/MCMediaContentNodeList';
 import { IMCMediaContent } from '../main/ets/src/defines/IMCMediaContent';
+import { MCLogLevel } from '../main/ets/src/defines/MCLogLevel';
 import MCLogger from '../main/ets/src/utils/MCLogger';
+import MCUtils from '../main/ets/src/utils/MCUtils';
 
 export default function nodeListUnitTest() {
   describe('nodeListUnitTest', () => {
@@ -24,7 +26,7 @@ export default function nodeListUnitTest() {
       // Presets a clear action, which is performed after all test cases of the test suite end.
       // This API supports only one parameter: clear action function.
     });
-    it('assertContain', 0, () => {
+    it('assertContain', 0, async () => {
       // testAdd();
       // testFind();
       testEnum();
@@ -33,7 +35,7 @@ export default function nodeListUnitTest() {
 }
 
 function testEnum() {
-  console.log(`LEVEL_DEBUG=${MCLogger.LogLevel.DEBUG.toString()}`);
+  console.log(`LEVEL_DEBUG=${MCLogLevel.DEBUG.toString()}`);
 }
 
 class TestMCMediaContent implements IMCMediaContent {
