@@ -1,7 +1,7 @@
 import { IMCMedia } from '../defines/IMCMedia';
 
 namespace MCAssetManager {
-  export function getMediaBy(proxyRequestTarget: string): Promise<IMCMedia> {
+  export function getMediaBy(proxyRequestTarget: string): Promise<IMCMedia> { // media readwrite retained, should release after;
     throw new Error("Method not implemented.");
   }
 }
@@ -63,4 +63,12 @@ export default MCAssetManager;
 
  // - MCFileBasedAsset
  // - MCHLSAsset
+
+ 需要能够确定这个媒体属于哪个资产;
+
+ 创建一个资产, 然后初始化目录下的媒体;
+
+ HLSAsset,
+ FILEAsset,
+
  * */

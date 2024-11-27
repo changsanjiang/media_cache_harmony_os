@@ -63,8 +63,7 @@ export class MCMediaDataReader implements IMCMediaDataReader {
           MCLogger.warn(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Cannot prepare as the reader has been aborted.`);
           return;
         }
-        const media = await MCAssetManager.getMediaBy(this.mProxyRequest.requestTarget);
-        await media.readwriteRetain();
+        const media = await MCAssetManager.getMediaBy(this.mProxyRequest.requestTarget); // media readwrite retained, should release after;
         this.mMedia = media;
         this.mLoaders = await media.getContentLoadersBy(this.mProxyRequest);
         MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] ${this.mLoaders.length} content loaders initialized.`);
@@ -277,7 +276,7 @@ export class MCMediaDataReader implements IMCMediaDataReader {
 
   // loader 准备好后的回调;
   // reader 中可能会有多个 loader 串行加载数据, 当读取完前一个 loader 的数据后, 会准备读取下一个 loader 的数据;
-  private onLoaderPrepared(loader: IMCMediaContentLoader, range: MCRange): void {
+  private onLoaderPrepared(_: IMCMediaContentLoader, range: MCRange): void {
     this.mLock.lockAsync(async () => {
       try {
         if (this.mAborted || !this.mMedia) {
