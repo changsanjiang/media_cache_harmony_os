@@ -257,7 +257,7 @@ export class MCMediaDataReader implements IMCDataReader {
           this.mLock.lockAsync(() => this.mNewDataReadableCallback).then((callback) => {
             if ( callback ) {
               MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Data loaded. Executing callback.`);
-              callback.(this);
+              callback(this);
             }
           });
         });
