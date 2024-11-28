@@ -40,11 +40,17 @@ namespace MCDownload {
     signal?: MCAbortSignal;
   }
 
+  export interface DownloadResponse {
+    readonly statusCode: number;
+    readonly originalUrl: string;
+    readonly currentUrl: string;
+  }
+
   export let requestHandler: ((request: DownloadRequest) => void) | undefined = undefined;
 
   const session = rcp.createSession(MCConfigs.downloadSessionConfiguration);
 
-  export function download(request: DownloadRequest, options: Options): Promise<void> {
+  export function download(request: DownloadRequest, options: Options): Promise<DownloadResponse> {
     const config: rcp.Configuration = {
       tracing: {
         httpEventsHandler: {
