@@ -345,16 +345,17 @@ export class HLSPlaylist {
     /// #EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=500000,RESOLUTION=854x480,CODECS="avc1.64001f",PROGRAM-ID=1,URI="iframe-stream-4.m3u8"
     /// #EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=1000000,RESOLUTION=3840x2160,CODECS="hev1.1.6.L120.90",URI="iframe-stream-5.m3u8"
     else if ( tagLine.startsWith(EXT_X_I_FRAME_STREAM_INF) ) {
-      const attrsRawStr = tagLine.slice(EXT_X_I_FRAME_STREAM_INF.length);
-      const attrs = HLSDefines.parseAttributes(attrsRawStr);
+      // const attrsRawStr = tagLine.slice(EXT_X_I_FRAME_STREAM_INF.length);
+      // const attrs = HLSDefines.parseAttributes(attrsRawStr);
+      //
+      // const uriAttr = attrs.find((attr) => attr.attrName === HLS_ATTR_URI)!;
+      // const uri = attrsRawStr.slice(uriAttr.attrValueRange.location, uriAttr.attrValueRange.max);
+      // const uriStartPosition = offset + EXT_X_I_FRAME_STREAM_INF.length + uriAttr.attrValueRange.location;
 
-      const uriAttr = attrs.find((attr) => attr.attrName === HLS_ATTR_URI)!;
-      const uri = attrsRawStr.slice(uriAttr.attrValueRange.location, uriAttr.attrValueRange.max);
-      const uriStartPosition = offset + EXT_X_I_FRAME_STREAM_INF.length + uriAttr.attrValueRange.location;
-
+      // 这里不解析 iframe 的 uri, 在生成代理内容时将会被移除;
       const iframeStream = new IFrameStreamItem(offset);
-      iframeStream.uri = uri;
-      iframeStream.positions.uriStartPosition = uriStartPosition;
+      // iframeStream.uri = uri;
+      // iframeStream.positions.uriStartPosition = uriStartPosition;
       iframeStream.positions.length = tagLine.length;
       outputs.push(iframeStream);
     }

@@ -139,6 +139,15 @@ namespace HLSDefines {
 
   interface Attribute {
     // readonly pair: string;
+
+    /**
+     * https://datatracker.ietf.org/doc/html/rfc8216#section-4.2
+     An AttributeName is an unquoted string containing characters from the
+     set [A..Z], [0..9] and '-'.  Therefore, AttributeNames contain only
+     uppercase letters, not lowercase.  There MUST NOT be any whitespace
+     between the AttributeName and the '=' character, nor between the '='
+     character and the AttributeValue.
+     * */
     readonly attrName: string;
     // readonly attrValue: string;
     readonly attrValueRange: MCRange; // 双引号(如果包含)不计入范围;
@@ -148,17 +157,16 @@ namespace HLSDefines {
   /// `TYPE=SUBTITLES,GROUP-ID="subs",NAME="English",LANGUAGE="en",URI="subs_eng.m3u8"`
   export function parseAttributes(rawStr: string): Attribute[] {
     const results: Attribute[] = [];
-    let offset = 0;
-    const attrPairs = rawStr.split(`,`);
-
-    attrPairs.forEach((pair) => {
-      const separated = pair.split(`=`);
-      const attrName = separated[0];
-      const attrValue = separated[1];
-      let valueLocation = offset + attrName.length + 1; // + '='.length;
+    const regex = /([A-Z0-9\-]+)=("(?:[^"\r\n]*)"|(?:0[xX][A-F0-9]+|[0-9]+(?:\.[0-9]+)?|-?[0-9]+(?:\.[0-9]+)?|[A-Z0-9\-]+(?:x[0-9]+)?))/g;
+    while (true) {
+      const match = regex.exec(rawStr);
+      if ( !match ) break;
+      const attrName = match[1];
+      let attrValue = match[2];
+      let valueLocation = match.index + attrName.length + 1; // + '='.length;
       let valueLength = attrValue.length;
       // 处理双引号, 前后双引号不计入 value 的范围;
-      if ( attrValue.startsWith(`"`) && attrName.endsWith(`=`) ) {
+      if ( attrValue.startsWith(`"`) && attrValue.endsWith(`"`) ) {
         valueLocation += 1;
         valueLength -= 2;
       }
@@ -167,8 +175,7 @@ namespace HLSDefines {
         attrName: attrName,
         attrValueRange: valueRange
       })
-      offset += pair.length + 1; // + ','.length;
-    });
+    }
     return results;
   }
 

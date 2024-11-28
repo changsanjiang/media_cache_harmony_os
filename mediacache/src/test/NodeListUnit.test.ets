@@ -40,8 +40,18 @@ export default function nodeListUnitTest() {
 function testParsePlaylist() {
   let playlist =
 `#EXTM3U
-#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=2098852,RESOLUTION=1520x720,FRAME-RATE=24.000,CODECS="avc1.640020,mp4a.40.2"
-index-v1-a1.m3u8
+#EXT-X-TARGETDURATION:10
+#EXT-X-ALLOW-CACHE:YES
+#EXT-X-PLAYLIST-TYPE:VOD
+#EXT-X-VERSION:6
+#EXT-X-MEDIA-SEQUENCE:1
+#EXT-X-MAP:URI="init-v1-a1.mp4"
+#EXTINF:10.417,
+seg-1-v1-a1.m4s
+#EXTINF:10.417,
+seg-2-v1-a1.m4s
+#EXTINF:10.417,
+seg-3-v1-a1.m4s
   `;
 
   const outputs: HLSDefines.Item[] = [];
