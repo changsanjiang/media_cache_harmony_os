@@ -47,12 +47,13 @@ export class MCHttpResponse implements IMCHttpResponse {
 
         MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Preparing data reader for request: ${JSON.stringify(proxyRequest)}`);
 
-        this.mDataReader = new MCMediaDataReader(this.mClientId, proxyRequest);
-        this.mDataReader.on('responseReady', (_) => this.mLock.lockAsync(() => this.mNewDataCallback).then((callback) => callback?.(this)));
-        this.mDataReader.on('newDataReadable', (_) => this.mLock.lockAsync(() => this.mNewDataCallback).then((callback) => callback?.(this)));
-        this.mDataReader.on('aborted', (_, error) => this.abort(error));
-        await this.mDataReader.prepare();
-        MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Data reader prepared successfully.`);
+        // TODO: next ...
+        // this.mDataReader = new MCMediaDataReader(this.mClientId, proxyRequest);
+        // this.mDataReader.on('responseReady', (_) => this.mLock.lockAsync(() => this.mNewDataCallback).then((callback) => callback?.(this)));
+        // this.mDataReader.on('newDataReadable', (_) => this.mLock.lockAsync(() => this.mNewDataCallback).then((callback) => callback?.(this)));
+        // this.mDataReader.on('aborted', (_, error) => this.abort(error));
+        // await this.mDataReader.prepare();
+        // MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Data reader prepared successfully.`);
       }
       catch (error) {
         MCLogger.error(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Failed to prepare data reader: ${error.message}`);

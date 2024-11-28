@@ -1,0 +1,207 @@
+import { MCRange } from '../../utils/MCRange';
+import { url } from '@kit.ArkTS';
+
+/** https://datatracker.ietf.org/doc/html/rfc8216#section-4; */
+namespace HLSDefines {
+  export enum ItemType {
+    KEY, // #EXT-X-KEY
+    INITIALIZATION, // #EXT-X-MAP
+    SEGMENT, // #EXTINF
+    VARIANT_STREAM, // #EXT-X-STREAM-INF
+    IFRAME_STREAM, // #EXT-X-I-FRAME-STREAM-INF; ignored;
+    RENDITION, // #EXT-X-MEDIA;
+  }
+
+  /// 因为需要代理请求, 所以我们关注更多的是  Playlist 中的这些URI;
+  ///
+  /// uri 可能未定义, 某些 Tag 无 URI 配置, 例如 CLOSED-CAPTIONS 通常嵌入在视频流中;
+  export interface Item {
+    readonly uri?: string;
+    readonly itemType: ItemType;
+    readonly offset: Offset;
+  }
+
+  /// #EXT-X-KEY
+  export interface KeyItem extends Item {
+  }
+
+  /// #EXT-X-MAP
+  export interface InitializationItem extends Item {
+    /// BYTERANGE or undefined; OPTIONAL: specifies byte range for initialization file;
+    readonly byteRange?: MCRange;
+  }
+
+  /// #EXTINF
+  export interface SegmentItem extends Item {
+    readonly byteRange?: MCRange; // #EXT-X-BYTERANGE or undefined; OPTIONAL;
+  }
+
+  /// #EXT-X-STREAM-INF
+  export interface VariantStreamItem extends Item {
+    readonly bandwidth: number;               // REQUIRED: BANDWIDTH attribute
+    readonly averageBandwidth: number;        // OPTIONAL: AVERAGE-BANDWIDTH attribute
+    readonly codecs?: string;                 // OPTIONAL: CODECS attribute
+    readonly resolution?: string;             // OPTIONAL: RESOLUTION attribute
+    readonly frameRate?: string;              // OPTIONAL: FRAME-RATE attribute
+    readonly audioGroupID?: string;           // OPTIONAL: AUDIO group ID
+    readonly videoGroupID?: string;           // OPTIONAL: VIDEO group ID
+    readonly subtitlesGroupID?: string;       // OPTIONAL: SUBTITLES group ID
+    readonly closedCaptionsGroupID?: string;  // OPTIONAL: CLOSED-CAPTIONS group ID
+  }
+
+  /// #EXT-X-I-FRAME-STREAM-INF
+  ///
+  /// ignored;
+  export interface IFrameStreamItem extends Item {
+  }
+
+  /// https://datatracker.ietf.org/doc/html/rfc8216#section-4.3.4.1
+  /// valid strings are AUDIO, VIDEO, SUBTITLES, and CLOSED-CAPTIONS.
+  export enum RenditionType {
+    AUDIO,
+    VIDEO,
+    SUBTITLES,
+    CLOSED_CAPTIONS, // ignored; 通常嵌入在视频流中无需代理;
+  }
+
+  // #EXT-X-MEDIA
+  /// https://datatracker.ietf.org/doc/html/rfc8216#section-4.3.4.1
+  export interface RenditionItem extends Item {
+    readonly renditionType: RenditionType;
+    readonly groupId: string;
+    readonly name: string;
+    readonly language?: string;
+    readonly isDefault: boolean;
+    readonly isAutoSelect: boolean;
+  }
+
+  export interface RenditionGroup {
+    readonly groupId: string;
+    readonly renditionType: RenditionType;
+    readonly renditions: RenditionItem[];
+  }
+
+  export interface Playlist {
+    readonly numberOfAllItems: number;
+    readonly numberOfSegments: number;
+
+    readonly allItems?: Item[];
+    readonly keys?: KeyItem[];
+    readonly initializations?: InitializationItem[];
+    readonly segments?: SegmentItem[];
+
+    // In the proxy playlist, the content related to iframe streams will be removed,
+    // and no proxy content will be generated for it.
+    // readonly  iframeStreams?: IFrameStreamItem[];
+
+    /// Represents the selected variant stream. If there are variant streams in the m3u8, only one can be selected.
+    /// The selection is made through VariantStreamSelectionHandler.
+    readonly variantStream?: VariantStreamItem;
+    /// Represents the selected audio rendition. If there are audio renditions in the m3u8, only one can be selected.
+    /// The selection is made through RenditionSelectionHandler.
+    readonly audioRendition?: RenditionItem;
+    /// Represents the selected video rendition. If there are video renditions in the m3u8, only one can be selected.
+    /// The selection is made through RenditionSelectionHandler.
+    readonly videoRendition?: RenditionItem;
+    /// Represents the selected subtitles rendition. If there are subtitles renditions in the m3u8, only one can be selected.
+    /// The selection is made through RenditionSelectionHandler.
+    readonly subtitlesRendition?: RenditionItem;
+    // only one can be selected;
+    // readonly variantStreams?: RenditionItem[];
+    // getRenditionGroupBy(groupId: string, renditionType: RenditionType): RenditionGroup | undefined;
+  }
+
+  /// 选一个媒体进行代理
+  ///
+  /// 变体流 二选一, 选 low 还是 high;
+  ///
+  /// #EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=640x360,CODECS="avc1.4d401e,mp4a.40.2",AUDIO="audio-group"
+  /// https://example.com/low/index.m3u8
+  ///
+  /// #EXT-X-STREAM-INF:BANDWIDTH=3000000,AVERAGE-BANDWIDTH=2500000,RESOLUTION=1280x720,FRAME-RATE=60,CODECS="avc1.4d4028,mp4a.40.2",AUDIO="audio-group",SUBTITLES="subs-group"
+  /// https://example.com/high/index.m3u8
+  export type VariantStreamSelectionHandler = (playlistUrl: string, variantStreams: VariantStreamItem[]) => VariantStreamItem;
+
+  /// AUDIO 二选一
+  /// #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="English",LANGUAGE="en",URI="audio_eng.m3u8"
+  /// #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="Spanish",LANGUAGE="es",URI="audio_spa.m3u8"
+  ///
+  /// SUBTITLES 二选一
+  /// #EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="English",LANGUAGE="en",URI="subs_eng.m3u8"
+  /// #EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="Spanish",LANGUAGE="es",URI="subs_spa.m3u8"
+  export type RenditionSelectionHandler = (playlistUrl: string, renditionGroup: RenditionGroup, renditionType: RenditionType) => RenditionItem;
+
+  interface Offset {
+    startPosition: number; // 内容起点;
+    length: number; // 内容长度;
+
+    uriStartPosition: number; // uri起点;
+  }
+
+  interface Attribute {
+    // readonly pair: string;
+    readonly attrName: string;
+    // readonly attrValue: string;
+    readonly attrValueRange: MCRange; // 双引号(如果包含)不计入范围;
+  }
+
+  /// AttributeName=AttributeValue
+  /// `TYPE=SUBTITLES,GROUP-ID="subs",NAME="English",LANGUAGE="en",URI="subs_eng.m3u8"`
+  export function parseAttributes(rawStr: string): Attribute[] {
+    const results: Attribute[] = [];
+    let offset = 0;
+    const attrPairs = rawStr.split(`,`);
+    attrPairs.forEach((pair) => {
+      const separated = pair.split(`=`);
+      const attrName = separated[0];
+      const attrValue = separated[1];
+      let valueLocation = offset + attrName.length + 1; // + '='.length;
+      let valueLength = attrValue.length;
+      // 处理双引号, 前后双引号不计入 value 的范围;
+      if ( attrValue.startsWith(`"`) && attrName.endsWith(`=`) ) {
+        valueLocation += 1;
+        valueLength -= 2;
+      }
+      const valueRange = new MCRange(valueLocation, valueLength);
+      results.push({
+        attrName: attrName,
+        attrValueRange: valueRange
+      })
+      offset += pair.length + 1; // + ','.length;
+    });
+    return results;
+  }
+
+  /// https://datatracker.ietf.org/doc/html/rfc8216#section-4.3.4.1
+  /// valid strings are AUDIO, VIDEO, SUBTITLES, and CLOSED-CAPTIONS.
+  export function parseRenditionType(rawStr: string): RenditionType {
+    switch (rawStr) {
+      case "AUDIO": return RenditionType.AUDIO;
+      case "VIDEO": return RenditionType.VIDEO;
+      case "SUBTITLES": return RenditionType.SUBTITLES;
+      case "CLOSED-CAPTIONS": return RenditionType.CLOSED_CAPTIONS;
+      default: throw new Error(`Unknown rendition type string: ${rawStr}`);
+    }
+  }
+
+  /// valid strings are YES and NO;
+  export function parseBoolean(rawStr: string): boolean {
+    switch (rawStr) {
+      case "YES": return true;
+      case "NO": return false;
+      default: throw new Error(`Unknown Boolean string: ${rawStr}`);
+    }
+  }
+
+  export function getAbsoluteUrl(uri: string, playlistUrl: string): string {
+    if (uri.indexOf("://") !== -1) {
+      if ( uri.startsWith("http://localhost") ) {
+        return url.URL.parseURL(uri.slice("http://localhost".length), playlistUrl).toString();
+      }
+      return uri;
+    }
+    return url.URL.parseURL(uri, playlistUrl).toString();
+  }
+}
+
+export default HLSDefines;
