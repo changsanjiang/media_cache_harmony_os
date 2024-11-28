@@ -2,21 +2,6 @@ import HLSDefines from "../../defines/HLSDefines";
 import HLSParser from "./HLSParser";
 
 export class HLSPlaylist implements HLSDefines.Playlist {
-  get numberOfAllItems(): number {
-    return this.allItems?.length ?? 0;
-  }
-  get numberOfSegments(): number {
-    return this.segments?.length ?? 0;
-  }
-  allItems?: HLSDefines.Item[] | undefined;
-  keys?: HLSDefines.KeyItem[] | undefined;
-  initializations?: HLSDefines.InitializationItem[] | undefined;
-  segments?: HLSDefines.SegmentItem[] | undefined;
-  variantStream?: HLSDefines.VariantStreamItem | undefined;
-  audioRendition?: HLSDefines.RenditionItem | undefined;
-  videoRendition?: HLSDefines.RenditionItem | undefined;
-  subtitlesRendition?: HLSDefines.RenditionItem | undefined;
-
   constructor(playlist: string) {
     const parsedItems: HLSDefines.Item[] = [];
     HLSParser.parse(playlist, parsedItems);
@@ -73,4 +58,19 @@ export class HLSPlaylist implements HLSDefines.Playlist {
 
     this.allItems = parsedItems;
   }
+
+  get numberOfAllItems(): number {
+    return this.allItems?.length ?? 0;
+  }
+  get numberOfSegments(): number {
+    return this.segments?.length ?? 0;
+  }
+  allItems?: HLSDefines.Item[] | undefined;
+  keys?: HLSDefines.KeyItem[] | undefined;
+  initializations?: HLSDefines.InitializationItem[] | undefined;
+  segments?: HLSDefines.SegmentItem[] | undefined;
+  variantStream?: HLSDefines.VariantStreamItem | undefined;
+  audioRendition?: HLSDefines.RenditionItem | undefined;
+  videoRendition?: HLSDefines.RenditionItem | undefined;
+  subtitlesRendition?: HLSDefines.RenditionItem | undefined;
 }
