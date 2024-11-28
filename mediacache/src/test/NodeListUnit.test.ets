@@ -4,6 +4,8 @@ import { IMCMediaContent } from '../main/ets/src/defines/IMCMediaContent';
 import { MCLogLevel } from '../main/ets/src/defines/MCLogLevel';
 import MCLogger from '../main/ets/src/utils/MCLogger';
 import MCUtils from '../main/ets/src/utils/MCUtils';
+import { HLSPlaylist } from '../main/ets/src/asset/hls/HLSPlaylist';
+import HLSDefines from '../main/ets/src/asset/hls/HLSDefines';
 
 export default function nodeListUnitTest() {
   describe('nodeListUnitTest', () => {
@@ -29,9 +31,24 @@ export default function nodeListUnitTest() {
     it('assertContain', 0, async () => {
       // testAdd();
       // testFind();
-      testEnum();
+      // testEnum();
+      testParsePlaylist();
     });
   });
+}
+
+function testParsePlaylist() {
+  let playlist =
+`#EXTM3U
+#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=2098852,RESOLUTION=1520x720,FRAME-RATE=24.000,CODECS="avc1.640020,mp4a.40.2"
+index-v1-a1.m3u8
+  `;
+
+  const outputs: HLSDefines.Item[] = [];
+  const trimmedPlaylist = HLSPlaylist.parse(playlist, outputs, true);
+
+  outputs.forEach((item) => console.log(`content=${playlist.slice(item.positions.startPosition, item.positions.startPosition + item.positions.length)}, uri=${playlist.slice(item.positions.uriStartPosition, item.positions.uriStartPosition + (item.uri?.length ?? 0))},  item=${JSON.stringify(item)}`));
+  trimmedPlaylist.split("\n").forEach((line) => console.log(line));
 }
 
 function testEnum() {

@@ -18,7 +18,7 @@ namespace HLSDefines {
   export interface Item {
     readonly uri?: string;
     readonly itemType: ItemType;
-    readonly offset: Offset;
+    readonly positions: Positions; // 在 playlist 中的偏移量;
   }
 
   /// #EXT-X-KEY
@@ -131,11 +131,10 @@ namespace HLSDefines {
   /// #EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="Spanish",LANGUAGE="es",URI="subs_spa.m3u8"
   export type RenditionSelectionHandler = (playlistUrl: string, renditionGroup: RenditionGroup, renditionType: RenditionType) => RenditionItem;
 
-  interface Offset {
-    startPosition: number; // 内容起点;
-    length: number; // 内容长度;
-
-    uriStartPosition: number; // uri起点;
+  export interface Positions {
+    readonly startPosition: number; // 内容起点;
+    readonly length: number; // 内容长度;
+    readonly uriStartPosition: number; // uri起点;
   }
 
   interface Attribute {
@@ -151,6 +150,7 @@ namespace HLSDefines {
     const results: Attribute[] = [];
     let offset = 0;
     const attrPairs = rawStr.split(`,`);
+
     attrPairs.forEach((pair) => {
       const separated = pair.split(`=`);
       const attrName = separated[0];
@@ -191,6 +191,18 @@ namespace HLSDefines {
       case "NO": return false;
       default: throw new Error(`Unknown Boolean string: ${rawStr}`);
     }
+  }
+
+  /// #EXT-X-BYTERANGE:<n>[@<o>]
+  export function parseByteRange(byteRange: string, prevEnd: number): MCRange {
+    // 拆分 n (字节长度) 和 o (字节偏移量), 分隔符是 "@"
+    const components = byteRange.split(`@`);
+    // 解析 n;
+    const length = parseInt(components[0], 10);
+    // 如果有 o, 解析 o;
+    // 如果没有 o, 使用前一个片段的末尾作为起点;
+    const location = components[1] ? parseInt(components[1], 10) : prevEnd;
+    return new MCRange(location, length);
   }
 
   export function getAbsoluteUrl(uri: string, playlistUrl: string): string {
