@@ -1,11 +1,12 @@
 import { IMCAsset } from "../../defines/IMCAsset";
-import { IMCAssetReader } from "../../defines/IMCAssetReader";
+import { IMCDataReader } from "../../defines/IMCDataReader";
 import { IMCHttpRequest } from "../../defines/IMCHttpRequest";
 import { IMCMedia } from "../../defines/IMCMedia";
 import { MCDataDecryptHandler } from "../../defines/MCDataDecryptHandler";
 import { MCMedia } from "../../media/MCMedia";
 import { MCReadwriteReference } from "../../utils/MCReadwriteReference";
 import MCRoot from "../../utils/MCRoot";
+import { FILEAssetReader } from "./FILEAssetReader";
 
 export class FILEAsset extends MCReadwriteReference<FILEAsset> implements IMCAsset {
   /** 基于文件的资产只有一个媒体; */
@@ -31,9 +32,13 @@ export class FILEAsset extends MCReadwriteReference<FILEAsset> implements IMCAss
     return this.mMedia.prepare();
   }
 
-  async createReaderBy(clientId: number, request: IMCHttpRequest, decrypt?: MCDataDecryptHandler): Promise<IMCAssetReader> {
-    // TODO: 创建 AssetReader;
-    throw new Error(``);
+  async createReaderBy(clientId: number, request: IMCHttpRequest, decrypt?: MCDataDecryptHandler): Promise<IMCDataReader> {
+    const reader = new FILEAssetReader(await this.readwriteRetain(), clientId, request, decrypt);
+    return reader;
+  }
+
+  getMediaBy(_: string): Promise<IMCMedia> {
+    return this.mMedia.readwriteRetain();
   }
 
   protected getInstance(): FILEAsset {

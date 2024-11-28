@@ -7,11 +7,13 @@ import { MCMediaDataReader } from "../../media/MCMediaDataReader";
 import { ArkTSUtils } from "@kit.ArkTS";
 import { MCLogModule } from "../../defines/MCLogModule";
 import MCLogger from "../../utils/MCLogger";
+import { IMCMedia } from "../../defines/IMCMedia";
 
 export class FILEAssetReader implements IMCDataReader {
   private mClientId: number;
   private mProxyRequest: IMCHttpRequest;
   private mAsset: IMCAsset;
+  private mMedia?: IMCMedia | undefined;
   private mDecrypt?: MCDataDecryptHandler;
   private mMediaReader?: IMCDataReader;
   private mLock: ArkTSUtils.locks.AsyncLock = new ArkTSUtils.locks.AsyncLock();
@@ -23,10 +25,10 @@ export class FILEAssetReader implements IMCDataReader {
   private mDoneCallback?: (reader: IMCDataReader) => void = undefined;
 
   // 传入之前请先对 asset 做一次 readwriteRetain, reader 内部会在操作结束后执行对应的 readwriteRelease;
-  constructor(clientId: number, proxyRequest: IMCHttpRequest, asset: IMCAsset, decrypt?: MCDataDecryptHandler) {
+  constructor(asset: IMCAsset, clientId: number, proxyRequest: IMCHttpRequest, decrypt?: MCDataDecryptHandler) {
+    this.mAsset = asset;
     this.mClientId = clientId;
     this.mProxyRequest = proxyRequest;
-    this.mAsset = asset;
     this.mDecrypt = decrypt;
   }
 
@@ -52,11 +54,12 @@ export class FILEAssetReader implements IMCDataReader {
           MCLogger.warn(MCLogModule.FILEAssetReader, () => `[clientId: ${this.mClientId}] Attempted to prepare, but the reader is already done or aborted.`);
           return;
         }
-        this.mMediaReader = new MCMediaDataReader(this.mClientId, this.mProxyRequest, this.mDecrypt);
+        this.mMedia = await this.mAsset.getMediaBy(this.mProxyRequest.requestTarget);
+        this.mMediaReader = new MCMediaDataReader(this.mMedia, this.mClientId, this.mProxyRequest, this.mDecrypt);
         this.mMediaReader.on("responseReady", (_, response) => {
           this.mLock.lockAsync(() => !this.mDone && !this.mAborted ? this.mResponseReadyCallback : undefined).then((callback) => {
             if ( callback ) {
-              MCLogger.debug(MCLogModule.FILEAssetReader, () => `[clientId: ${this.mClientId}] Response prepared. Executing callback.`);
+              MCLogger.debug(MCLogModule.FILEAssetReader, () => `[clientId: ${this.mClientId}] Executing responseReady callback with response: ${JSON.stringify(response)}.`);
               callback(this, response);
             }
           });
@@ -64,7 +67,7 @@ export class FILEAssetReader implements IMCDataReader {
         this.mMediaReader.on("newDataReadable", () => {
           this.mLock.lockAsync(() => !this.mDone && !this.mAborted ? this.mNewDataReadableCallback : undefined).then((callback) => {
             if ( callback ) {
-              MCLogger.debug(MCLogModule.FILEAssetReader, () => `[clientId: ${this.mClientId}] New data is now readable. Executing callback.`);
+              MCLogger.debug(MCLogModule.FILEAssetReader, () => `[clientId: ${this.mClientId}] Executing newDataReadable callback.`);
               callback(this);
             }
           });
@@ -116,7 +119,6 @@ export class FILEAssetReader implements IMCDataReader {
   seekToEndOfReadableRange(): Promise<number> {
     return this.mLock.lockAsync(() => {
       try {
-        // Log the seek attempt
         MCLogger.debug(MCLogModule.FILEAssetReader, () => `[clientId: ${this.mClientId}] Seeking to the end of the readable range.`);
 
         const len = this.mMediaReader?.seekToEndOfReadableRange() ?? 0;
@@ -192,8 +194,10 @@ export class FILEAssetReader implements IMCDataReader {
     this.clear();
 
     Promise.resolve(this.mAbortedCallback).then((callback) => {
-      if ( callback ) MCLogger.debug(MCLogModule.FILEAssetReader, () => `[clientId: ${this.mClientId}] Executing aborted callback with error: ${error?.message || "None"}.`);
-      callback?.(this, error);
+      if ( callback ) {
+        MCLogger.debug(MCLogModule.FILEAssetReader, () => `[clientId: ${this.mClientId}] Executing aborted callback with error: ${error?.message || "None"}.`);
+        callback(this, error);
+      }
     });
   }
 
@@ -206,6 +210,7 @@ export class FILEAssetReader implements IMCDataReader {
       this.mMediaReader = undefined;
     }
 
+    this.mMedia?.readwriteRelease();
     this.mAsset.readwriteRelease();
 
     MCLogger.debug(MCLogModule.FILEAssetReader, () => `[clientId: ${this.mClientId}] Resources released and cleared.`);

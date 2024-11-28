@@ -105,13 +105,13 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   getContentLoadersBy(proxyRequest: IMCHttpRequest): Promise<IMCMediaContentLoader[]> {
     return this.mLock.lockAsync(async () => {
       MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Resolving content loaders for request: ${JSON.stringify(proxyRequest)}.`);
+      const loaders: IMCMediaContentLoader[] = [];
       try {
         const url = MCProxyURL.restoreURLFromProxyTarget(proxyRequest.requestTarget);
         if (!url) {
           throw new Error("Failed to restore URL from the provided proxy target.");
         }
 
-        const loaders: IMCMediaContentLoader[] = [];
         if (this.mMetadata && this.mMetadata.totalLength !== 0 && this.mNodeList.head) {
           const requestRangeHeader = proxyRequest.headers['range'];
           const totalLength = this.mMetadata.totalLength;
@@ -169,6 +169,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
         return loaders;
       }
       catch (error) {
+        loaders.forEach((loader) => loader.abort(error));
         MCLogger.error(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Error while resolving content loaders: ${error.message}\nStack: ${error.stack}`);
         throw error as Error;
       }

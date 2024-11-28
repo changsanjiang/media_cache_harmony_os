@@ -48,7 +48,7 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
       headersReceive: (headers) => this.onHeadersReceive(headers),
       dataReceive: (data) => this.onDataReceive(data),
       signal: this.abortController.signal,
-    });
+    }).catch((error: Error) => this.abort(error));
   }
 
   protected onClearBefore(): void {

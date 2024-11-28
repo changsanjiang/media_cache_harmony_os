@@ -7,7 +7,6 @@ import {
   IMCDataPartialContentResponse,
   IMCDataResponse, MCDataResponseStatusCode } from "../defines/IMCDataResponse";
 import MCLogger from "../utils/MCLogger";
-import MCAssetManager from "../asset/MCAssetManager";
 import { ArkTSUtils } from "@kit.ArkTS";
 import { MCRange } from "../utils/MCRange";
 import { generateResponseContentRange } from "../defines/IMCHttpResponseContentRange";
@@ -19,7 +18,7 @@ export class MCMediaDataReader implements IMCDataReader {
   private mProxyRequest: IMCHttpRequest;
   private mDecrypt?: MCDataDecryptHandler;
   private mLock: ArkTSUtils.locks.AsyncLock = new ArkTSUtils.locks.AsyncLock();
-  private mMedia?: IMCMedia = undefined;
+  private mMedia: IMCMedia;
   private mIndex = -1;
   private mLoaders: IMCMediaContentLoader[] = [];
   private mDone = false;
@@ -31,9 +30,11 @@ export class MCMediaDataReader implements IMCDataReader {
   private mResponse?: IMCDataResponse = undefined;
   private mOffset = 0;
 
-  constructor(clientId: number, proxyRequest: IMCHttpRequest, decrypt?: MCDataDecryptHandler) {
+  // 传入之前请先对 media 做一次 readwriteRetain, reader 内部会在操作结束后执行对应的 readwriteRelease;
+  constructor(media: IMCMedia, clientId: number, proxyRequest: IMCHttpRequest, decrypt?: MCDataDecryptHandler) {
     this.mClientId = clientId;
     this.mProxyRequest = proxyRequest;
+    this.mMedia = media;
     this.mDecrypt = decrypt;
     MCLogger.info(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Instance created with request target: ${proxyRequest.requestTarget}`);
   }
@@ -67,10 +68,8 @@ export class MCMediaDataReader implements IMCDataReader {
           MCLogger.warn(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Cannot prepare as the reader has been aborted.`);
           return;
         }
-        const media = await MCAssetManager.getMediaBy(this.mProxyRequest.requestTarget); // media readwrite retained, should release after;
-        this.mMedia = media;
-        this.mLoaders = await media.getContentLoadersBy(this.mProxyRequest);
-        MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] ${this.mLoaders.length} content loaders initialized.`);
+        this.mLoaders = await this.mMedia.getContentLoadersBy(this.mProxyRequest);
+        MCLogger.info(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] ${this.mLoaders.length} content loaders initialized.`);
         this.prepareNextLoader();
       }
       catch (error) {
@@ -227,7 +226,7 @@ export class MCMediaDataReader implements IMCDataReader {
             throw new Error(`Current loader at index ${this.mIndex} is not done yet.`);
           }
           MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Clearing completed loader at index ${this.mIndex}.`);
-          this.clear(this.mLoaders[this.mIndex]);
+          this.clearLoader(this.mLoaders[this.mIndex]);
         }
 
         let nextIndex = this.mIndex === -1 ? 0 : (this.mIndex + 1);
@@ -236,8 +235,10 @@ export class MCMediaDataReader implements IMCDataReader {
           MCLogger.info(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] All loaders completed. Marking reader as done.`);
           this.mMedia?.readwriteRelease();
           Promise.resolve(this.mDoneCallback).then((callback) => {
-            if ( callback ) MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Executing done callback.`);
-            callback?.(this);
+            if ( callback ) {
+              MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Executing done callback.`);
+              callback(this);
+            }
           });
           return;
         }
@@ -256,7 +257,7 @@ export class MCMediaDataReader implements IMCDataReader {
           MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Data loaded event received for loader at index ${nextIndex}.`);
           this.mLock.lockAsync(() => this.mNewDataReadableCallback).then((callback) => {
             if ( callback ) {
-              MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Data loaded. Executing callback.`);
+              MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Executing newDataReadable callback.`);
               callback(this);
             }
           });
@@ -285,7 +286,7 @@ export class MCMediaDataReader implements IMCDataReader {
     });
   }
 
-  private clear(loader: IMCMediaContentLoader) {
+  private clearLoader(loader: IMCMediaContentLoader) {
     MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Clearing loader event listeners.`);
 
     loader.off('prepared');
@@ -308,15 +309,17 @@ export class MCMediaDataReader implements IMCDataReader {
       const loader = this.mLoaders[this.mIndex];
       MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Aborting active loader at index ${this.mIndex}.`);
       loader.abort(error);
-      this.clear(loader);
+      this.clearLoader(loader);
       MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Active loader cleared.`);
     }
 
-    this.mMedia?.readwriteRelease();
+    this.mMedia.readwriteRelease();
 
     Promise.resolve(this.mAbortedCallback).then((callback) => {
-      if ( callback ) MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Executing aborted callback with error: ${error?.message || "None"}.`);
-      callback?.(this, error);
+      if ( callback ) {
+        MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Executing aborted callback with error: ${error?.message || "None"}.`);
+        callback(this, error);
+      }
     });
   }
 
@@ -325,8 +328,8 @@ export class MCMediaDataReader implements IMCDataReader {
   private onLoaderPrepared(loader: IMCMediaContentLoader, range: MCRange): void {
     this.mLock.lockAsync(async () => {
       try {
-        if (this.mAborted || !this.mMedia) {
-          MCLogger.warn(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Loader preparation skipped: Reader aborted or media unavailable.`);
+        if (this.mAborted) {
+          MCLogger.warn(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Loader preparation skipped: Reader aborted.`);
           return;
         }
 
@@ -351,9 +354,7 @@ export class MCMediaDataReader implements IMCDataReader {
 
           const contentType = await this.mMedia.contentType;
           if (!contentType) {
-            const errorMsg = `Content type is undefined for media.`;
-            MCLogger.error(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] ${errorMsg}`);
-            throw new Error(errorMsg);
+            throw new Error(`Content type is undefined for media.`);
           }
 
           this.mOffset = range.location; // 设置响应数据的起始位置;
@@ -394,7 +395,7 @@ export class MCMediaDataReader implements IMCDataReader {
             if (totalLength === 0) {
               this.mDone = true;
               MCLogger.info(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Media has no content. Marking reader as done.`);
-              this.clear(this.mLoaders[this.mIndex]);
+              this.clearLoader(this.mLoaders[this.mIndex]);
               this.mMedia?.readwriteRelease();
             }
           }

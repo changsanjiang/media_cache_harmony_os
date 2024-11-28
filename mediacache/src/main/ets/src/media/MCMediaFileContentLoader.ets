@@ -24,14 +24,10 @@ export class MCMediaFileContentLoader extends MCMediaContentLoader {
     MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Preparing MCMediaFileContentLoader with range [${start}, ${end}) and content range [${contentStart}, ${contentEnd}).`);
 
     if (start < contentStart || end > contentEnd) {
-      const error = new Error(`Load range [${start}, ${end}) is out of bounds for content range [${contentStart}, ${contentEnd}).`);
-      MCLogger.error(MCLogModule.MCMediaContentLoader, () => error.message);
-      throw error;
+      throw new Error(`Load range [${start}, ${end}) is out of bounds for content range [${contentStart}, ${contentEnd}).`);;
     }
 
-    this.content.readwriteRetain();
-    MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Content retained. Content range: [${contentStart}, ${contentEnd}).`);
-    this.contentReady(this.content, this.loadRange);
+    this.contentReady(await this.content.readwriteRetain(), this.loadRange);
   }
 
   protected onClearBefore(): void {
