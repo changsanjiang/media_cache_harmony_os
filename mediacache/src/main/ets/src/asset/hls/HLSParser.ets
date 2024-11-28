@@ -67,9 +67,6 @@ namespace HLSParser {
 
       if ( variantStreams && renditionGroups ) {
         selectedVariantStream = selectVariantStream(originalUrl, currentUrl, variantStreams, variantStreamSelectionHandler);
-        if ( !selectedVariantStream ) {
-          throw new Error(`Must select a variant stream!`);
-        }
 
         const audioGroupID = selectedVariantStream.audioGroupID;
         const videoGroupID = selectedVariantStream.videoGroupID;
@@ -489,7 +486,8 @@ namespace HLSParser {
       const stream = variantStreamSelectionHandler(originalUrl, currentUrl, streams);
       if ( stream ) return stream;
     }
-    return streams[Math.floor((streams.length / 2))]; // default select middle stream
+    // Default: select the middle stream if no handler or valid selection.
+    return streams[Math.floor((streams.length / 2))];
   }
 
   function generateRenditionGroupKey(groupId: string, renditionType: HLSDefines.RenditionType): string {
@@ -500,7 +498,7 @@ namespace HLSParser {
     const key = generateRenditionGroupKey(groupId, renditionType);
     const group = groups.get(key);
     if ( !group ) {
-      throw new Error(`Group not found!`);
+      throw new Error(`Rendition group for ID "${groupId}" and type "${renditionType}" not found.`);
     }
 
     const renditions = group.renditions;
@@ -511,7 +509,7 @@ namespace HLSParser {
       }
     }
 
-    // select default or first rendition;
+    // Select default rendition if available; otherwise, fallback to the first rendition.
     return renditions.find((rendition) => rendition.isDefault) ?? renditions[0];
   }
 }
