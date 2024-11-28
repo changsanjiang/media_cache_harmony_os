@@ -1,6 +1,7 @@
+import HLSDefines from '../defines/HLSDefines';
 import MCConsts from './MCConsts';
 
-namespace MCProxyURL {
+namespace MCProxyGenerator {
   export function generateProxyURLFromURL(url: string, localServerPort: number): string {
     if ( url.includes(MCConsts.PATH_PROXY) ) {
       return url;
@@ -14,6 +15,10 @@ namespace MCProxyURL {
     }
     return undefined;
   }
+
+  export function generateProxyURIForHLSItem(assetId: string, absoluteUrl: string, itemType: HLSDefines.ItemType): string {
+    return `${MCConsts.PATH_HLS_ITEM}/${assetId}/${itemType}/${encodeURIComponent(absoluteUrl)}`;
+  }
 }
 
-export default MCProxyURL;
+export default MCProxyGenerator;

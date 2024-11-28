@@ -10,7 +10,7 @@ import MCDatabase from "../utils/MCDatabase";
 import { IMCMediaMetadata } from "../defines/IMCMediaMetadata";
 import { parseResponseContentRange } from "../defines/IMCHttpResponseContentRange";
 import { MCDownloadResponseHeaders } from "../utils/MCDownloadResponseHeaders";
-import MCProxyURL from "../utils/MCProxyURL";
+import MCProxyGenerator from "../utils/MCProxyGenerator";
 import { MCMediaHttpContentLoader } from "./MCMediaHttpContentLoader";
 import { parseRequestRange, toRequestRange } from "../defines/IMCHttpRequestRange";
 import { MCMediaFileContentLoader } from "./MCMediaFileContentLoader";
@@ -107,7 +107,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Resolving content loaders for request: ${JSON.stringify(proxyRequest)}.`);
       const loaders: IMCMediaContentLoader[] = [];
       try {
-        const url = MCProxyURL.restoreURLFromProxyTarget(proxyRequest.requestTarget);
+        const url = MCProxyGenerator.restoreURLFromProxyTarget(proxyRequest.requestTarget);
         if (!url) {
           throw new Error("Failed to restore URL from the provided proxy target.");
         }

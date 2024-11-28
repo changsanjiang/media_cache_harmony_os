@@ -1,4 +1,4 @@
-import { MCRange } from '../../utils/MCRange';
+import { MCRange } from '../utils/MCRange';
 import { url } from '@kit.ArkTS';
 
 /** https://datatracker.ietf.org/doc/html/rfc8216#section-4; */
@@ -120,7 +120,7 @@ namespace HLSDefines {
   ///
   /// #EXT-X-STREAM-INF:BANDWIDTH=3000000,AVERAGE-BANDWIDTH=2500000,RESOLUTION=1280x720,FRAME-RATE=60,CODECS="avc1.4d4028,mp4a.40.2",AUDIO="audio-group",SUBTITLES="subs-group"
   /// https://example.com/high/index.m3u8
-  export type VariantStreamSelectionHandler = (playlistUrl: string, variantStreams: VariantStreamItem[]) => VariantStreamItem;
+  export type VariantStreamSelectionHandler = (playlistOriginalUrl: string, playlistCurrentUrl: string, variantStreams: VariantStreamItem[]) => VariantStreamItem;
 
   /// AUDIO 二选一
   /// #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="English",LANGUAGE="en",URI="audio_eng.m3u8"
@@ -129,7 +129,7 @@ namespace HLSDefines {
   /// SUBTITLES 二选一
   /// #EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="English",LANGUAGE="en",URI="subs_eng.m3u8"
   /// #EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="Spanish",LANGUAGE="es",URI="subs_spa.m3u8"
-  export type RenditionSelectionHandler = (playlistUrl: string, renditionGroup: RenditionGroup, renditionType: RenditionType) => RenditionItem;
+  export type RenditionSelectionHandler = (playlistOriginalUrl: string, playlistCurrentUrl: string, renditionGroup: RenditionGroup, renditionType: RenditionType) => RenditionItem;
 
   export interface Positions {
     readonly startPosition: number; // 内容起点;

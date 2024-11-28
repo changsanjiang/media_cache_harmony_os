@@ -5,7 +5,8 @@ import { MCLogLevel } from '../main/ets/src/defines/MCLogLevel';
 import MCLogger from '../main/ets/src/utils/MCLogger';
 import MCUtils from '../main/ets/src/utils/MCUtils';
 import { HLSPlaylist } from '../main/ets/src/asset/hls/HLSPlaylist';
-import HLSDefines from '../main/ets/src/asset/hls/HLSDefines';
+import HLSDefines from '../main/ets/src/defines/HLSDefines';
+import { buffer, util } from '@kit.ArkTS';
 
 export default function nodeListUnitTest() {
   describe('nodeListUnitTest', () => {
@@ -54,11 +55,10 @@ seg-2-v1-a1.m4s
 seg-3-v1-a1.m4s
   `;
 
-  const outputs: HLSDefines.Item[] = [];
-  const trimmedPlaylist = HLSPlaylist.parse(playlist, outputs, true);
-
-  outputs.forEach((item) => console.log(`content=${playlist.slice(item.positions.startPosition, item.positions.startPosition + item.positions.length)}, uri=${playlist.slice(item.positions.uriStartPosition, item.positions.uriStartPosition + (item.uri?.length ?? 0))},  item=${JSON.stringify(item)}`));
-  trimmedPlaylist.split("\n").forEach((line) => console.log(line));
+  const originalUrl = "http://www.baidu.com";
+  const currentUrl = "http://www.lwz.com";
+  const proxyPlaylist = HLSPlaylist.proxy("abcd", buffer.from(playlist, 'utf-8').buffer, originalUrl, currentUrl);
+  proxyPlaylist.split("\n").forEach((line) => console.log(line));
 }
 
 function testEnum() {
