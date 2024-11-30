@@ -37,7 +37,7 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
 
     const requestRange = this.request.range ? this.request.range : parseRequestRangeIfDefined(this.request.headers['range']);
     const downloadRangeHeader = requestRange?.toRangeHeader(); // 'bytes=xxx-xxx'
-    const downloadRequest = new MCDownload.DownloadRequest(this.request.url, this.request.headers);
+    const downloadRequest = new MCDownload.Request(this.request.url, this.request.headers);
     downloadRequest.setHeader('range', downloadRangeHeader);
 
     MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Download request created for URL: ${this.request.url} with range: ${downloadRangeHeader}.`);

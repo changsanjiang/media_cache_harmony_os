@@ -5,7 +5,7 @@ import MCUtils from './MCUtils';
 import { MCDownloadResponseHeaders } from './MCDownloadResponseHeaders';
 
 namespace MCDownload {
-  export class DownloadRequest {
+  export class Request {
     private mHeaders?: Record<string, string>;
     private mCookies?: Record<string, string>;
 
@@ -36,21 +36,36 @@ namespace MCDownload {
 
   export interface Options {
     headersReceive: (headers: MCDownloadResponseHeaders) => void | Promise<void>;
-    dataReceive: (data: ArrayBuffer) => number | void | Promise<void>;
+    dataReceive: (data: ArrayBuffer) => void | Promise<void>;
     signal?: MCAbortSignal;
   }
 
-  export interface DownloadResponse {
+  export interface Response {
     readonly statusCode: number;
-    readonly originalUrl: string;
+    readonly requestUrl: string;
     readonly currentUrl: string;
+    readonly headers: Record<string, string>;
   }
 
-  export let requestHandler: ((request: DownloadRequest) => void) | undefined = undefined;
+  export let requestHandler: ((request: Request) => void) | undefined = undefined;
 
   const session = rcp.createSession(MCConfigs.downloadSessionConfiguration);
 
-  export function download(request: DownloadRequest, options: Options): Promise<DownloadResponse> {
+  export function probe(request: Request, signal?: MCAbortSignal): Promise<Response> {
+    const req = new rcp.Request(request.url, 'HEAD', request.headers, undefined, request.cookies, undefined, undefined);
+    signal?.addEventListener('aborted', () => session.cancel(req))
+    return session.fetch(req).then((rcpResponse: rcp.Response) => {
+      const response: Response = {
+        statusCode: rcpResponse.statusCode,
+        requestUrl: request.url,
+        currentUrl: rcpResponse.effectiveUrl?.toString() ?? request.url,
+        headers: rcpResponse.headers as Record<string, string>
+      };
+      return response;
+    });
+  }
+
+  export function download(request: Request, options: Options): Promise<void> {
     const config: rcp.Configuration = {
       tracing: {
         httpEventsHandler: {
