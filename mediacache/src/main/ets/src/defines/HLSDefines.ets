@@ -18,7 +18,8 @@ namespace HLSDefines {
   export interface Item {
     readonly uri?: string;
     readonly itemType: ItemType;
-    readonly location: Location; // 在 playlist 中的偏移量;
+    readonly contentRange: MCRange;
+    readonly uriRange?: MCRange;
   }
 
   /// #EXT-X-KEY
@@ -131,12 +132,6 @@ namespace HLSDefines {
   /// #EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="Spanish",LANGUAGE="es",URI="subs_spa.m3u8"
   export type RenditionSelectionHandler = (playlistOriginalUrl: string, playlistCurrentUrl: string, renditionGroup: RenditionGroup, renditionType: RenditionType) => RenditionItem;
 
-  export interface Location {
-    readonly startPosition: number; // 内容起点;
-    readonly length: number; // 内容长度;
-    readonly uriStartPosition: number; // uri起点;
-  }
-
   interface Attribute {
     // readonly pair: string;
 
@@ -149,8 +144,9 @@ namespace HLSDefines {
      character and the AttributeValue.
      * */
     readonly attrName: string;
+    readonly attrValue: string;
     // readonly attrValue: string;
-    readonly attrValueRange: MCRange; // 双引号(如果包含)不计入范围;
+    readonly attrValueLocation: number;
   }
 
   /// AttributeName=AttributeValue
@@ -170,13 +166,11 @@ namespace HLSDefines {
     const name = match[1];
     let value = match[2];
     let valueLocation = match.index + name.length + 1; // + '='.length;
-    let valueLength = value.length;
     if ( value.startsWith(`"`) && value.endsWith(`"`) ) { // 处理双引号, 前后双引号不计入 value 的范围;
+      value = value.slice(1, value.length - 1);
       valueLocation += 1;
-      valueLength -= 2;
     }
-    const valueRange = new MCRange(valueLocation, valueLength);
-    return { attrName: name, attrValueRange: valueRange };
+    return { attrName: name, attrValue: value, attrValueLocation: valueLocation };
   }
 
   /// https://datatracker.ietf.org/doc/html/rfc8216#section-4.3.4.1

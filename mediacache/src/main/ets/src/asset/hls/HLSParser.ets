@@ -32,7 +32,7 @@ namespace HLSParser {
     try {
       // let decoder = util.TextDecoder.create('utf-8');
       // let rawContent = decoder.decodeToString(new Uint8Array(playlist));
-      const parsedItems: Item[] = [];
+      const parsedItems: HLSDefines.Item[] = [];
       let proxyPlaylist = parse(playlist, parsedItems, true);
       let variantStreams: HLSDefines.VariantStreamItem[] | undefined;
       let renditionGroups: Map<string, RenditionGroup> | undefined;
@@ -96,7 +96,7 @@ namespace HLSParser {
 
         // remove
         if ( shouldRemove ) {
-          proxyPlaylist = MCUtils.replaceCharactersInRange(proxyPlaylist, [item.location.startPosition, item.location.length], "");
+          proxyPlaylist = MCUtils.replaceCharactersInRange(proxyPlaylist, [item.contentRange.location, item.contentRange.length], "");
           return; // return;
         }
 
@@ -106,7 +106,7 @@ namespace HLSParser {
 
         const absoluteUrl = HLSDefines.getAbsoluteUrl(uri, currentUrl);
         const proxyUri = MCProxyGenerator.generateProxyURIForHLSItem(assetId, absoluteUrl, item.itemType);
-        proxyPlaylist = MCUtils.replaceCharactersInRange(proxyPlaylist, [item.location.uriStartPosition, uri.length], proxyUri);
+        proxyPlaylist = MCUtils.replaceCharactersInRange(proxyPlaylist, [item.uriRange!.location, uri.length], proxyUri);
       });
       return proxyPlaylist;
     }
@@ -148,36 +148,32 @@ namespace HLSParser {
   const HLS_CTX_LAST_BYTERANGE_END = "HLS_CTX_LAST_BYTERANGE_END";
   const HLS_CTX_LAST_INIT_END = "HLS_CTX_LAST_INIT_END";
 
-  class Location implements HLSDefines.Location {
-    startPosition: number = 0;
-    length: number = 0;
-    uriStartPosition: number = 0;
-
-    constructor(startPosition: number) {
-      this.startPosition = startPosition;
-    }
-  }
-
   class Item implements HLSDefines.Item {
     uri?: string | undefined;
     itemType: HLSDefines.ItemType;
-    location: Location;
+    contentRange: MCRange;
+    uriRange?: MCRange;
 
-    constructor(itemType: HLSDefines.ItemType, startPosition: number) {
+    constructor(itemType: HLSDefines.ItemType, contentLocation: number, contentLength: number = 0) {
       this.itemType = itemType;
-      this.location = new Location(startPosition);
+      this.contentRange = new MCRange(contentLocation, contentLength);
+    }
+
+    setUri(uri: string, uriLocation: number) {
+      this.uri = uri;
+      this.uriRange = new MCRange(uriLocation, uri.length);
     }
   }
 
   class KeyItem extends Item implements HLSDefines.KeyItem {
-    constructor(startPosition: number) {
-      super(HLSDefines.ItemType.KEY, startPosition);
+    constructor(contentLocation: number, contentLength: number) {
+      super(HLSDefines.ItemType.KEY, contentLocation, contentLength);
     }
   }
 
   class InitializationItem extends Item implements HLSDefines.InitializationItem {
-    constructor(startPosition: number, byteRange?: MCRange) {
-      super(HLSDefines.ItemType.INITIALIZATION, startPosition);
+    constructor(contentLocation: number, contentLength: number, byteRange?: MCRange) {
+      super(HLSDefines.ItemType.INITIALIZATION, contentLocation, contentLength);
       this.byteRange = byteRange;
     }
 
@@ -187,17 +183,17 @@ namespace HLSParser {
   class SegmentItem extends Item implements HLSDefines.SegmentItem {
     byteRange?: MCRange | undefined;
 
-    constructor(startPosition: number) {
-      super(HLSDefines.ItemType.SEGMENT, startPosition);
+    constructor(contentLocation: number) {
+      super(HLSDefines.ItemType.SEGMENT, contentLocation);
     }
   }
 
   class VariantStreamItem extends Item implements HLSDefines.VariantStreamItem {
-    constructor(startPosition: number, bandwidth: number, averageBandwidth: number,
+    constructor(contentLocation: number, bandwidth: number, averageBandwidth: number,
       codecs: string | undefined, resolution: string | undefined, frameRate: string | undefined,
       audioGroupID: string | undefined, videoGroupID: string | undefined, subtitlesGroupID: string | undefined,
       closedCaptionsGroupID: string | undefined) {
-      super(HLSDefines.ItemType.VARIANT_STREAM, startPosition);
+      super(HLSDefines.ItemType.VARIANT_STREAM, contentLocation);
       this.bandwidth = bandwidth;
       this.averageBandwidth = averageBandwidth;
       this.codecs = codecs;
@@ -221,15 +217,15 @@ namespace HLSParser {
   }
 
   class IFrameStreamItem extends Item implements HLSDefines.IFrameStreamItem {
-    constructor(startPosition: number) {
-      super(HLSDefines.ItemType.IFRAME_STREAM, startPosition);
+    constructor(contentLocation: number, contentLength: number) {
+      super(HLSDefines.ItemType.IFRAME_STREAM, contentLocation, contentLength);
     }
   }
 
   class RenditionItem extends Item implements HLSDefines.RenditionItem {
-    constructor(startPosition: number, renditionType: HLSDefines.RenditionType,
+    constructor(contentLocation: number, contentLength: number, renditionType: HLSDefines.RenditionType,
       groupId: string, name: string, language: string | undefined, isDefault: boolean, isAutoSelect: boolean) {
-      super(HLSDefines.ItemType.RENDITION, startPosition);
+      super(HLSDefines.ItemType.RENDITION, contentLocation, contentLength);
       this.renditionType = renditionType;
       this.groupId = groupId;
       this.name = name;
@@ -257,7 +253,7 @@ namespace HLSParser {
     renditions: HLSDefines.RenditionItem[] = [];
   }
 
-  function handleTag(tagLine: string, offset: number, outputs: Item[], ctx: Map<string, Object>) {
+  function handleTag(tagLine: string, offset: number, outputs: HLSDefines.Item[], ctx: Map<string, Object>) {
     /// #EXTINF:8.766667,
     /// #EXT-X-BYTERANGE:9194528@9662832
     /// segment.ts
@@ -289,12 +285,10 @@ namespace HLSParser {
       const attrs = HLSDefines.parseAttributes(attrsRawStr);
       const uriAttr = attrs.find((attr) => attr.attrName === HLS_ATTR_URI);
       if ( uriAttr ) {
-        const uri = attrsRawStr.slice(uriAttr.attrValueRange.location, uriAttr.attrValueRange.max);
-        const uriStartPosition = offset + EXT_X_KEY.length + uriAttr.attrValueRange.location;
-        const key = new KeyItem(offset);
-        key.uri = uri;
-        key.location.uriStartPosition = uriStartPosition;
-        key.location.length = tagLine.length;
+        const uri = uriAttr.attrValue;
+        const uriLocation = offset + EXT_X_KEY.length + uriAttr.attrValueLocation;
+        const key = new KeyItem(offset, tagLine.length);
+        key.setUri(uri, uriLocation);
         outputs.push(key);
       }
     }
@@ -306,24 +300,21 @@ namespace HLSParser {
       const attrs = HLSDefines.parseAttributes(attrsRawStr);
 
       const uriAttr = attrs.find((attr) => attr.attrName === HLS_ATTR_URI)!;
-      const uri = attrsRawStr.slice(uriAttr.attrValueRange.location, uriAttr.attrValueRange.max);
-      const uriStartPosition = offset + EXT_X_MAP.length + uriAttr.attrValueRange.location;
+      const uri = uriAttr.attrValue;
+      const uriLocation = offset + EXT_X_MAP.length + uriAttr.attrValueLocation;
 
-      const init = new InitializationItem(offset);
-      init.uri = uri;
-      init.location.uriStartPosition = uriStartPosition;
+      const init = new InitializationItem(offset, tagLine.length);
+      init.setUri(uri, uriLocation);
 
       const byteRangeAttr = uriAttr ? attrs.find((attr) => attr.attrName === HLS_ATTR_BYTERANGE) : undefined;
       if ( byteRangeAttr ) {
-        const byteRange = attrsRawStr.slice(byteRangeAttr.attrValueRange.location, byteRangeAttr.attrValueRange.max);
+        const byteRange = byteRangeAttr.attrValue;
         const prevEnd = (ctx.get(HLS_CTX_LAST_INIT_END) as number | undefined) ?? 0;
         const range = HLSDefines.parseByteRange(byteRange, prevEnd);
         init.byteRange = range;
         ctx.set(HLS_CTX_LAST_INIT_END, range.max);
       }
 
-      init.location.startPosition = offset;
-      init.location.length = tagLine.length;
       outputs.push(init);
     }
     /// #EXT-X-MEDIA: https://datatracker.ietf.org/doc/html/rfc8216#section-4.3.4.1
@@ -344,11 +335,10 @@ namespace HLSParser {
       let isDefault = false;
       let isAutoSelect = false;
       let uri: string | undefined;
-      let uriStartPosition = 0;
+      let uriLocation = 0;
 
       attrs.forEach((attr) => {
-        const attrValueRange = attr.attrValueRange;
-        const attrValue = attrsRawStr.slice(attrValueRange.location, attrValueRange.max);
+        const attrValue = attr.attrValue;
         switch (attr.attrName) {
           case HLS_ATTR_TYPE:
             renditionType = HLSDefines.parseRenditionType(attrValue);
@@ -370,18 +360,16 @@ namespace HLSParser {
             break;
           case HLS_ATTR_URI: {
             uri = attrValue;
-            uriStartPosition = offset + EXT_X_MEDIA.length + attrValueRange.location;
+            uriLocation = offset + EXT_X_MEDIA.length + attr.attrValueLocation;
           }
             break;
         }
       });
 
-      const rendition = new RenditionItem(offset, renditionType!, groupId!, name!, language, isDefault, isAutoSelect);
+      const rendition = new RenditionItem(offset, tagLine.length, renditionType!, groupId!, name!, language, isDefault, isAutoSelect);
       if ( uri ) {
-        rendition.uri = uri;
-        rendition.location.uriStartPosition = uriStartPosition;
+        rendition.setUri(uri, uriLocation);
       }
-      rendition.location.length = tagLine.length;
       outputs.push(rendition);
     }
     /// #EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=640x360,CODECS="avc1.4d401e,mp4a.40.2",AUDIO="audio-group"
@@ -404,8 +392,7 @@ namespace HLSParser {
       let closedCaptionsGroupID: string | undefined;  // OPTIONAL: CLOSED-CAPTIONS group ID
 
       attrs.forEach((attr) => {
-        const attrValueRange = attr.attrValueRange;
-        const attrValue = attrsRawStr.slice(attrValueRange.location, attrValueRange.max);
+        const attrValue = attr.attrValue;
         switch (attr.attrName) {
           case HLS_ATTR_BANDWIDTH:
             bandwidth = parseInt(attrValue, 10);
@@ -447,18 +434,8 @@ namespace HLSParser {
     /// #EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=500000,RESOLUTION=854x480,CODECS="avc1.64001f",PROGRAM-ID=1,URI="iframe-stream-4.m3u8"
     /// #EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=1000000,RESOLUTION=3840x2160,CODECS="hev1.1.6.L120.90",URI="iframe-stream-5.m3u8"
     else if ( tagLine.startsWith(EXT_X_I_FRAME_STREAM_INF) ) {
-      // const attrsRawStr = tagLine.slice(EXT_X_I_FRAME_STREAM_INF.length);
-      // const attrs = HLSDefines.parseAttributes(attrsRawStr);
-      //
-      // const uriAttr = attrs.find((attr) => attr.attrName === HLS_ATTR_URI)!;
-      // const uri = attrsRawStr.slice(uriAttr.attrValueRange.location, uriAttr.attrValueRange.max);
-      // const uriStartPosition = offset + EXT_X_I_FRAME_STREAM_INF.length + uriAttr.attrValueRange.location;
-
-      // 这里不解析 iframe 的 uri, 在生成代理内容时将会被移除;
-      const iframeStream = new IFrameStreamItem(offset);
-      // iframeStream.uri = uri;
-      // iframeStream.positions.uriStartPosition = uriStartPosition;
-      iframeStream.location.length = tagLine.length;
+      // 这里不解析 iframe 的 uri, 后面在生成代理内容时将会删除 iframe;
+      const iframeStream = new IFrameStreamItem(offset, tagLine.length);
       outputs.push(iframeStream);
     }
   }
@@ -475,8 +452,8 @@ namespace HLSParser {
     const item = ctx.get(HLS_CTX_LAST_ITEM) as Item | undefined;
     if ( item && !item.uri ) {
       item.uri = uri;
-      item.location.uriStartPosition = offset;
-      item.location.length = offset + uri.length - item.location.startPosition;
+      item.setUri(uri, offset);
+      item.contentRange.length = item.uriRange!.max - item.contentRange.location;
       ctx.delete(HLS_CTX_LAST_ITEM);
     }
   }
