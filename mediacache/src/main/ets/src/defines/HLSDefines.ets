@@ -157,7 +157,7 @@ namespace HLSDefines {
   /// `TYPE=SUBTITLES,GROUP-ID="subs",NAME="English",LANGUAGE="en",URI="subs_eng.m3u8"`
   export function parseAttributes(rawStr: string): Attribute[] {
     const results: Attribute[] = [];
-    const regex = /([A-Z0-9\-]+)=("(?:[^"\r\n]*)"|(?:0[xX][A-F0-9]+|[0-9]+(?:\.[0-9]+)?|-?[0-9]+(?:\.[0-9]+)?|[A-Z0-9\-]+(?:x[0-9]+)?))/g;
+    const regex = /([A-Z0-9\-]+)=((?:"[^"]+")|(?:[^,]+))/g;
     while (true) {
       const match = regex.exec(rawStr);
       if ( !match ) break;
