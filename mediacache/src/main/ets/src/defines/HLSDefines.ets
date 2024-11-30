@@ -14,7 +14,7 @@ namespace HLSDefines {
 
   /// 因为需要代理请求, 所以我们关注更多的是  Playlist 中的这些URI;
   ///
-  /// uri 可能未定义, 某些 Tag 无 URI 配置, 例如 CLOSED-CAPTIONS 通常嵌入在视频流中;
+  /// uri 可能未定义, 某些 Tag 会移除掉或无 URI 配置, 例如会移除 IFrameStreams; CLOSED-CAPTIONS 无 URI 通常嵌入在视频流中;
   export interface Item {
     readonly uri?: string;
     readonly itemType: ItemType;
@@ -113,7 +113,7 @@ namespace HLSDefines {
 
   /// 选一个媒体进行代理
   ///
-  /// 变体流 二选一, 选 low 还是 high;
+  /// 例如: 以下变体流 二选一, 选 low 还是 high;
   ///
   /// #EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=640x360,CODECS="avc1.4d401e,mp4a.40.2",AUDIO="audio-group"
   /// https://example.com/low/index.m3u8
