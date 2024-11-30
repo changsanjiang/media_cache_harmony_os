@@ -96,7 +96,7 @@ namespace HLSParser {
 
         // remove
         if ( shouldRemove ) {
-          proxyPlaylist = MCUtils.replaceCharactersInRange(proxyPlaylist, [item.positions.startPosition, item.positions.length], "");
+          proxyPlaylist = MCUtils.replaceCharactersInRange(proxyPlaylist, [item.location.startPosition, item.location.length], "");
           return; // return;
         }
 
@@ -106,7 +106,7 @@ namespace HLSParser {
 
         const absoluteUrl = HLSDefines.getAbsoluteUrl(uri, currentUrl);
         const proxyUri = MCProxyGenerator.generateProxyURIForHLSItem(assetId, absoluteUrl, item.itemType);
-        proxyPlaylist = MCUtils.replaceCharactersInRange(proxyPlaylist, [item.positions.uriStartPosition, uri.length], proxyUri);
+        proxyPlaylist = MCUtils.replaceCharactersInRange(proxyPlaylist, [item.location.uriStartPosition, uri.length], proxyUri);
       });
       return proxyPlaylist;
     }
@@ -148,7 +148,7 @@ namespace HLSParser {
   const HLS_CTX_LAST_BYTERANGE_END = "HLS_CTX_LAST_BYTERANGE_END";
   const HLS_CTX_LAST_INIT_END = "HLS_CTX_LAST_INIT_END";
 
-  class Positions implements HLSDefines.Positions {
+  class Location implements HLSDefines.Location {
     startPosition: number = 0;
     length: number = 0;
     uriStartPosition: number = 0;
@@ -161,11 +161,11 @@ namespace HLSParser {
   class Item implements HLSDefines.Item {
     uri?: string | undefined;
     itemType: HLSDefines.ItemType;
-    positions: Positions;
+    location: Location;
 
     constructor(itemType: HLSDefines.ItemType, startPosition: number) {
       this.itemType = itemType;
-      this.positions = new Positions(startPosition);
+      this.location = new Location(startPosition);
     }
   }
 
@@ -293,8 +293,8 @@ namespace HLSParser {
         const uriStartPosition = offset + EXT_X_KEY.length + uriAttr.attrValueRange.location;
         const key = new KeyItem(offset);
         key.uri = uri;
-        key.positions.uriStartPosition = uriStartPosition;
-        key.positions.length = tagLine.length;
+        key.location.uriStartPosition = uriStartPosition;
+        key.location.length = tagLine.length;
         outputs.push(key);
       }
     }
@@ -311,7 +311,7 @@ namespace HLSParser {
 
       const init = new InitializationItem(offset);
       init.uri = uri;
-      init.positions.uriStartPosition = uriStartPosition;
+      init.location.uriStartPosition = uriStartPosition;
 
       const byteRangeAttr = uriAttr ? attrs.find((attr) => attr.attrName === HLS_ATTR_BYTERANGE) : undefined;
       if ( byteRangeAttr ) {
@@ -322,8 +322,8 @@ namespace HLSParser {
         ctx.set(HLS_CTX_LAST_INIT_END, range.max);
       }
 
-      init.positions.startPosition = offset;
-      init.positions.length = tagLine.length;
+      init.location.startPosition = offset;
+      init.location.length = tagLine.length;
       outputs.push(init);
     }
     /// #EXT-X-MEDIA: https://datatracker.ietf.org/doc/html/rfc8216#section-4.3.4.1
@@ -379,9 +379,9 @@ namespace HLSParser {
       const rendition = new RenditionItem(offset, renditionType!, groupId!, name!, language, isDefault, isAutoSelect);
       if ( uri ) {
         rendition.uri = uri;
-        rendition.positions.uriStartPosition = uriStartPosition;
+        rendition.location.uriStartPosition = uriStartPosition;
       }
-      rendition.positions.length = tagLine.length;
+      rendition.location.length = tagLine.length;
       outputs.push(rendition);
     }
     /// #EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=640x360,CODECS="avc1.4d401e,mp4a.40.2",AUDIO="audio-group"
@@ -458,7 +458,7 @@ namespace HLSParser {
       const iframeStream = new IFrameStreamItem(offset);
       // iframeStream.uri = uri;
       // iframeStream.positions.uriStartPosition = uriStartPosition;
-      iframeStream.positions.length = tagLine.length;
+      iframeStream.location.length = tagLine.length;
       outputs.push(iframeStream);
     }
   }
@@ -475,8 +475,8 @@ namespace HLSParser {
     const item = ctx.get(HLS_CTX_LAST_ITEM) as Item | undefined;
     if ( item && !item.uri ) {
       item.uri = uri;
-      item.positions.uriStartPosition = offset;
-      item.positions.length = offset + uri.length - item.positions.startPosition;
+      item.location.uriStartPosition = offset;
+      item.location.length = offset + uri.length - item.location.startPosition;
       ctx.delete(HLS_CTX_LAST_ITEM);
     }
   }

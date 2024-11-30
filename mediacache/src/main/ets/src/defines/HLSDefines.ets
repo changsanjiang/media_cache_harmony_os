@@ -18,7 +18,7 @@ namespace HLSDefines {
   export interface Item {
     readonly uri?: string;
     readonly itemType: ItemType;
-    readonly positions: Positions; // 在 playlist 中的偏移量;
+    readonly location: Location; // 在 playlist 中的偏移量;
   }
 
   /// #EXT-X-KEY
@@ -131,7 +131,7 @@ namespace HLSDefines {
   /// #EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="Spanish",LANGUAGE="es",URI="subs_spa.m3u8"
   export type RenditionSelectionHandler = (playlistOriginalUrl: string, playlistCurrentUrl: string, renditionGroup: RenditionGroup, renditionType: RenditionType) => RenditionItem;
 
-  export interface Positions {
+  export interface Location {
     readonly startPosition: number; // 内容起点;
     readonly length: number; // 内容长度;
     readonly uriStartPosition: number; // uri起点;
