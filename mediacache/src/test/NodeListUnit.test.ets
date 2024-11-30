@@ -7,6 +7,7 @@ import MCUtils from '../main/ets/src/utils/MCUtils';
 import { HLSPlaylist } from '../main/ets/src/asset/hls/HLSPlaylist';
 import HLSDefines from '../main/ets/src/defines/HLSDefines';
 import { buffer, util } from '@kit.ArkTS';
+import HLSParser from '../main/ets/src/asset/hls/HLSParser';
 
 export default function nodeListUnitTest() {
   describe('nodeListUnitTest', () => {
@@ -57,7 +58,7 @@ seg-3-v1-a1.m4s
 
   const originalUrl = "http://www.baidu.com";
   const currentUrl = "http://www.lwz.com";
-  const proxyPlaylist = HLSPlaylist.proxy("abcd", buffer.from(playlist, 'utf-8').buffer, originalUrl, currentUrl);
+  const proxyPlaylist = HLSParser.proxy("abcd", playlist, originalUrl, currentUrl);
   proxyPlaylist.split("\n").forEach((line) => console.log(line));
 }
 
