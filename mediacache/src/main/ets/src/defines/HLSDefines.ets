@@ -161,22 +161,22 @@ namespace HLSDefines {
     while (true) {
       const match = regex.exec(rawStr);
       if ( !match ) break;
-      const attrName = match[1];
-      let attrValue = match[2];
-      let valueLocation = match.index + attrName.length + 1; // + '='.length;
-      let valueLength = attrValue.length;
-      // 处理双引号, 前后双引号不计入 value 的范围;
-      if ( attrValue.startsWith(`"`) && attrValue.endsWith(`"`) ) {
-        valueLocation += 1;
-        valueLength -= 2;
-      }
-      const valueRange = new MCRange(valueLocation, valueLength);
-      results.push({
-        attrName: attrName,
-        attrValueRange: valueRange
-      })
+      results.push(parseAttribute(match))
     }
     return results;
+  }
+
+  function parseAttribute(match: RegExpExecArray): Attribute {
+    const name = match[1];
+    let value = match[2];
+    let valueLocation = match.index + name.length + 1; // + '='.length;
+    let valueLength = value.length;
+    if ( value.startsWith(`"`) && value.endsWith(`"`) ) { // 处理双引号, 前后双引号不计入 value 的范围;
+      valueLocation += 1;
+      valueLength -= 2;
+    }
+    const valueRange = new MCRange(valueLocation, valueLength);
+    return { attrName: name, attrValueRange: valueRange };
   }
 
   /// https://datatracker.ietf.org/doc/html/rfc8216#section-4.3.4.1
