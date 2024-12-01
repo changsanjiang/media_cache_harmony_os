@@ -339,6 +339,10 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
           const reader = nextNode.longestContent;
           let isNextNodeRemoved = false;
 
+          if ( writer?.isTemp ) {
+            throw new Error(`试图向临时内容写入数据`);
+          }
+
           if ( writer && reader ) {
             const isMerged = await this.mergeData(writer, reader);
             if ( isMerged ) {
