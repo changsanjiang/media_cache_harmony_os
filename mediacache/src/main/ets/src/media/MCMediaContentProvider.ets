@@ -29,14 +29,23 @@ export class MCMediaContentProvider {
     }));
   }
 
-  createContent(contentOffset: number): IMCMediaContent {
+  createContent(contentOffset: number, temp: boolean = false): IMCMediaContent {
     const lastIndex = this.mLastIndexes.get(contentOffset);
     const index = lastIndex === undefined ? 0 : lastIndex + 1;
     const fileName = this.generateFileName(contentOffset, index);
-    const filePath = `${this.mDir}/${fileName}`;
-    const content = new MCMediaContent(this.mMediaId, contentOffset, filePath);
+    const filePath = !temp ? `${this.mDir}/${fileName}` : `${this.mDir}/temp/${fileName}`;
+    const content = new MCMediaContent(this.mMediaId, contentOffset, filePath, 0, temp);
     this.mLastIndexes.set(contentOffset, index);
     return content;
+  }
+
+  async removeAllTempContentFiles(): Promise<void> {
+    const dir = `${this.mDir}/temp`;
+    try {
+      await fileIo.unlink(dir);
+    }
+    catch (error) {
+    }
   }
 
   private generateFileName(contentOffset: number, index: number): string {

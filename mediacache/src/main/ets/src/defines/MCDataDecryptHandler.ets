@@ -1,3 +1,3 @@
-import { IMCHttpRequest } from "./IMCHttpRequest";
+import { IMCDataRequest } from "./IMCDataRequest";
 
-export type MCDataDecryptHandler = (request: IMCHttpRequest, offset: number, data: ArrayBuffer, len: number) => number | Promise<number>;
+export type MCDataDecryptHandler = (request: IMCDataRequest, offset: number, data: ArrayBuffer, len: number) => number | Promise<number>;

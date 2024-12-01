@@ -1,5 +1,5 @@
 import { IMCDataReader } from "./IMCDataReader";
-import { IMCHttpRequest } from "./IMCHttpRequest";
+import { IMCDataRequest } from "./IMCDataRequest";
 import { IMCMedia } from "./IMCMedia";
 import { IMCReadwriteReference } from "./IMCReadwriteReference";
 import { MCDataDecryptHandler } from "./MCDataDecryptHandler";
@@ -18,6 +18,6 @@ export interface IMCAsset extends IMCReadwriteReference<IMCAsset> {
   readonly completeness: Promise<number>; // 完成度; [0, 1];
 
   prepare(): Promise<void>;
-  createReaderBy(clientId: number, request: IMCHttpRequest, decrypt?: MCDataDecryptHandler): Promise<IMCDataReader>;
+  createReaderBy(clientId: number, request: IMCDataRequest, decrypt?: MCDataDecryptHandler): Promise<IMCDataReader>;
   getMediaBy(requestTarget: string): Promise<IMCMedia>; // media readwrite retained, should release after;
 }

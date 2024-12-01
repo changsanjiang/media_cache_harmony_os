@@ -12,12 +12,14 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
   private mReader?: fileIo.File = undefined;
   private mWriter?: fileIo.File = undefined;
   private mDataWrittenCallbacks: Set<(content: IMCMediaContent, length: number) => void> = new Set();
+  private mTemp = false; // 是否是临时内容
 
-  constructor(mediaId: string, contentOffset: number, filePath: string, length: number = 0) {
+  constructor(mediaId: string, contentOffset: number, filePath: string, length: number = 0, isTemp: boolean = false) {
     super();
     this.mMediaId = mediaId;
     this.contentOffset = contentOffset;
     this.mFilePath = filePath;
+    this.mTemp = isTemp;
     if (length > 0) {
       this.mLength = length;
     }
@@ -39,6 +41,10 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
     return this.mFilePath;
   }
 
+  get isTemp(): boolean {
+    return this.mTemp;
+  }
+
   readData(position: number, buffer: ArrayBuffer, length: number): Promise<number> {
     return this.mLock.lockAsync(async () => this.readDataUnsafe(position, buffer, length));
   }
@@ -55,9 +61,9 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
     return this.mLock.lockAsync(async () => this.closeWriteUnsafe());
   }
 
-  // destroy(): Promise<boolean> {
-  //   return this.mLock.lockAsync(async () => this.destroyUnsafe());
-  // }
+  destroy(): Promise<boolean> {
+    return this.mLock.lockAsync(async () => this.destroyUnsafe());
+  }
 
   on(_: "dataWritten", callback: (content: IMCMediaContent, length: number) => void): Promise<void> {
     return this.mLock.lockAsync(() => { this.mDataWrittenCallbacks.add(callback) });

@@ -44,7 +44,7 @@ namespace MCDownload {
     readonly statusCode: number;
     readonly requestUrl: string;
     readonly currentUrl: string;
-    readonly headers: Record<string, string>;
+    readonly headers: MCDownloadResponseHeaders;
   }
 
   export let requestHandler: ((request: Request) => void) | undefined = undefined;
@@ -54,18 +54,11 @@ namespace MCDownload {
   export function probe(request: Request, signal?: MCAbortSignal): Promise<Response> {
     const req = new rcp.Request(request.url, 'HEAD', request.headers, undefined, request.cookies, undefined, undefined);
     signal?.addEventListener('aborted', () => session.cancel(req))
-    return session.fetch(req).then((rcpResponse: rcp.Response) => {
-      const response: Response = {
-        statusCode: rcpResponse.statusCode,
-        requestUrl: request.url,
-        currentUrl: rcpResponse.effectiveUrl?.toString() ?? request.url,
-        headers: rcpResponse.headers as Record<string, string>
-      };
-      return response;
-    });
+    return session.fetch(req)
+      .then((res: rcp.Response) => toResponse(res));
   }
 
-  export function download(request: Request, options: Options): Promise<void> {
+  export function download(request: Request, options: Options): Promise<Response> {
     const config: rcp.Configuration = {
       tracing: {
         httpEventsHandler: {
@@ -77,7 +70,18 @@ namespace MCDownload {
     requestHandler?.(request);
     const req = new rcp.Request(request.url, 'GET', request.headers, undefined, request.cookies, undefined, config);
     options.signal?.addEventListener('aborted', () => session.cancel(req));
-    return session.fetch(req).then((_: rcp.Response) => { });
+    return session.fetch(req)
+      .then((res: rcp.Response) => toResponse(res));
+  }
+
+  function toResponse(rcpResponse: rcp.Response): Response {
+    const requestUrl = rcpResponse.request.url.toString();
+    return {
+      statusCode: rcpResponse.statusCode,
+      requestUrl: requestUrl,
+      currentUrl: rcpResponse.effectiveUrl?.toString() ?? requestUrl,
+      headers: rcpResponse.headers as Record<string, string>
+    };
   }
 }
 

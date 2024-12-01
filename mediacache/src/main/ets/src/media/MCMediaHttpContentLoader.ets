@@ -1,54 +1,39 @@
-import { IMCHttpRequestRange, parseRequestRangeIfDefined } from "../defines/IMCHttpRequestRange";
-import { parseResponseContentRange } from "../defines/IMCHttpResponseContentRange";
 import { IMCMedia } from "../defines/IMCMedia";
 import { IMCMediaContent } from "../defines/IMCMediaContent";
 import { MCLogModule } from "../defines/MCLogModule";
 import { MCAbortController } from "../utils/MCAbortController";
 import MCDownload from "../utils/MCDownload";
+import { MCDownloadRequest } from "../utils/MCDownloadRequest";
 import { MCDownloadResponseHeaders } from "../utils/MCDownloadResponseHeaders";
 import MCLogger from "../utils/MCLogger";
 import { MCRange } from "../utils/MCRange";
 import { MCMediaContentLoader } from "./MCMediaContentLoader";
 
-export interface IMCMediaHttpContentRequest {
-  readonly url: string;
-
-  // 优先通过 range 属性获取请求范围;
-  // 如果 range 未设置, 将会尝试从 headers 中获取请求范围;
-  readonly range?: IMCHttpRequestRange;
-  readonly headers: Record<string, string>;
-}
-
 export class MCMediaHttpContentLoader extends MCMediaContentLoader {
   private media: IMCMedia;
-  private request: IMCMediaHttpContentRequest;
+  private request: MCDownloadRequest;
   private abortController?: MCAbortController = undefined;
-  private downloadRangeStart?: number = undefined;
   private content?: IMCMediaContent = undefined;
 
-  constructor(media: IMCMedia, request: IMCMediaHttpContentRequest) {
-    super();
+  constructor(media: IMCMedia, request: MCDownloadRequest) {
+    super(request.rangeHeader !== undefined);
     this.media = media;
     this.request = request;
+    media.readwriteRetain();
   }
 
   protected async onPrepare(): Promise<void> {
     MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Preparing MCMediaHttpContentLoader for URL: ${this.request.url}.`);
-
-    const requestRange = this.request.range ? this.request.range : parseRequestRangeIfDefined(this.request.headers['range']);
-    const downloadRangeHeader = requestRange?.toRangeHeader(); // 'bytes=xxx-xxx'
     const downloadRequest = new MCDownload.Request(this.request.url, this.request.headers);
-    downloadRequest.setHeader('range', downloadRangeHeader);
+    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Download request created for URL: ${this.request.url} with range: ${this.request.rangeHeader}.`);
 
-    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Download request created for URL: ${this.request.url} with range: ${downloadRangeHeader}.`);
-
-    this.downloadRangeStart = requestRange?.rangeStart;
     this.abortController = new MCAbortController();
     MCDownload.download(downloadRequest, {
       headersReceive: (headers) => this.onHeadersReceive(headers),
       dataReceive: (data) => this.onDataReceive(data),
       signal: this.abortController.signal,
-    }).catch((error: Error) => this.abort(error));
+    }).then((res) => this.complete(res))
+      .catch((error: Error) => this.abort(error));
   }
 
   protected onClearBefore(): void {
@@ -68,35 +53,22 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
           MCLogger.warn(MCLogModule.MCMediaContentLoader, () => 'Loader is aborted or done, ignoring headers.');
           return;
         }
-
-        if ( this.downloadRangeStart ) {
-          const contentRangeHeader = headers['content-range'];
-          if ( contentRangeHeader === undefined ) {
-            throw new Error(`Response headers missing 'content-range' for URL ${this.request.url}.`);
-          }
-
-          const contentRange = parseResponseContentRange(contentRangeHeader);
-          // 确保服务器返回的 rangeStart 与请求时一致；
-          if ( contentRange.rangeStart !== this.downloadRangeStart ) {
-            throw new Error('Invalid server response: mismatched rangeStart.');
-          }
-        }
-
-        this.content = await this.media.createContentBy(headers); // content readwrite retained;
+        // MCDownloadRequest 请求由 media 创建; 当其中包含范围字段时, 说明服务器必定支持范围请求;
+        //
+        //
+        // 解析内容范围
+        // 如果是 206 请求, response 必须指定 content-range 字段;
+        // 如果是 200 请求: 依赖于 content-length 字段, 有些服务器可能不返回这个字段;
+        //
+        // 200 或 206 => {start, length};
+        // 当 200 请求的响应未指定 content-length 字段时返回 {0, Number.MAX_SAFE_INTEGER}
+        const contentRange = await this.media.parseContentRange(this.request, headers);
+        this.content = await this.media.createContentInRange(contentRange); // content readwrite retained;
         MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Content created for URL: ${this.request.url} Headers: ${JSON.stringify(headers)}.`);
 
-        // 获取数据长度
-        const contentLengthHeader = headers['content-length'];
-        // 服务器响应中必须指定 content-length;
-        if ( contentLengthHeader === undefined ) {
-          throw new Error(`Response headers missing 'content-length' for URL: ${this.request.url}.`);
+        if ( !this.content.isTemp ) { // 临时内容需要在下载完成后才能通知父类 contentReady;
+          this.contentReady(this.content, contentRange);
         }
-        const contentLength = parseInt(contentLengthHeader, 10);
-        if (isNaN(contentLength)) {
-          throw new Error(`Invalid 'content-length' value: ${contentLengthHeader} for URL: ${this.request.url}.`);
-        }
-        const range = new MCRange(this.content.contentOffset, contentLength);
-        this.contentReady(this.content, range);
       }
       catch (error) {
         MCLogger.error(MCLogModule.MCMediaContentLoader, () => `Error in onHeadersReceive: ${(error as Error).message}`);
@@ -127,11 +99,29 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
     });
   }
 
+  private complete(res: MCDownload.Response): void {
+    this.mLock.lockAsync(async () => {
+      if ( this.mAborted || !this.content || !this.content.isTemp ) {
+        return;
+      }
+
+      if ( res.statusCode !== 200 ) {
+        this.abortUnsafe(); // TODO: http error, 响应不是200时， 抛出异常;
+        return;
+      }
+
+      await this.media.copyTempContent(this.content); // 临时内容下载完成, 复制到正式目录;
+      const range = new MCRange(this.content.contentOffset, await this.content.length);
+      this.contentReady(this.content, range); // 临时内容下载完成, 通知父类 contentReady;
+    });
+  }
+
   protected onClearAfter(): void {
     if ( this.content ) {
       MCLogger.debug(MCLogModule.MCMediaContentLoader, () => 'Closing content writer.');
-      this.content.closeWrite();
+      !this.content.isTemp ? this.content.closeWrite() : this.media.destroyTempContent(this.content);
       this.content = undefined;
     }
+    this.media.readwriteRelease();
   }
 }

@@ -84,7 +84,15 @@ export function parseRequestRangeIfDefined(rangeHeader?: string): IMCHttpRequest
   return rangeHeader ? parseRequestRange(rangeHeader) : undefined;
 }
 
-export function toRequestRangeHeader(rangeStart?: number, rangeEnd?: number, suffixLength?: number): string | undefined {
+export function toRequestRange(range: MCRange): IMCHttpRequestRange {
+  return new MCHttpRequestRange(range.location, range.max - 1, undefined);
+}
+
+export function toRequestRangeHeader(range: IMCHttpRequestRange): string | undefined {
+  const rangeStart = range.rangeStart;
+  const rangeEnd = range.rangeEnd;
+  const suffixLength = range.suffixLength;
+
   if ( suffixLength != undefined ) {
     return `bytes=-${suffixLength}`
   }
@@ -92,8 +100,4 @@ export function toRequestRangeHeader(rangeStart?: number, rangeEnd?: number, suf
     return rangeEnd != undefined ? `bytes=${rangeStart}-${rangeEnd}` : `bytes=${rangeStart}-`;
   }
   return undefined;
-}
-
-export function toRequestRange(range: MCRange): IMCHttpRequestRange {
-  return new MCHttpRequestRange(range.location, range.max - 1, undefined);
 }

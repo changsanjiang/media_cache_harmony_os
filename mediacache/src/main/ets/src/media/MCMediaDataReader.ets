@@ -1,4 +1,3 @@
-import { IMCHttpRequest } from "../defines/IMCHttpRequest";
 import { IMCMedia } from "../defines/IMCMedia";
 import { IMCMediaContentLoader } from "../defines/IMCMediaContentLoader";
 import { IMCDataReader } from "../defines/IMCDataReader";
@@ -12,10 +11,12 @@ import { MCRange } from "../utils/MCRange";
 import { generateResponseContentRange } from "../defines/IMCHttpResponseContentRange";
 import { MCLogModule } from "../defines/MCLogModule";
 import { MCDataDecryptHandler } from "../defines/MCDataDecryptHandler";
+import { IMCDataRequest } from "../defines/IMCDataRequest";
+import { parseRequestRange } from "../defines/IMCHttpRequestRange";
 
 export class MCMediaDataReader implements IMCDataReader {
   private mClientId: number;
-  private mProxyRequest: IMCHttpRequest;
+  private mProxyRequest: IMCDataRequest;
   private mDecrypt?: MCDataDecryptHandler;
   private mLock: ArkTSUtils.locks.AsyncLock = new ArkTSUtils.locks.AsyncLock();
   private mMedia: IMCMedia;
@@ -31,7 +32,7 @@ export class MCMediaDataReader implements IMCDataReader {
   private mOffset = 0;
 
   // 传入之前请先对 media 做一次 readwriteRetain, reader 内部会在操作结束后执行对应的 readwriteRelease;
-  constructor(media: IMCMedia, clientId: number, proxyRequest: IMCHttpRequest, decrypt?: MCDataDecryptHandler) {
+  constructor(media: IMCMedia, clientId: number, proxyRequest: IMCDataRequest, decrypt?: MCDataDecryptHandler) {
     this.mClientId = clientId;
     this.mProxyRequest = proxyRequest;
     this.mMedia = media;
@@ -360,12 +361,13 @@ export class MCMediaDataReader implements IMCDataReader {
           this.mOffset = range.location; // 设置响应数据的起始位置;
           const totalLength = await this.mMedia.totalLength;
           const requestRangeHeader = this.mProxyRequest.headers["range"];
+          const requestRange = requestRangeHeader ? parseRequestRange(requestRangeHeader) : undefined;
 
           // 假设所有服务器都支持范围请求
           // Generate response based on the presence of a range header
-          if (totalLength !== 0 && requestRangeHeader) {
+          if (totalLength !== 0 && requestRange) {
             // Partial content response (206)
-            const contentRange = generateResponseContentRange(requestRangeHeader, totalLength);
+            const contentRange = generateResponseContentRange(requestRange, totalLength);
             if (contentRange.rangeStart !== range.location) { // 根据上面列出的前提, 请求的起始位置必须规范不能越界或参数错误;
               throw new Error(`Invalid range start: expected ${range.location}, got ${contentRange.rangeStart}.`);
             }

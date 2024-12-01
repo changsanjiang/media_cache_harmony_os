@@ -1,6 +1,6 @@
 import { IMCAsset } from "../../defines/IMCAsset";
 import { IMCDataReader } from "../../defines/IMCDataReader";
-import { IMCHttpRequest } from "../../defines/IMCHttpRequest";
+import { IMCDataRequest } from "../../defines/IMCDataRequest";
 import { IMCMedia } from "../../defines/IMCMedia";
 import { MCDataDecryptHandler } from "../../defines/MCDataDecryptHandler";
 import { MCMedia } from "../../media/MCMedia";
@@ -32,7 +32,7 @@ export class FILEAsset extends MCReadwriteReference<FILEAsset> implements IMCAss
     return this.mMedia.prepare();
   }
 
-  async createReaderBy(clientId: number, request: IMCHttpRequest, decrypt?: MCDataDecryptHandler): Promise<IMCDataReader> {
+  async createReaderBy(clientId: number, request: IMCDataRequest, decrypt?: MCDataDecryptHandler): Promise<IMCDataReader> {
     const reader = new FILEAssetReader(await this.readwriteRetain(), clientId, request, decrypt);
     return reader;
   }

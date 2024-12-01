@@ -35,10 +35,12 @@ export class MCMediaContentNode implements IMCMediaContentNode {
     return this.mContents.filter(predicate);
   }
 
-  removeContent(content: IMCMediaContent): void {
+  removeContent(content: IMCMediaContent): boolean {
     const index = this.mContents.indexOf(content);
     if (index >= 0) {
       this.mContents.splice(index, 1);
+      return true;
     }
+    return false;
   }
 }

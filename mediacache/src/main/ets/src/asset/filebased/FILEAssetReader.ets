@@ -1,17 +1,17 @@
 import { IMCAsset } from "../../defines/IMCAsset";
 import { IMCDataReader } from "../../defines/IMCDataReader";
 import { IMCDataResponse } from "../../defines/IMCDataResponse";
-import { IMCHttpRequest } from "../../defines/IMCHttpRequest";
 import { MCDataDecryptHandler } from "../../defines/MCDataDecryptHandler";
 import { MCMediaDataReader } from "../../media/MCMediaDataReader";
 import { ArkTSUtils } from "@kit.ArkTS";
 import { MCLogModule } from "../../defines/MCLogModule";
 import MCLogger from "../../utils/MCLogger";
 import { IMCMedia } from "../../defines/IMCMedia";
+import { IMCDataRequest } from "../../defines/IMCDataRequest";
 
 export class FILEAssetReader implements IMCDataReader {
   private mClientId: number;
-  private mProxyRequest: IMCHttpRequest;
+  private mProxyRequest: IMCDataRequest;
   private mAsset: IMCAsset;
   private mMedia?: IMCMedia | undefined;
   private mDecrypt?: MCDataDecryptHandler;
@@ -25,7 +25,7 @@ export class FILEAssetReader implements IMCDataReader {
   private mDoneCallback?: (reader: IMCDataReader) => void = undefined;
 
   // 传入之前请先对 asset 做一次 readwriteRetain, reader 内部会在操作结束后执行对应的 readwriteRelease;
-  constructor(asset: IMCAsset, clientId: number, proxyRequest: IMCHttpRequest, decrypt?: MCDataDecryptHandler) {
+  constructor(asset: IMCAsset, clientId: number, proxyRequest: IMCDataRequest, decrypt?: MCDataDecryptHandler) {
     this.mAsset = asset;
     this.mClientId = clientId;
     this.mProxyRequest = proxyRequest;

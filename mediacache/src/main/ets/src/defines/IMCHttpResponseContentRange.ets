@@ -52,13 +52,11 @@ export function parseResponseContentRange(contentRangeHeader: string): IMCHttpRe
   };
 }
 
-
-export function generateResponseContentRange(requestRangeHeader: string, totalLength: number): IMCHttpResponseContentRange {
-  if (!requestRangeHeader) {
-    throw new Error("Missing range header in the request.");
+export function generateResponseContentRange(requestRange: IMCHttpRequestRange, totalLength: number): IMCHttpResponseContentRange {
+  if ( totalLength <= 0 ) {
+    throw new Error(`The total length must be greater than 0.`);
   }
 
-  const requestRange = parseRequestRange(requestRangeHeader);
   const requestRangeStart = requestRange.rangeStart;
   const requestRangeEnd = requestRange.rangeEnd;
   const requestSuffixLength = requestRange.suffixLength;
