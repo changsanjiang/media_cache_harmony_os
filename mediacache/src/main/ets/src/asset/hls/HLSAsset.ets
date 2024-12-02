@@ -1,8 +1,5 @@
 import { IMCAsset } from "../../defines/IMCAsset";
-import { IMCDataReader } from "../../defines/IMCDataReader";
-import { IMCDataRequest } from "../../defines/IMCDataRequest";
 import { IMCMedia } from "../../defines/IMCMedia";
-import { MCDataDecryptHandler } from "../../defines/MCDataDecryptHandler";
 import { MCMedia } from "../../media/MCMedia";
 import { MCReadwriteReference } from "../../utils/MCReadwriteReference";
 
@@ -27,10 +24,6 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
   }
 
   prepare(): Promise<void> {
-    throw new Error("Method not implemented.");
-  }
-
-  createReaderBy(clientId: number, request: IMCDataRequest, decrypt?: MCDataDecryptHandler): Promise<IMCDataReader> {
     throw new Error("Method not implemented.");
   }
 

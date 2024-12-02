@@ -10,7 +10,7 @@ import MCDatabase from "../utils/MCDatabase";
 import { IMCMediaMetadata } from "../defines/IMCMediaMetadata";
 import { generateResponseContentRange, parseResponseContentRange } from "../defines/IMCHttpResponseContentRange";
 import { MCDownloadResponseHeaders } from "../utils/MCDownloadResponseHeaders";
-import MCProxyGenerator from "../utils/MCProxyGenerator";
+import MCURL from "../utils/MCURL";
 import { MCMediaHttpContentLoader } from "./MCMediaHttpContentLoader";
 import { parseRequestRange, toRequestRange, toRequestRangeHeader } from "../defines/IMCHttpRequestRange";
 import { MCMediaFileContentLoader } from "./MCMediaFileContentLoader";
@@ -131,7 +131,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
 
       const requestTarget = proxyRequest.requestTarget;
       const headers = proxyRequest.headers;
-      const mediaUrl = MCProxyGenerator.restoreURLFromProxyTarget(requestTarget);
+      const mediaUrl = MCURL.parseUrl(requestTarget);
       const request = new MCDownload.Request(mediaUrl, headers);
 
       return MCDownload.probe(request).then((response) => this.mLock.lockAsync(async () => {
@@ -173,7 +173,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
 
   private resolve(proxyRequest: IMCDataRequest): Promise<IMCDataResponse> {
     return this.mLock.lockAsync(async () => {
-      const url = MCProxyGenerator.restoreURLFromProxyTarget(proxyRequest.requestTarget);
+      const url = MCURL.parseUrl(proxyRequest.requestTarget);
       if (!url) {
         throw new MCDataResponseError(400, "Failed to restore URL from the provided request.");
       }
@@ -411,7 +411,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       for (let redundant of redundantContents) {
 
         if ( (await redundant.readwriteCount) !== 0 ) {
-          MCLogger.warn(MCLogModule.FILEAssetReader, () => `xxx`);
+          MCLogger.warn(MCLogModule.MCMedia, () => `xxx`);
         }
 
         await redundant.destroyUnsafe();
