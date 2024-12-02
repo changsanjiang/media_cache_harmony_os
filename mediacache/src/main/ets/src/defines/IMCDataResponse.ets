@@ -1,33 +1,22 @@
-export enum MCDataResponseStatusCode {
-  BAD_REQUEST,
-  INTERNAL_ERROR,
-  OK,
-  PARTIAL_CONTENT,
-}
+import { MCRange } from "../utils/MCRange";
+import { IMCMediaContentLoader } from "./IMCMediaContentLoader";
 
 export interface IMCDataResponse {
-  statusCode: MCDataResponseStatusCode;
-}
-
-export interface IMCDataBadRequestResponse extends IMCDataResponse {
-  statusCode: MCDataResponseStatusCode.BAD_REQUEST;
-}
-
-export interface IMCDataInternalErrorResponse extends IMCDataResponse {
-  statusCode: MCDataResponseStatusCode.INTERNAL_ERROR;
+  readonly statusCode: number;
 }
 
 export interface IMCDataOkResponse extends IMCDataResponse {
-  contentType: string;    // mime type;
-  contentLength: number;  // file data total length;
-  byteRangeAccessSupported: boolean;
-  statusCode: MCDataResponseStatusCode.OK;
+  readonly statusCode: 200;
+  readonly contentType: string;    // mime type;
+  readonly contentLength?: number;  // file data total length;
+  readonly byteRangeAccessSupported: boolean;
+  readonly contentLoaders: IMCMediaContentLoader[];
 }
 
 export interface IMCDataPartialContentResponse extends IMCDataResponse {
-  contentType: string;    // mime type;
-  contentOffset: number;
-  contentLength: number;
-  totalLength: number;    // file data total length;
-  statusCode: MCDataResponseStatusCode.PARTIAL_CONTENT;
+  readonly statusCode: 206;
+  readonly contentType: string;    // mime type;
+  readonly contentRange: MCRange
+  readonly totalLength: number;    // file data total length;
+  readonly contentLoaders: IMCMediaContentLoader[];
 }

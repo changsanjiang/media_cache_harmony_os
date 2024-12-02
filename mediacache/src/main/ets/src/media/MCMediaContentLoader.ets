@@ -17,10 +17,6 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
   private mContent?: IMCMediaContent = undefined;
   private mRange?: MCRange = undefined;
 
-  constructor(isPartialContent: boolean) {
-    this.isPartialContent = isPartialContent;
-  }
-
   get isDone(): Promise<boolean> {
     return this.mLock.lockAsync(() => this.mDone);
   }
@@ -36,8 +32,6 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
   get readableLength(): Promise<number> {
     return this.mLock.lockAsync(() => this.getReadableLengthUnsafe());
   }
-
-  readonly isPartialContent: boolean
 
   prepare(): Promise<void> {
     MCLogger.info(MCLogModule.MCMediaContentLoader, () => 'Starting preparation.');

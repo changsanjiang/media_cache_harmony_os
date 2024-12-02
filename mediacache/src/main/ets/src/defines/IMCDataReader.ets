@@ -1,8 +1,6 @@
-import { IMCDataResponse } from "./IMCDataResponse";
-
 export interface IMCDataReader {
+  readonly responseHeaders: Promise<string | undefined>;
   readonly readableLength: Promise<number>; // 当前已准备好的可进行读取的数据的长度;
-  readonly response: Promise<IMCDataResponse | undefined>;
   readonly isDone: Promise<boolean>;
   readonly isAborted: Promise<boolean>;
 
@@ -11,7 +9,7 @@ export interface IMCDataReader {
   seekToEndOfReadableRange(): Promise<number>; // 跳转到当前可读范围的尾部，并返回跳转了的长度(readableLength);
   abort(error?: Error): Promise<void>;
 
-  on(event: 'responseReady', callback: (reader: IMCDataReader, response: IMCDataResponse) => void): Promise<void>;
+  on(event: 'responseReady', callback: (reader: IMCDataReader, responseHeaders: string) => void): Promise<void>;
   off(event: 'responseReady'): Promise<void>;
 
   on(event: 'newDataReadable', callback: (reader: IMCDataReader) => void): Promise<void>;

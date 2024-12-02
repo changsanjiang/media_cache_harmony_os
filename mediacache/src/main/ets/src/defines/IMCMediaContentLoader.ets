@@ -6,7 +6,6 @@ export interface IMCMediaContentLoader {
   readonly isAborted: Promise<boolean>;
   readonly range: Promise<MCRange | undefined>; // 需要加载的数据的范围(或者说是需要读取的数据的范围, 当这个范围的数据读取完毕后, loader的状态会变成 done);
   readonly readableLength: Promise<number>; // 当前已加载可读取的数据长度;
-  readonly isPartialContent: boolean; // 是否是加载部分数据;
 
   prepare(): Promise<void>;
   readData(buffer: ArrayBuffer): Promise<number>;

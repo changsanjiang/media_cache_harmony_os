@@ -19,7 +19,7 @@ export class FILEAssetReader implements IMCDataReader {
   private mLock: ArkTSUtils.locks.AsyncLock = new ArkTSUtils.locks.AsyncLock();
   private mDone = false;
   private mAborted = false;
-  private mResponseReadyCallback?: (reader: IMCDataReader, response: IMCDataResponse) => void = undefined;
+  private mResponseReadyCallback?: (reader: IMCDataReader, responseHeaders: string) => void = undefined;
   private mNewDataReadableCallback?: (reader: IMCDataReader) => void = undefined;
   private mAbortedCallback?: (reader: IMCDataReader, error?: Error | undefined) => void = undefined;
   private mDoneCallback?: (reader: IMCDataReader) => void = undefined;
@@ -35,8 +35,8 @@ export class FILEAssetReader implements IMCDataReader {
   get readableLength(): Promise<number> {
     return this.mLock.lockAsync(() => this.mMediaReader?.readableLength ?? 0);
   }
-  get response(): Promise<IMCDataResponse | undefined> {
-    return this.mLock.lockAsync(() => this.mMediaReader?.response);
+  get responseHeaders(): Promise<string | undefined> {
+    return this.mLock.lockAsync(() => this.mMediaReader?.responseHeaders);
   }
   get isDone(): Promise<boolean> {
     return this.mLock.lockAsync(() => this.mDone);
@@ -56,11 +56,11 @@ export class FILEAssetReader implements IMCDataReader {
         }
         this.mMedia = await this.mAsset.getMediaBy(this.mProxyRequest.requestTarget);
         this.mMediaReader = new MCMediaDataReader(this.mMedia, this.mClientId, this.mProxyRequest, this.mDecrypt);
-        this.mMediaReader.on("responseReady", (_, response) => {
+        this.mMediaReader.on("responseReady", (_, responseHeaders) => {
           this.mLock.lockAsync(() => !this.mDone && !this.mAborted ? this.mResponseReadyCallback : undefined).then((callback) => {
             if ( callback ) {
-              MCLogger.debug(MCLogModule.FILEAssetReader, () => `[clientId: ${this.mClientId}] Executing responseReady callback with response: ${JSON.stringify(response)}.`);
-              callback(this, response);
+              MCLogger.debug(MCLogModule.FILEAssetReader, () => `[clientId: ${this.mClientId}] Executing responseReady callback with responseHeaders: ${responseHeaders}.`);
+              callback(this, responseHeaders);
             }
           });
         });
@@ -143,7 +143,7 @@ export class FILEAssetReader implements IMCDataReader {
 
       switch (event) {
         case "responseReady":
-          this.mResponseReadyCallback = callback as (reader: IMCDataReader, response: IMCDataResponse) => void;
+          this.mResponseReadyCallback = callback as (reader: IMCDataReader, responseHeaders: string) => void;
           break;
         case "newDataReadable":
           this.mNewDataReadableCallback = callback as (reader: IMCDataReader) => void;

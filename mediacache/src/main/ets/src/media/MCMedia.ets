@@ -20,6 +20,8 @@ import { MCMediaContent } from "./MCMediaContent";
 import MCDownload from "../utils/MCDownload";
 import { IMCDataRequest } from "../defines/IMCDataRequest";
 import { MCDownloadRequest } from "../utils/MCDownloadRequest";
+import { IMCDataOkResponse, IMCDataPartialContentResponse, IMCDataResponse } from "../defines/IMCDataResponse";
+import { MCDataResponseError } from "../defines/MCDataResponseError";
 
 export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   readonly id: string;
@@ -56,7 +58,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
         return 1;
       }
 
-      if (!this.mMetadata || !this.mNodeList.head) {
+      if (!this.mMetadata || this.mMetadata.totalLength === Number.MAX_SAFE_INTEGER || !this.mNodeList.head) {
         return 0;
       }
 
@@ -107,8 +109,17 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     });
   }
 
-  getContentLoadersBy(proxyRequest: IMCDataRequest): Promise<IMCMediaContentLoader[]> {
-    return this.probe(proxyRequest).then(() => this.resolve(proxyRequest));
+  loadData(request: IMCDataRequest): Promise<IMCDataResponse> {
+    return this.probe(request).then(() => this.resolve(request)).catch((error: Error) => {
+      let statusCode = 500;
+      if ( error instanceof MCDataResponseError ) {
+        statusCode = error.statusCode;
+      }
+      const response: IMCDataResponse = {
+        statusCode: statusCode
+      };
+      return response;
+    });
   }
 
   // 探测响应
@@ -121,114 +132,128 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       const requestTarget = proxyRequest.requestTarget;
       const headers = proxyRequest.headers;
       const mediaUrl = MCProxyGenerator.restoreURLFromProxyTarget(requestTarget);
-
-      // TODO： next 是否需要直接把 requestTarget 传递给 MCDownload.Request;
       const request = new MCDownload.Request(mediaUrl, headers);
+
       return MCDownload.probe(request).then((response) => this.mLock.lockAsync(async () => {
         if ( this.mMetadata ) {
           return;
         }
 
-        try {
-          const statusCode = response.statusCode;
-          if ( statusCode != 200 && statusCode != 206 ) {
-            throw new Error(`xxx`); // TODO： next 返回httpError
-          }
-
-          // 探测服务器支持的情况
-          // 如果不支持206请求，在未完全下载之前就只创建一个 200 loader
-
-          const headers = response.headers;
-          const acceptRangesHeader: string | undefined = headers['accept-ranges'];
-          const contentRangeHeader: string | undefined = headers['content-range'];
-          const contentTypeHeader: string | undefined = headers['content-type'];
-          const contentLengthHeader: string | undefined = headers['content-length'];
-
-          const contentType = contentTypeHeader || 'application/octet-stream';
-          const byteRangeAccessSupported = statusCode === 206 || acceptRangesHeader === 'bytes';
-
-          const contentLength = contentLengthHeader ? parseInt(contentLengthHeader, 10) : Number.MAX_SAFE_INTEGER;
-          const contentRange = contentRangeHeader ? parseResponseContentRange(contentRangeHeader) : undefined;
-          const totalLength = contentRange ? contentRange.size : contentLength;
-
-          const metadata: IMCMediaMetadata = {
-            contentType: contentType,
-            totalLength: totalLength,
-            byteRangeAccessSupported: byteRangeAccessSupported
-          };
-          await MCDatabase.saveMediaMetadata(this.id, metadata);
-          this.mMetadata = metadata;
-        } catch (error) {
-          throw error as Error;
+        const statusCode = response.statusCode;
+        if ( statusCode != 200 && statusCode != 206 ) {
+          throw new MCDataResponseError(statusCode, 'xxx');
         }
+
+        // 探测服务器支持的情况
+        // 如果不支持206请求，在未完全下载之前就只创建一个 200 loader
+
+        const headers = response.headers;
+        const acceptRangesHeader: string | undefined = headers['accept-ranges'];
+        const contentRangeHeader: string | undefined = headers['content-range'];
+        const contentTypeHeader: string | undefined = headers['content-type'];
+        const contentLengthHeader: string | undefined = headers['content-length'];
+
+        const contentType = contentTypeHeader || 'application/octet-stream';
+        const byteRangeAccessSupported = statusCode === 206 || acceptRangesHeader === 'bytes';
+
+        const contentLength = contentLengthHeader ? parseInt(contentLengthHeader, 10) : Number.MAX_SAFE_INTEGER;
+        const contentRange = contentRangeHeader ? parseResponseContentRange(contentRangeHeader) : undefined;
+        const totalLength = contentRange ? contentRange.size : contentLength;
+
+        const metadata: IMCMediaMetadata = {
+          contentType: contentType,
+          totalLength: totalLength,
+          byteRangeAccessSupported: byteRangeAccessSupported
+        };
+        await MCDatabase.saveMediaMetadata(this.id, metadata);
+        this.mMetadata = metadata;
       }));
     });
   }
 
-  private resolve(proxyRequest: IMCDataRequest): Promise<IMCMediaContentLoader[]> {
+  private resolve(proxyRequest: IMCDataRequest): Promise<IMCDataResponse> {
     return this.mLock.lockAsync(async () => {
-      MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Resolving content loaders for request: ${JSON.stringify(proxyRequest)}.`);
-      const loaders: IMCMediaContentLoader[] = [];
-      try {
-        const url = MCProxyGenerator.restoreURLFromProxyTarget(proxyRequest.requestTarget);
-        if (!url) {
-          throw new Error("Failed to restore URL from the provided proxy target.");
-        }
-
-        const metadata = this.mMetadata!;
-        if (metadata.byteRangeAccessSupported && metadata.totalLength > 0 && this.mNodeList.head) {
-          const requestRangeHeader = proxyRequest.headers['range'];
-          const totalLength = metadata.totalLength;
-          let loadRange = requestRangeHeader ? this.parseLoadRange(requestRangeHeader, totalLength) : new MCRange(0, totalLength);
-          let curNode: IMCMediaContentNode | undefined = this.mNodeList.findClosestLeftNode(loadRange.location) ?? this.mNodeList.head;
-
-          MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Load range parsed as: ${JSON.stringify(loadRange)}`);
-
-          while (curNode) {
-            // 获取当前长度最长的内容
-            const content = curNode.longestContent!; // 每个节点中都包含至少一个内容;
-            // 可读取的范围
-            const readableRange = new MCRange(content.contentOffset, await content.length);
-            const intersection = loadRange.intersection(readableRange);
-            // 如果存在交集
-            if ( intersection ) {
-              // 获取左侧未下载的部分
-              if ( intersection.location > loadRange.location ) {
-                const leftRange = new MCRange(loadRange.location, intersection.location - loadRange.location);
-                const leftRequest = new MCDownloadRequest(url, proxyRequest.headers);
-                leftRequest.setHeader('range', toRequestRangeHeader(toRequestRange(leftRange)));
-                loaders.push(new MCMediaHttpContentLoader(this, leftRequest));
-              }
-              loaders.push(new MCMediaFileContentLoader(await content.readwriteRetain(), intersection));
-              loadRange = new MCRange(intersection.max, loadRange.max - intersection.max);
-            }
-            if ( loadRange.length === 0 || readableRange.location > loadRange.max ) {
-              break;
-            }
-            curNode = curNode.next;
-          }
-          // 剩余未下载的部分;
-          if (loadRange.length !== 0) {
-            const request = new MCDownloadRequest(url, proxyRequest.headers);
-            request.setHeader('range', toRequestRangeHeader(toRequestRange(loadRange)));
-            loaders.push(new MCMediaHttpContentLoader(this,request));
-          }
-        }
-        else if (metadata.totalLength === 0) { // empty content;
-          const emptyContent = new MCMediaContent(this.id, 0, '');
-          loaders.push(new MCMediaFileContentLoader(await emptyContent.readwriteRetain(), new MCRange(0, 0)));
-        }
-        else {
-          loaders.push(new MCMediaHttpContentLoader(this, new MCDownloadRequest(url, proxyRequest.headers)));
-        }
-
-        MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Resolved ${loaders.length} loaders.`);
-        return loaders;
+      const url = MCProxyGenerator.restoreURLFromProxyTarget(proxyRequest.requestTarget);
+      if (!url) {
+        throw new MCDataResponseError(400, "Failed to restore URL from the provided request.");
       }
-      catch (error) {
-        loaders.forEach((loader) => loader.abort(error));
-        MCLogger.error(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Error while resolving content loaders: ${error.message}\nStack: ${error.stack}`);
-        throw error as Error;
+      const metadata = this.mMetadata!;
+      const contentType = metadata.contentType;
+      const totalLength = metadata.totalLength;
+      const contentLoaders: IMCMediaContentLoader[] = [];
+      if (metadata.byteRangeAccessSupported && metadata.totalLength > 0 && this.mNodeList.head) {
+        const requestRangeHeader = proxyRequest.headers['range'];
+        const contentRange = requestRangeHeader ? this.parseLoadRange(requestRangeHeader, totalLength) : new MCRange(0, totalLength);
+
+        let loadRange = new MCRange(contentRange.location, contentRange.length);
+        let curNode: IMCMediaContentNode | undefined = this.mNodeList.findClosestLeftNode(loadRange.location) ?? this.mNodeList.head;
+
+        MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Load range parsed as: ${JSON.stringify(loadRange)}`);
+
+        while (curNode) {
+          // 获取当前长度最长的内容
+          const content = curNode.longestContent!; // 每个节点中都包含至少一个内容;
+          // 可读取的范围
+          const readableRange = new MCRange(content.contentOffset, await content.length);
+          const intersection = loadRange.intersection(readableRange);
+          // 如果存在交集
+          if ( intersection ) {
+            // 获取左侧未下载的部分
+            if ( intersection.location > loadRange.location ) {
+              const leftRange = new MCRange(loadRange.location, intersection.location - loadRange.location);
+              const leftRequest = new MCDownloadRequest(url, proxyRequest.headers);
+              leftRequest.setHeader('range', toRequestRangeHeader(toRequestRange(leftRange)));
+              contentLoaders.push(new MCMediaHttpContentLoader(this, leftRequest));
+            }
+            contentLoaders.push(new MCMediaFileContentLoader(await content.readwriteRetain(), intersection));
+            loadRange = new MCRange(intersection.max, loadRange.max - intersection.max);
+          }
+          if ( loadRange.length === 0 || readableRange.location > loadRange.max ) {
+            break;
+          }
+          curNode = curNode.next;
+        }
+
+        // 剩余未下载的部分;
+        if (loadRange.length !== 0) {
+          const request = new MCDownloadRequest(url, proxyRequest.headers);
+          request.setHeader('range', toRequestRangeHeader(toRequestRange(loadRange)));
+          contentLoaders.push(new MCMediaHttpContentLoader(this,request));
+        }
+
+        const response: IMCDataPartialContentResponse = {
+          statusCode: 206,
+          contentType: contentType,
+          contentRange: contentRange,
+          totalLength: totalLength,
+          contentLoaders: contentLoaders
+        };
+        return response;
+      }
+      else if (metadata.totalLength === 0) { // empty content;
+        const emptyContent = new MCMediaContent(this.id, 0, '');
+        contentLoaders.push(new MCMediaFileContentLoader(await emptyContent.readwriteRetain(), new MCRange(0, 0)));
+
+        const response: IMCDataOkResponse = {
+          statusCode: 200,
+          contentType: contentType,
+          contentLength: 0,
+          byteRangeAccessSupported: false,
+          contentLoaders: contentLoaders
+        };
+        return response;
+      }
+      else {
+        contentLoaders.push(new MCMediaHttpContentLoader(this, new MCDownloadRequest(url, proxyRequest.headers)));
+
+        const response: IMCDataOkResponse = {
+          statusCode: 200,
+          contentType: contentType,
+          contentLength: metadata.totalLength !== Number.MAX_SAFE_INTEGER ? metadata.totalLength : undefined,
+          byteRangeAccessSupported: false,
+          contentLoaders: contentLoaders
+        }
+        return response;
       }
     });
   }

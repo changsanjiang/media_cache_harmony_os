@@ -3,11 +3,6 @@ import { IMCDataReader } from "../defines/IMCDataReader";
 import MCLogger from "../utils/MCLogger";
 import { IMCHttpRequest } from "../defines/IMCHttpRequest";
 import { IMCHttpResponse } from "../defines/IMCHttpResponse";
-import { IMCDataOkResponse,
-  IMCDataPartialContentResponse,
-  IMCDataResponse,
-  MCDataResponseStatusCode } from "../defines/IMCDataResponse";
-import { MCMediaDataReader } from "../media/MCMediaDataReader";
 import { MCLogModule } from "../defines/MCLogModule";
 
 export class MCHttpResponse implements IMCHttpResponse {
@@ -52,6 +47,7 @@ export class MCHttpResponse implements IMCHttpResponse {
         // this.mDataReader.on('responseReady', (_) => this.mLock.lockAsync(() => this.mNewDataCallback).then((callback) => callback?.(this)));
         // this.mDataReader.on('newDataReadable', (_) => this.mLock.lockAsync(() => this.mNewDataCallback).then((callback) => callback?.(this)));
         // this.mDataReader.on('aborted', (_, error) => this.abort(error));
+        // TODO: next .. data reader done event
         // await this.mDataReader.prepare();
         // MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Data reader prepared successfully.`);
       }
@@ -80,7 +76,7 @@ export class MCHttpResponse implements IMCHttpResponse {
         // 先向客户端发送响应头消息
         if ( !this.mHeadersSent ) {
           MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Generating response headers for data response.`);
-          const responseHeaders = this.generateResponseHeaders(await reader.response);
+          const responseHeaders = await reader.responseHeaders;
           if ( responseHeaders ) {
             this.mHeadersSent = true;
             MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Response headers sent to client: ${JSON.stringify(responseHeaders)}`);
@@ -180,73 +176,5 @@ export class MCHttpResponse implements IMCHttpResponse {
     MCLogger.error(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Response aborted${error ? ` due to error: ${error.message}` : ""}.`);
 
     Promise.resolve(this.mAbortedCallback).then((callback) => callback?.(this, error));
-  }
-
-  private generateResponseHeaders(dataResponse?: IMCDataResponse): string | undefined {
-    // https://datatracker.ietf.org/doc/html/rfc9110#name-example-message-exchange
-    //
-    // HTTP/1.1 200 OK
-    // Accept-Ranges: bytes
-    // Content-Length: 51
-    // Content-Type: text/plain
-    //
-    // Hello World! My content includes a trailing CRLF.
-    //
-
-    // https://datatracker.ietf.org/doc/html/rfc9110#name-single-part
-    //
-    // HTTP/1.1 206 Partial Content
-    // Content-Range: bytes 21010-47021/47022
-    // Content-Length: 26012
-    // Content-Type: image/gif
-    //
-    // ... 26012 bytes of partial image data ...
-    //
-
-    // HTTP/1.1 400 Bad Request
-    //
-
-    // HTTP/1.1 500 Internal Server Error
-    //
-
-    if (!dataResponse) {
-      MCLogger.warn(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Cannot generate headers: Response data is undefined.`);
-      return undefined;
-    }
-
-    const currentDate = new Date().toUTCString();
-    switch (dataResponse.statusCode) {
-      case MCDataResponseStatusCode.OK: {
-        const okResponse = dataResponse as IMCDataOkResponse;
-        return (
-          `HTTP/1.1 200 OK\r\n` +
-            `Content-Type: ${okResponse.contentType}\r\n` +
-            `Content-Length: ${okResponse.contentLength}\r\n` +
-            `Accept-Ranges: ${okResponse.byteRangeAccessSupported ? "bytes" : "none"}\r\n` +
-            `Date: ${currentDate}\r\n` +
-            `\r\n`
-        );
-      }
-      case MCDataResponseStatusCode.PARTIAL_CONTENT: {
-        const partialResponse = dataResponse as IMCDataPartialContentResponse;
-        return (
-          `HTTP/1.1 206 Partial Content\r\n` +
-            `Content-Range: bytes ${partialResponse.contentOffset}-${partialResponse.contentOffset + partialResponse.contentLength - 1}/${partialResponse.totalLength}\r\n` +
-            `Content-Type: ${partialResponse.contentType}\r\n` +
-            `Content-Length: ${partialResponse.contentLength}\r\n` +
-            `Accept-Ranges: bytes\r\n` +
-            `Date: ${currentDate}\r\n` +
-            `\r\n`
-        );
-      }
-      case MCDataResponseStatusCode.BAD_REQUEST:
-        return `HTTP/1.1 400 Bad Request\r\nDate: ${currentDate}\r\n\r\n`;
-      default: {
-        if ( dataResponse.statusCode !== MCDataResponseStatusCode.INTERNAL_ERROR ) {
-          MCLogger.warn(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Unsupported response with status code: ${dataResponse.statusCode}`);
-        }
-        return `HTTP/1.1 500 Internal Server Error\r\nDate: ${currentDate}\r\n\r\n`;
-      }
-    }
   }
 }

@@ -16,7 +16,7 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
   private content?: IMCMediaContent = undefined;
 
   constructor(media: IMCMedia, request: MCDownloadRequest) {
-    super(request.rangeHeader !== undefined);
+    super();
     this.media = media;
     this.request = request;
     media.readwriteRetain();
