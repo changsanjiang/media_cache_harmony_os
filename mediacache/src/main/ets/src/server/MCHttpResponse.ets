@@ -4,6 +4,7 @@ import MCLogger from "../utils/MCLogger";
 import { IMCHttpRequest } from "../defines/IMCHttpRequest";
 import { IMCHttpResponse } from "../defines/IMCHttpResponse";
 import { MCLogModule } from "../defines/MCLogModule";
+import { MCAssetReader } from "../asset/MCAssetReader";
 
 export class MCHttpResponse implements IMCHttpResponse {
   private mClientId: number;
@@ -42,14 +43,16 @@ export class MCHttpResponse implements IMCHttpResponse {
 
         MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Preparing data reader for request: ${JSON.stringify(proxyRequest)}`);
 
-        // TODO: next ...
-        // this.mDataReader = new MCMediaDataReader(this.mClientId, proxyRequest);
-        // this.mDataReader.on('responseReady', (_) => this.mLock.lockAsync(() => this.mNewDataCallback).then((callback) => callback?.(this)));
-        // this.mDataReader.on('newDataReadable', (_) => this.mLock.lockAsync(() => this.mNewDataCallback).then((callback) => callback?.(this)));
-        // this.mDataReader.on('aborted', (_, error) => this.abort(error));
-        // TODO: next .. data reader done event
-        // await this.mDataReader.prepare();
-        // MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Data reader prepared successfully.`);
+        this.mDataReader = new MCAssetReader(this.mClientId, {
+          requestTarget: proxyRequest.requestTarget,
+          headers: proxyRequest.headers
+        });
+        this.mDataReader.on('responseReady', (_) => this.mLock.lockAsync(() => this.mNewDataCallback).then((callback) => callback?.(this)));
+        this.mDataReader.on('newDataReadable', (_) => this.mLock.lockAsync(() => this.mNewDataCallback).then((callback) => callback?.(this)));
+        this.mDataReader.on('aborted', (_, error) => this.abort(error));
+        this.mDataReader.on('done', (_) => this.done());
+        await this.mDataReader.prepare();
+        MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Data reader prepared successfully.`);
       }
       catch (error) {
         MCLogger.error(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Failed to prepare data reader: ${error.message}`);
@@ -95,11 +98,7 @@ export class MCHttpResponse implements IMCHttpResponse {
           const buffer = new ArrayBuffer(bufferSize);
           const length = await reader.readData(buffer);
           if (length > 0) {
-            this.mDone = await reader.isDone;
-            if ( this.mDone ) {
-              this.clear();
-            }
-            MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Data chunk read (${length} bytes), Done=${this.mDone}`);
+            MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Data chunk read (${length} bytes).`);
             return length === bufferSize ? buffer : buffer.slice(0, length);
           }
         }
@@ -117,6 +116,16 @@ export class MCHttpResponse implements IMCHttpResponse {
 
   abort(error?: Error): Promise<void> {
     return this.mLock.lockAsync(() => this.abortUnsafe(error));
+  }
+
+  private done(): void {
+    this.mLock.lockAsync(() => {
+      if ( this.mAborted ) {
+        return;
+      }
+      this.mDone = true;
+      this.clear();
+    });
   }
 
   on(event: 'newDataAvailable' | 'aborted', callback: Object): Promise<void> {
