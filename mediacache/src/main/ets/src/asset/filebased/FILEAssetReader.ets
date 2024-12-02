@@ -210,6 +210,7 @@ export class FILEAssetReader implements IMCDataReader {
     }
 
     this.mMedia?.readwriteRelease();
+    this.mMedia = undefined;
     this.mAsset.readwriteRelease();
 
     MCLogger.debug(MCLogModule.FILEAssetReader, () => `[clientId: ${this.mClientId}] Resources released and cleared.`);
