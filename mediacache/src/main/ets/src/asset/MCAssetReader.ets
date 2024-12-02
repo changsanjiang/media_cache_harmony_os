@@ -13,7 +13,6 @@ export class MCAssetReader implements IMCDataReader {
   private mClientId: number;
   private mProxyRequest: IMCDataRequest;
   private mAsset?: IMCAsset;
-  private mMedia?: IMCMedia | undefined;
   private mDecrypt?: MCDataDecryptHandler;
   private mMediaReader?: IMCDataReader;
   private mLock: ArkTSUtils.locks.AsyncLock = new ArkTSUtils.locks.AsyncLock();
@@ -53,8 +52,8 @@ export class MCAssetReader implements IMCDataReader {
           return;
         }
         this.mAsset = await MCAssetManager.getAssetBy(this.mProxyRequest.requestTarget);
-        this.mMedia = await this.mAsset.getMediaBy(this.mProxyRequest.requestTarget);
-        this.mMediaReader = new MCMediaDataReader(this.mMedia, this.mClientId, this.mProxyRequest, this.mDecrypt);
+        const media = await this.mAsset.getMediaBy(this.mProxyRequest.requestTarget);
+        this.mMediaReader = new MCMediaDataReader(media, this.mClientId, this.mProxyRequest, this.mDecrypt);
         this.mMediaReader.on("responseReady", (_, responseHeaders) => {
           this.mLock.lockAsync(() => !this.mDone && !this.mAborted ? this.mResponseReadyCallback : undefined).then((callback) => {
             if ( callback ) {
@@ -209,8 +208,6 @@ export class MCAssetReader implements IMCDataReader {
       this.mMediaReader = undefined;
     }
 
-    this.mMedia?.readwriteRelease();
-    this.mMedia = undefined;
     this.mAsset?.readwriteRelease();
     this.mAsset = undefined;
 
