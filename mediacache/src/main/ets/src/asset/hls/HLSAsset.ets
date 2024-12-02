@@ -3,12 +3,17 @@ import { IMCDataReader } from "../../defines/IMCDataReader";
 import { IMCDataRequest } from "../../defines/IMCDataRequest";
 import { IMCMedia } from "../../defines/IMCMedia";
 import { MCDataDecryptHandler } from "../../defines/MCDataDecryptHandler";
+import { MCMedia } from "../../media/MCMedia";
 import { MCReadwriteReference } from "../../utils/MCReadwriteReference";
 
 export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset {
-  constructor(id: string) {
+  private mMedias: Map<string, MCMedia> = new Map();
+  private mDir: string;
+
+  constructor(id: string, dir: string) {
     super();
     this.id = id;
+    this.mDir = dir;
   }
 
   readonly id: string;

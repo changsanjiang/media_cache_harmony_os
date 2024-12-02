@@ -5,17 +5,18 @@ import { IMCMedia } from "../../defines/IMCMedia";
 import { MCDataDecryptHandler } from "../../defines/MCDataDecryptHandler";
 import { MCMedia } from "../../media/MCMedia";
 import { MCReadwriteReference } from "../../utils/MCReadwriteReference";
-import MCRoot from "../../utils/MCRoot";
 import { FILEAssetReader } from "./FILEAssetReader";
 
 export class FILEAsset extends MCReadwriteReference<FILEAsset> implements IMCAsset {
   /** 基于文件的资产只有一个媒体; */
   private mMedia: IMCMedia;
+  private mDir: string;
 
-  constructor(id: string) {
+  constructor(id: string, dir: string) {
     super();
     this.id = id;
-    this.mMedia = new MCMedia(id, MCRoot.assetDir(id));
+    this.mDir = dir;
+    this.mMedia = new MCMedia(id, dir);
   }
 
   readonly id: string;
