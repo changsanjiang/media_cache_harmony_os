@@ -122,7 +122,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     });
   }
 
-  // 探测响应
+  // 探测元数据
   private async probe(proxyRequest: IMCDataRequest): Promise<void> {
     return this.mLock.lockAsync(() => {
       if ( this.mMetadata ) {
