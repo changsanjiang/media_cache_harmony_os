@@ -16,7 +16,7 @@ export interface IMCMedia extends IMCReadwriteReference<IMCMedia> {
   readonly completeness: Promise<number>; // 完成度; [0, 1];
 
   prepare(): Promise<void>;
-  loadData(request: IMCDataRequest): Promise<IMCDataResponse>; // 调用之前需要确保 media readwrite retained;
+  fetch(request: IMCDataRequest): Promise<IMCDataResponse>; // 调用之前需要确保 media readwrite retained;
 
   // 解析内容范围
   // 如果是 206 请求, response 必须指定 content-range 字段;

@@ -84,7 +84,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     return this.mLock.lockAsync(async () => {
       MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Preparing media`);
       try {
-        this.mContentProvider = new MCMediaContentProvider(this.id, this.mDir, this.id);
+        this.mContentProvider = new MCMediaContentProvider(this.id, this.mDir, 'mc');
         const contents = await this.mContentProvider.prepare();
         contents?.forEach((content) => this.mNodeList.upsertNode(content.contentOffset, content));
         this.mMetadata = await MCDatabase.queryMediaMetadata(this.id);
@@ -109,7 +109,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     });
   }
 
-  loadData(request: IMCDataRequest): Promise<IMCDataResponse> {
+  fetch(request: IMCDataRequest): Promise<IMCDataResponse> {
     return this.probe(request).then(() => this.resolve(request)).catch((error: Error) => {
       let statusCode = 500;
       if ( error instanceof MCDataResponseError ) {

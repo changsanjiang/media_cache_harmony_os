@@ -61,8 +61,8 @@ export class MCMediaDataReader implements IMCDataReader {
           MCLogger.warn(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Cannot prepare as the reader has been aborted.`);
           return;
         }
-        this.mResponse = await this.mMedia.loadData(this.mProxyRequest);
-        MCLogger.info(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Loaded data with response: ${JSON.stringify(this.mResponse)}.`);
+        this.mResponse = await this.mMedia.fetch(this.mProxyRequest);
+        MCLogger.info(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Fetched data with response: ${JSON.stringify(this.mResponse)}.`);
         this.mResponseHeaders = this.generateResponseHeaders(this.mResponse);
 
         // Trigger response ready callback

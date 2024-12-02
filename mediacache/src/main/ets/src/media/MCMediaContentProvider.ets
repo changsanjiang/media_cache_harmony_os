@@ -6,7 +6,7 @@ export class MCMediaContentProvider {
   private mMediaId: string;
   private mDir: string;
   private mPrefix: string; // file name prefix of content
-  private mLastIndexes = new Map<number, number>(); // key: contentOffset, value: index;
+  private mSequence = 0; // file sequence number of content
 
   constructor(mediaId: string, dir: string, prefix: string) {
     this.mMediaId = mediaId;
@@ -16,43 +16,49 @@ export class MCMediaContentProvider {
 
   /** 加载目录下缓存的媒体内容; */
   async prepare(): Promise<IMCMediaContent[] | undefined> {
+    const exists = await fileIo.access(this.mDir, fileIo.AccessModeType.EXIST);
+    if ( !exists ) {
+      await fileIo.mkdir(this.mDir);
+      await fileIo.mkdir(`${this.mDir}/temp`)
+    }
+
     const fileNames = await fileIo.listFile(this.mDir);
     return Promise.all(fileNames.filter((fileName) => fileName.startsWith(this.mPrefix)).map(async (fileName) => {
       const filePath = `${this.mDir}/${fileName}`;
       const fileSize = await statfs.getTotalSize(filePath);
-      const props = this.getContentOffsetAndIndex(fileName);
+      const props = this.getContentOffsetAndSequence(fileName);
       const contentOffset = parseInt(props[0], 10);
-      const index = parseInt(props[1], 10);
-      const lastIndex = this.mLastIndexes.get(contentOffset);
-      if ( lastIndex === undefined || lastIndex < index ) this.mLastIndexes.set(contentOffset, index);
+      const sequence = parseInt(props[1], 10);
+      if ( this.mSequence < sequence ) this.mSequence = sequence;
       return new MCMediaContent(this.mMediaId, contentOffset, filePath, fileSize);
     }));
   }
 
   createContent(contentOffset: number, temp: boolean = false): IMCMediaContent {
-    const lastIndex = this.mLastIndexes.get(contentOffset);
-    const index = lastIndex === undefined ? 0 : lastIndex + 1;
-    const fileName = this.generateFileName(contentOffset, index);
+    const sequence = this.mSequence + 1;
+    this.mSequence = sequence;
+    const fileName = this.generateFileName(contentOffset, sequence);
     const filePath = !temp ? `${this.mDir}/${fileName}` : `${this.mDir}/temp/${fileName}`;
     const content = new MCMediaContent(this.mMediaId, contentOffset, filePath, 0, temp);
-    this.mLastIndexes.set(contentOffset, index);
     return content;
   }
 
   async removeAllTempContentFiles(): Promise<void> {
-    const dir = `${this.mDir}/temp`;
     try {
+      const dir = `${this.mDir}/temp`;
       await fileIo.unlink(dir);
+      await fileIo.mkdir(`${this.mDir}/temp`)
     }
     catch (error) {
     }
   }
 
-  private generateFileName(contentOffset: number, index: number): string {
-    return `${this.mPrefix}_${contentOffset}_${index}`;
+  /** file name format: `prefix_contentOffset_sequence`; */
+  private generateFileName(contentOffset: number, sequence: number): string {
+    return `${this.mPrefix}_${contentOffset}_${sequence}`;
   }
 
-  private getContentOffsetAndIndex(fileName: string): string[] {
+  private getContentOffsetAndSequence(fileName: string): string[] {
     const parts = fileName.split("_");
     if (parts.length != 3) {
       throw new Error(`Invalid file name format: ${fileName}`);

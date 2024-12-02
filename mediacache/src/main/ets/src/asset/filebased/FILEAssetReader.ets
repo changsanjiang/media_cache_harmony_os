@@ -1,6 +1,5 @@
 import { IMCAsset } from "../../defines/IMCAsset";
 import { IMCDataReader } from "../../defines/IMCDataReader";
-import { IMCDataResponse } from "../../defines/IMCDataResponse";
 import { MCDataDecryptHandler } from "../../defines/MCDataDecryptHandler";
 import { MCMediaDataReader } from "../../media/MCMediaDataReader";
 import { ArkTSUtils } from "@kit.ArkTS";
