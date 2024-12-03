@@ -1,6 +1,8 @@
 import { MCRange } from "../../utils/MCRange";
 import HLSDefines from "../../defines/HLSDefines";
-import { MCProxyGenerator, MCUtils } from "../../../../../../Index";
+import { MCURL, MCUtils } from "../../../../../../Index";
+import { MCAssetType } from '../../defines/MCAssetType';
+import MCAssetUtils from '../MCAssetUtils';
 
 namespace HLSParser {
 
@@ -105,8 +107,18 @@ namespace HLSParser {
         if ( !uri ) return;
 
         const absoluteUrl = HLSDefines.getAbsoluteUrl(uri, currentUrl);
-        const proxyUri = MCProxyGenerator.generateProxyURIForHLSItem(assetId, absoluteUrl, item.itemType);
-        proxyPlaylist = MCUtils.replaceCharactersInRange(proxyPlaylist, [item.uriRange!.location, uri.length], proxyUri);
+        let isChildAsset = false;
+        if      ( item.itemType == HLSDefines.ItemType.VARIANT_STREAM ) {
+          isChildAsset = true;
+        }
+        else if ( item.itemType === HLSDefines.ItemType.RENDITION ) {
+          const renditionType = (item as HLSDefines.RenditionItem).renditionType;
+          if ( renditionType === HLSDefines.RenditionType.AUDIO || renditionType === HLSDefines.RenditionType.VIDEO ) {
+            isChildAsset = false;
+          }
+        }
+        const proxyPath = MCURL.generateProxyPath(absoluteUrl, MCAssetType.HLS, isChildAsset ? MCAssetUtils.generateAssetId(absoluteUrl) : assetId);
+        proxyPlaylist = MCUtils.replaceCharactersInRange(proxyPlaylist, [item.uriRange!.location, uri.length], proxyPath);
       });
       return proxyPlaylist;
     }
