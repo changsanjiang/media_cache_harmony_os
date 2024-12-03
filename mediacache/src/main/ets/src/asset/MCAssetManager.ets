@@ -17,7 +17,7 @@ namespace MCAssetManager {
       const assetId = targetInfo.assetId;
       let asset = mMap.get(assetId);
       if ( !asset ) {
-        const rootDir = getRootDir();
+        const rootDir = getRootDirUnsafe();
         const dir = `${rootDir}/${assetId}`;
         asset = targetInfo.assetType === MCAssetType.FILE_BASED ? new FILEAsset(assetId, dir) : new HLSAsset(assetId, dir);
         await asset.prepare();
@@ -29,7 +29,7 @@ namespace MCAssetManager {
 
   const mRootDir = getContext(mMap).filesDir + 'mc_media_cache';
   let mRootDirExists = false;
-  async function getRootDir(): Promise<string> {
+  async function getRootDirUnsafe(): Promise<string> {
     if ( !mRootDirExists ) {
       if ( !(await fileIo.access(mRootDir, fileIo.AccessModeType.EXIST)) ) {
         await fileIo.mkdir(mRootDir);
