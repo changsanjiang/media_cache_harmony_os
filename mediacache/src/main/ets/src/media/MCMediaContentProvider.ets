@@ -19,7 +19,7 @@ export class MCMediaContentProvider {
     const exists = await fileIo.access(this.mDir, fileIo.AccessModeType.EXIST);
     if ( !exists ) {
       await fileIo.mkdir(this.mDir);
-      await fileIo.mkdir(`${this.mDir}/temp`)
+      await fileIo.mkdir(`${this.mDir}/mc_temp`)
     }
 
     return undefined;
@@ -41,16 +41,16 @@ export class MCMediaContentProvider {
     const sequence = this.mSequence + 1;
     this.mSequence = sequence;
     const fileName = this.generateFileName(contentOffset, sequence);
-    const filePath = !temp ? `${this.mDir}/${fileName}` : `${this.mDir}/temp/${fileName}`;
+    const filePath = !temp ? `${this.mDir}/${fileName}` : `${this.mDir}/mc_temp/${fileName}`;
     const content = new MCMediaContent(this.mMediaId, contentOffset, filePath, 0, temp);
     return content;
   }
 
   async removeAllTempContentFiles(): Promise<void> {
     try {
-      const dir = `${this.mDir}/temp`;
+      const dir = `${this.mDir}/mc_temp`;
       await fileIo.unlink(dir);
-      await fileIo.mkdir(`${this.mDir}/temp`)
+      await fileIo.mkdir(`${this.mDir}/mc_temp`)
     }
     catch (error) {
     }

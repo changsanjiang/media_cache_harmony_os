@@ -39,7 +39,7 @@ export default function nodeListUnitTest() {
   });
 }
 
-function testParsePlaylist() {
+async function testParsePlaylist() {
   let playlist =
 `#EXTM3U
 #EXT-X-TARGETDURATION:10
@@ -58,7 +58,7 @@ seg-3-v1-a1.m4s
 
   const originalUrl = "http://www.baidu.com";
   const currentUrl = "http://www.lwz.com";
-  const proxyPlaylist = HLSParser.proxy("abcd", playlist, originalUrl, currentUrl);
+  const proxyPlaylist = await HLSParser.proxy("abcd", playlist, originalUrl, currentUrl);
   proxyPlaylist.split("\n").forEach((line) => console.log(line));
 }
 
@@ -67,8 +67,9 @@ function testEnum() {
 }
 
 class TestMCMediaContent implements IMCMediaContent {
-  contentOffset: number = 0;
-  length: Promise<number> = Promise.resolve(0);
+  isTemp = false;
+  contentOffset = 0;
+  length = 0;
 
   readData(position: number, buffer: ArrayBuffer, length: number): Promise<number> {
     throw new Error('Method not implemented.');
@@ -98,43 +99,13 @@ class TestMCMediaContent implements IMCMediaContent {
     throw new Error('Method not implemented.');
   }
 
-  lengthUnsafe: number = 0;
+  readwriteCount = 0;
 
-  readDataUnsafe(position: number, buffer: ArrayBuffer, length: number): Promise<number> {
+  readwriteRetain(): IMCMediaContent {
     throw new Error('Method not implemented.');
   }
 
-  closeReadUnsafe(): Promise<boolean> {
-    throw new Error('Method not implemented.');
-  }
-
-  writeDataUnsafe(data: ArrayBuffer, length: number): Promise<number> {
-    throw new Error('Method not implemented.');
-  }
-
-  closeWriteUnsafe(): Promise<boolean> {
-    throw new Error('Method not implemented.');
-  }
-
-  destroyUnsafe(): Promise<boolean> {
-    throw new Error('Method not implemented.');
-  }
-
-  readwriteCount: Promise<number> = Promise.resolve(0);
-
-  readwriteRetain(): Promise<IMCMediaContent> {
-    throw new Error('Method not implemented.');
-  }
-
-  readwriteRelease(): Promise<void> {
-    throw new Error('Method not implemented.');
-  }
-
-  readwriteRetainUnsafe(): IMCMediaContent {
-    throw new Error('Method not implemented.');
-  }
-
-  readwriteReleaseUnsafe(): void {
+  readwriteRelease(): void {
     throw new Error('Method not implemented.');
   }
 }

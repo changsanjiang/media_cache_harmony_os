@@ -55,6 +55,72 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
     }
   }
 
+  protected onPrepare(): Promise<void> {
+    throw new Error("Method 'onPrepare()' must be implemented in subclass. Ensure your subclass overrides this method with necessary preparation logic.");
+  }
+
+  /// 实现类在准备好 content 之后, 调用该方法通知抽象类;
+  ///
+  /// 实现类通知抽象类已准备好 content;
+  /// 调用前请对 content 做一次 readwriteRetain 操作, 防止被提前 release; 之后不需要外部调用 release, 抽象类会在读取操作结束后进行清理操作;
+  protected contentReady(content: IMCMediaContent, range: MCRange): void {
+    try {
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Content ready event received. Checking conditions.`);
+
+      if (this.mAborted) {
+        MCLogger.warn(MCLogModule.MCMediaContentLoader, () => 'Content ready event ignored due to aborted loader.');
+        return;
+      }
+
+      if ( range.location > content.contentOffset ) {
+        throw new Error(`Invalid range location: ${range.location} exceeds content offset ${content.contentOffset}.`);
+      }
+
+      this.mContent = content;
+      this.mRange = range;
+      this.mOffset = range.location;
+      this.mContent.on('dataWritten', this.dataWritten); // 实现类通知抽象类可加载数据了;
+
+      MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Content is ready. Range: ${JSON.stringify(range)}, Content offset: ${content.contentOffset}, Done: ${this.mDone}.`);
+
+      if (this.mPreparedCallback) {
+        MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Executing prepared callback.`);
+        this.mPreparedCallback(this, range);
+      }
+
+      if ( range.length === 0 ) {
+        this.done();
+      }
+    }
+    catch (error) {
+      MCLogger.error(MCLogModule.MCMediaContentLoader, () => `Error in contentReady: ${(error as Error).message}`);
+      this.abort(error);
+      throw error as Error;
+    }
+  }
+
+  private dataWritten(_: IMCMediaContent, length: number): void {
+    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Data loaded: ${length} bytes.`);
+
+    if ( !this.mDone && !this.mAborted && this.mDataLoadedCallback ) {
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Executing dataLoaded callback.`);
+      this.mDataLoadedCallback(this, length);
+    }
+  }
+
+  private increaseOffset(length: number) {
+    if ( length > 0 ) {
+      this.mOffset += length;
+      const done = this.mOffset === this.mRange!.max;
+
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Offset increased by ${length}, current offset: ${this.mOffset}. Range max: ${this.mRange!.max}.`);
+
+      if ( done ) {
+        this.done();
+      }
+    }
+  }
+
   async readData(buffer: ArrayBuffer): Promise<number> {
     try {
       MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Attempting to read data. Buffer size: ${buffer.byteLength}.`);
@@ -107,6 +173,21 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
     }
   }
 
+  private done(): void {
+    if ( this.mAborted || this.mDone ) {
+      return;
+    }
+
+    this.mDone = true;
+    MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Loading complete. Final offset: ${this.mOffset}, Range max: ${this.mRange!.max}.`);
+    this.clear();
+
+    if ( this.mDoneCallback ) {
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Executing done callback.`);
+      this.mDoneCallback(this);
+    }
+  }
+
   async abort(error?: Error | undefined): Promise<void> {
     if ( this.mAborted || this.mDone ) {
       return undefined;
@@ -125,6 +206,24 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
       this.mAbortedCallback(this, error);
     }
   }
+
+  // 清理操作执行之前, 子类可以做一些自定义操作;
+  protected onClearBefore() { }
+
+  private clear() {
+    this.onClearBefore();
+    if ( this.mContent ) {
+      this.mContent.off('dataWritten', this.dataWritten);
+      this.mContent.readwriteRelease();
+      this.mContent.closeRead();
+      this.mContent = undefined;
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => 'Cleared content.');
+    }
+    this.onClearAfter();
+  }
+
+  // 清理操作执行之后, 子类可以做一些自定义操作;
+  protected onClearAfter() { }
 
   on(event: "prepared" | "dataLoaded" | "aborted" | "done", callback: Function): void {
     MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Registering callback for event '${event}'.`);
@@ -161,93 +260,6 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
       case 'done':
         this.mDoneCallback = undefined;
         break;
-    }
-  }
-
-  /// 实现类在准备好 content 之后, 调用该方法通知抽象类;
-  ///
-  /// 实现类通知抽象类已准备好 content;
-  /// 调用前请对 content 做一次 readwriteRetain 操作, 防止被提前 release; 之后不需要外部调用 release, 抽象类会在读取操作结束后进行清理操作;
-  protected contentReady(content: IMCMediaContent, range: MCRange): void {
-    try {
-      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Content ready event received. Checking conditions.`);
-
-      if (this.mAborted) {
-        MCLogger.warn(MCLogModule.MCMediaContentLoader, () => 'Content ready event ignored due to aborted loader.');
-        return;
-      }
-
-      if ( range.location > content.contentOffset ) {
-        throw new Error(`Invalid range location: ${range.location} exceeds content offset ${content.contentOffset}.`);
-      }
-
-      this.mContent = content;
-      this.mRange = range;
-      this.mOffset = range.location;
-      this.mDone = range.length === 0;
-      this.mContent.on('dataWritten', this.onDataLoaded); // 实现类通知抽象类可加载数据了;
-
-      MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Content is ready. Range: ${JSON.stringify(range)}, Content offset: ${content.contentOffset}, Done: ${this.mDone}.`);
-
-      if (this.mPreparedCallback) {
-        MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Executing prepared callback.`);
-        this.mPreparedCallback(this, range);
-      }
-    }
-    catch (error) {
-      MCLogger.error(MCLogModule.MCMediaContentLoader, () => `Error in contentReady: ${(error as Error).message}`);
-      this.abort(error);
-      throw error as Error;
-    }
-  }
-
-  protected onPrepare(): Promise<void> {
-    throw new Error("Method 'onPrepare()' must be implemented in subclass. Ensure your subclass overrides this method with necessary preparation logic.");
-  }
-
-  // 清理操作执行之前, 子类可以做一些自定义操作;
-  protected onClearBefore() { }
-
-  // 清理操作执行之后, 子类可以做一些自定义操作;
-  protected onClearAfter() { }
-
-  private clear() {
-    this.onClearBefore();
-    if ( this.mContent ) {
-      this.mContent.off('dataWritten', this.onDataLoaded);
-      this.mContent.readwriteRelease();
-      this.mContent.closeRead();
-      this.mContent = undefined;
-      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => 'Cleared content.');
-    }
-    this.onClearAfter();
-  }
-
-  private onDataLoaded(_: IMCMediaContent, length: number): void {
-    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Data loaded: ${length} bytes.`);
-
-    if ( !this.mDone && !this.mAborted && this.mDataLoadedCallback ) {
-      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Executing dataLoaded callback.`);
-      this.mDataLoadedCallback(this, length);
-    }
-  }
-
-  private increaseOffset(length: number) {
-    if ( length > 0 ) {
-      this.mOffset += length;
-      this.mDone = this.mOffset === this.mRange!.max;
-
-      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Offset increased by ${length}, current offset: ${this.mOffset}. Range max: ${this.mRange!.max}.`);
-
-      if ( this.mDone ) {
-        MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Loading complete. Final offset: ${this.mOffset}, Range max: ${this.mRange!.max}.`);
-        this.clear();
-
-        if ( this.mDoneCallback ) {
-          MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Executing done callback.`);
-          this.mDoneCallback(this);
-        }
-      }
     }
   }
 }

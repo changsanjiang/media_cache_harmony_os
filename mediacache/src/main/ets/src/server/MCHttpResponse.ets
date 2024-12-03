@@ -116,11 +116,11 @@ export class MCHttpResponse implements IMCHttpResponse {
 
     MCLogger.error(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Response aborted${error ? ` due to error: ${error.message}` : ""}.`);
 
-    Promise.resolve(this.mAbortedCallback).then((callback) => callback?.(this, error));
+    this.mAbortedCallback?.(this, error);
   }
 
   private done(): void {
-    if ( this.mAborted ) {
+    if ( this.mAborted || this.mDone ) {
       return;
     }
 

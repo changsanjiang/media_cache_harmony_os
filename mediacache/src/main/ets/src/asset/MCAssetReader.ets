@@ -50,30 +50,10 @@ export class MCAssetReader implements IMCDataReader {
       this.mAsset = await MCAssetManager.getAssetBy(this.mProxyRequest.requestTarget);
       const media = await this.mAsset.getMediaBy(this.mProxyRequest.requestTarget);
       this.mMediaReader = new MCMediaDataReader(media, this.mClientId, this.mProxyRequest, this.mDecrypt);
-      this.mMediaReader.on("responseReady", (_, responseHeaders) => {
-        if ( !this.mDone && !this.mAborted && this.mResponseReadyCallback ) {
-          MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Executing responseReady callback with responseHeaders: ${responseHeaders}.`);
-          this.mResponseReadyCallback(this, responseHeaders);
-        }
-      });
-      this.mMediaReader.on("newDataReadable", () => {
-        if ( !this.mDone && !this.mAborted && this.mNewDataReadableCallback ) {
-          MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Executing newDataReadable callback.`);
-          this.mNewDataReadableCallback(this);
-        }
-      });
+      this.mMediaReader.on("responseReady", (_, responseHeaders) => this.responseReady(responseHeaders));
+      this.mMediaReader.on("newDataReadable", () => this.newDataReadable());
       this.mMediaReader.on("aborted", (_, error) => this.abort(error));
-      this.mMediaReader.on("done", () => {
-        if ( this.mAborted ) {
-          return;
-        }
-        this.mDone = true;
-        this.clear();
-        if (this.mDoneCallback) {
-          MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Execution of done callback.`);
-          this.mDoneCallback(this);
-        }
-      });
+      this.mMediaReader.on("done", () => this.done());
       MCLogger.info(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Preparing media reader.`);
       return this.mMediaReader.prepare();
     }
@@ -81,6 +61,20 @@ export class MCAssetReader implements IMCDataReader {
       MCLogger.error(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Error during media reader preparation: ${error.message}`);
       this.abort(error);
       throw error as Error;
+    }
+  }
+
+  private responseReady(responseHeaders: string): void {
+    if ( !this.mAborted && this.mResponseReadyCallback ) {
+      MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Executing responseReady callback with responseHeaders: ${responseHeaders}.`);
+      this.mResponseReadyCallback(this, responseHeaders);
+    }
+  }
+
+  private newDataReadable(): void {
+    if ( !this.mAborted && this.mNewDataReadableCallback ) {
+      MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Executing newDataReadable callback.`);
+      this.mNewDataReadableCallback(this);
     }
   }
 
@@ -114,8 +108,22 @@ export class MCAssetReader implements IMCDataReader {
     }
   }
 
+  private done(): void {
+    if ( this.mAborted || this.mDone ) {
+      return;
+    }
+
+    this.mDone = true;
+    this.clear();
+
+    if (this.mDoneCallback) {
+      MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Execution of done callback.`);
+      this.mDoneCallback(this);
+    }
+  }
+
   async abort(error?: Error | undefined): Promise<void> {
-    if ( this.mAborted ) {
+    if ( this.mAborted || this.mDone ) {
       return;
     }
 
@@ -132,6 +140,21 @@ export class MCAssetReader implements IMCDataReader {
       MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Executing aborted callback with error: ${error?.message || "None"}.`);
       this.mAbortedCallback(this, error);
     }
+  }
+
+  private clear() {
+    if ( this.mMediaReader ) {
+      this.mMediaReader.off("responseReady");
+      this.mMediaReader.off("newDataReadable");
+      this.mMediaReader.off("aborted");
+      this.mMediaReader.off("done");
+      this.mMediaReader = undefined;
+    }
+
+    this.mAsset?.readwriteRelease();
+    this.mAsset = undefined;
+
+    MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Resources released and cleared.`);
   }
 
   on(event: 'responseReady' | 'newDataReadable' | 'aborted' | 'done', callback: Object): void {
@@ -170,20 +193,5 @@ export class MCAssetReader implements IMCDataReader {
         this.mDoneCallback = undefined;
         break;
     }
-  }
-
-  private clear() {
-    if ( this.mMediaReader ) {
-      this.mMediaReader.off("responseReady");
-      this.mMediaReader.off("newDataReadable");
-      this.mMediaReader.off("aborted");
-      this.mMediaReader.off("done");
-      this.mMediaReader = undefined;
-    }
-
-    this.mAsset?.readwriteRelease();
-    this.mAsset = undefined;
-
-    MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Resources released and cleared.`);
   }
 }

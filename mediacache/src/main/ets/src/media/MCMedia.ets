@@ -59,7 +59,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   async prepare(): Promise<void> {
     MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Preparing media`);
     try {
-      this.mContentProvider = new MCMediaContentProvider(this.id, this.mDir, 'mc');
+      this.mContentProvider = new MCMediaContentProvider(this.id, this.mDir, this.id);
       const contents: IMCMediaContent[] | undefined = [];// await this.mContentProvider.prepare();
       contents?.forEach((content) => this.mNodeList.upsertNode(content.contentOffset, content));
       this.mMetadata = await MCDatabase.queryMediaMetadata(this.id);
@@ -202,9 +202,6 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       return response;
     }
     else if (metadata.totalLength === 0) { // empty content;
-      const emptyContent = new MCMediaContent(this.id, 0, '');
-      contentLoaders.push(new MCMediaFileContentLoader(emptyContent.readwriteRetain(), new MCRange(0, 0)));
-
       const response: IMCDataOkResponse = {
         statusCode: 200,
         contentType: contentType,
@@ -228,6 +225,8 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     }
   }
 
+  // http download
+
   async parseContentRange(request: MCDownloadRequest, responseHeaders: MCDownloadResponseHeaders): Promise<MCRange> {
     try {
       const requestRangeHeader = request.rangeHeader;
@@ -247,8 +246,8 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
 
         // 确保服务器返回的 range 与请求时一致;
         if ( requestContentRange.rangeStart !== contentRange.rangeStart ||
-          requestContentRange.rangeEnd !== contentRange.rangeEnd ||
-          requestContentRange.size !== contentRange.size ) {
+             requestContentRange.rangeEnd !== contentRange.rangeEnd ||
+             requestContentRange.size !== contentRange.size ) {
           throw new Error('Invalid server response: mismatched request range.');  // TODO: http error
         }
         return new MCRange(contentRange.rangeStart, contentRange.rangeEnd + 1 - contentRange.rangeStart);
@@ -347,7 +346,6 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
             }
           }
 
-          // 执行 restructureContents 时, 当前 media 的读写计数为 0, 所以访问 content 的 length 直接通过 unsafeLength 获取即可, 无需加锁;
           if (head && head.longestContent?.length === this.mMetadata.totalLength) {
             this.mAssembled = true;
             this.mFullyTrimmed = this.mNodeList.count === 1 && head.numberOfContents === 1;
@@ -450,18 +448,22 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
 
     const requestRange = parseRequestRange(requestRangeHeader);
     const requestRangeStart = requestRange.rangeStart;
-    const requestRangeEnd = requestRange.rangeEnd;
-    const requestSuffixLength = requestRange.suffixLength;
+    let requestRangeEnd = requestRange.rangeEnd;
+    let requestSuffixLength = requestRange.suffixLength;
 
     // 检查范围合法性;
     if ( requestRangeStart && requestRangeStart >= totalLength ) {
-      throw new Error('Invalid range: requestRangeStart exceeds total media length.');
+      throw new Error('Invalid range: range-start exceeds total media length.');
     }
     if ( requestRangeEnd && requestRangeEnd >= totalLength ) {
-      throw new Error('Invalid range: requestRangeEnd exceeds total media length.');
+      requestRangeEnd = totalLength - 1;
     }
-    if ( requestSuffixLength && requestSuffixLength >= totalLength ) {
-      throw new Error('Invalid range: requestSuffixLength exceeds total media length.');
+    if ( requestSuffixLength && requestSuffixLength > totalLength ) {
+      requestSuffixLength = totalLength;
+    }
+
+    if (requestRangeStart && requestRangeEnd && requestRangeStart > requestRangeEnd) {
+      throw new Error('Invalid range: range-start cannot be greater than range-end.');
     }
 
     // 转为 range;
