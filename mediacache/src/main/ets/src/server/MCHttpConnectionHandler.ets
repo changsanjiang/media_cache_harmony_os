@@ -19,8 +19,11 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
     MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] New connection established.`);
     MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Creating response object.`);
     const response: IMCHttpResponse = new MCHttpResponse(connection.clientId);
+    let isReading = false;
     // 监听响应数据, 有可用数据时发送给客户端;
     response.on("newDataAvailable", async (response: IMCHttpResponse) => {
+      if ( isReading ) return;
+      isReading = true;
       try {
         while (true) {
           // 读取一段数据;
@@ -45,6 +48,9 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
       catch (e) {
         MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Error while sending data: ${(e as Error).message}. Closing connection.`);
         this.internalError(response, connection, true);
+      }
+      finally {
+        isReading = false;
       }
     });
 

@@ -9,10 +9,15 @@ namespace MCLogger {
   export let enabled = true;
 
   /** 禁止哪些模块的日志; */
-  export let disabledModules: MCLogModule[] = [];
+  export let blacklist: MCLogModule[] | undefined = undefined;
+  /** 允许哪些模块的日志; */
+  export let whitelist: MCLogModule[] | undefined = [MCLogModule.MCMediaContent];
 
   export function log(module: MCLogModule, level: MCLogLevel, messageFn: () => string): void {
-    if ( enabled && level >= logLevel && !disabledModules.includes(module) ) {
+    if ( enabled && level >= logLevel ) {
+      if ( blacklist && blacklist.includes(module) ) return;
+      if ( whitelist && !whitelist.includes(module) ) return;
+
       const message = `[${module}] ${messageFn()}`;
       switch (level) {
         case MCLogLevel.TRACE:

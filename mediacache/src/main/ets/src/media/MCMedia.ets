@@ -69,7 +69,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
           await this.mContentProvider.removeAllTempContentFiles();
         }
         else if (this.mMetadata.totalLength !== 0) {
-          await this.restructureContents();
+          // await this.restructureContents();
         }
         else {
           this.mAssembled = true;
@@ -300,7 +300,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
 
   // 该方法被回调时, 不仅仅当前 media 的读写计数为 0, 所有的 content 的读写计数也都为 0;
   protected onReadwriteZeroReferences(): void {
-    this.restructureContents();
+    // this.restructureContents();
   }
 
   // 重组内容. 合并数据并移除多余内容;
