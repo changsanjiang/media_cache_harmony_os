@@ -232,7 +232,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       const requestRangeHeader = request.rangeHeader;
       const requestRange = requestRangeHeader ? parseRequestRange(requestRangeHeader) : undefined;
       if ( requestRange ) {
-        if ( this.mMetadata!.byteRangeAccessSupported ) {
+        if ( !this.mMetadata!.byteRangeAccessSupported ) {
           throw new Error(`xxx`);
         }
 
