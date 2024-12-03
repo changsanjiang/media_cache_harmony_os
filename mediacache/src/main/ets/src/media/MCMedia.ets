@@ -218,7 +218,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
         statusCode: 200,
         contentType: contentType,
         contentLength: metadata.totalLength !== Number.MAX_SAFE_INTEGER ? metadata.totalLength : undefined,
-        byteRangeAccessSupported: false,
+        byteRangeAccessSupported: metadata.byteRangeAccessSupported,
         contentLoaders: contentLoaders
       }
       return response;
