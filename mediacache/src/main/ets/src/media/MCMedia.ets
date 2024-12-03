@@ -60,7 +60,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Preparing media`);
     try {
       this.mContentProvider = new MCMediaContentProvider(this.id, this.mDir, this.id);
-      const contents: IMCMediaContent[] | undefined = [];// await this.mContentProvider.prepare();
+      const contents = await this.mContentProvider.prepare();
       contents?.forEach((content) => this.mNodeList.upsertNode(content.contentOffset, content));
       this.mMetadata = await MCDatabase.queryMediaMetadata(this.id);
       if (this.mMetadata) {
@@ -152,7 +152,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     const contentType = metadata.contentType;
     const totalLength = metadata.totalLength;
     const contentLoaders: IMCMediaContentLoader[] = [];
-    if (metadata.byteRangeAccessSupported && metadata.totalLength > 0 && this.mNodeList.head) {
+    if (metadata.byteRangeAccessSupported && metadata.totalLength > 0) {
       const requestRangeHeader = proxyRequest.headers['range'];
       const contentRange = requestRangeHeader ? this.parseLoadRange(requestRangeHeader, totalLength) : new MCRange(0, totalLength);
 

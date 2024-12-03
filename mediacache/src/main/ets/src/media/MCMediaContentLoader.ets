@@ -63,7 +63,7 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
   ///
   /// 实现类通知抽象类已准备好 content;
   /// 调用前请对 content 做一次 readwriteRetain 操作, 防止被提前 release; 之后不需要外部调用 release, 抽象类会在读取操作结束后进行清理操作;
-  protected contentReady(content: IMCMediaContent, range: MCRange): void {
+  protected async contentReady(content: IMCMediaContent, range: MCRange): Promise<void> {
     try {
       MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Content ready event received. Checking conditions.`);
 
@@ -72,14 +72,14 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
         return;
       }
 
-      if ( range.location > content.contentOffset ) {
-        throw new Error(`Invalid range location: ${range.location} exceeds content offset ${content.contentOffset}.`);
+      if ( range.location < content.contentOffset ) {
+        throw new Error(`Invalid range location: ${range.location} less then content offset ${content.contentOffset}.`);
       }
 
       this.mContent = content;
       this.mRange = range;
       this.mOffset = range.location;
-      this.mContent.on('dataWritten', this.dataWritten); // 实现类通知抽象类可加载数据了;
+      this.mContent.on('dataWritten', (content: IMCMediaContent, length: number) => this.dataWritten(content, length)); // 实现类通知抽象类可加载数据了;
 
       MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Content is ready. Range: ${JSON.stringify(range)}, Content offset: ${content.contentOffset}, Done: ${this.mDone}.`);
 
@@ -213,7 +213,7 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
   private clear() {
     this.onClearBefore();
     if ( this.mContent ) {
-      this.mContent.off('dataWritten', this.dataWritten);
+      this.mContent.off('dataWritten');
       this.mContent.readwriteRelease();
       this.mContent.closeRead();
       this.mContent = undefined;

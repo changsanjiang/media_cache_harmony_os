@@ -77,7 +77,7 @@ export class MCHttpResponse implements IMCHttpResponse {
         const responseHeaders = reader.responseHeaders;
         if ( responseHeaders ) {
           this.mHeadersSent = true;
-          MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Response headers sent to client: ${JSON.stringify(responseHeaders)}`);
+          MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Response headers sent to client: \n${responseHeaders}`);
         }
         return responseHeaders;
       }

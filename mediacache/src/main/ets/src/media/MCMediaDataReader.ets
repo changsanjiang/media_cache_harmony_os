@@ -60,9 +60,9 @@ export class MCMediaDataReader implements IMCDataReader {
       }
 
       this.mResponse = await this.mMedia.fetch(this.mProxyRequest);
-      MCLogger.info(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Fetched data with response: ${JSON.stringify(this.mResponse)}.`);
-
       this.mResponseHeaders = this.generateResponseHeaders(this.mResponse);
+      MCLogger.info(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Fetched data with response headers: ${this.mResponseHeaders}.`);
+
       if (this.mResponseReadyCallback) {
         MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Response prepared. Executing callback.`);
         this.mResponseReadyCallback(this, this.mResponseHeaders!);
@@ -79,7 +79,7 @@ export class MCMediaDataReader implements IMCDataReader {
       }
     }
     catch (error) {
-      MCLogger.error(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Failed to prepare media: ${error.message}`);
+      MCLogger.error(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Failed to prepare media: ${error.message}, stack: ${error.stack}`);
       this.abort(error);
       throw error as Error;
     }

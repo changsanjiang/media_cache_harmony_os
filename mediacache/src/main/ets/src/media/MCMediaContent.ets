@@ -1,6 +1,6 @@
 import { IMCMediaContent } from "../defines/IMCMediaContent";
 import { MCReadwriteReference } from "../utils/MCReadwriteReference";
-import { fileIo } from '@kit.CoreFileKit';
+import { fileIo, ReadOptions } from '@kit.CoreFileKit';
 import MCLogger from "../utils/MCLogger";
 import { MCLogModule } from "../defines/MCLogModule";
 
@@ -9,9 +9,9 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
   private mLength = 0;
   private mFilePath: string;
   private mDestroyed = false;
-  private mReader?: fileIo.File = undefined;
-  private mWriter?: fileIo.File = undefined;
-  private mDataWrittenCallbacks: Set<(content: IMCMediaContent, length: number) => void> = new Set();
+  private mReader?: Promise<fileIo.File> | undefined = undefined;
+  private mWriter?: Promise<fileIo.File> | undefined = undefined;
+  private mDataWrittenCallback: ((content: IMCMediaContent, length: number) => void) | undefined = undefined;
   private mTemp = false; // 是否是临时内容
 
   constructor(mediaId: string, contentOffset: number, filePath: string, length: number = 0, isTemp: boolean = false) {
@@ -66,11 +66,16 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
       }
 
       if (!this.mReader) {
-        this.mReader = await fileIo.open(this.mFilePath, fileIo.OpenMode.READ_ONLY | fileIo.OpenMode.CREATE);
+        this.mReader = fileIo.open(this.mFilePath, fileIo.OpenMode.READ_ONLY | fileIo.OpenMode.CREATE);
         MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Reader created.`);
       }
 
-      const len = await fileIo.read(this.mReader.fd, buffer, { offset: position - this.contentOffset, length: Math.min(buffer.byteLength, length) });
+      const options: ReadOptions = {
+        offset: position - this.contentOffset,
+        length: Math.min(buffer.byteLength, length)
+      };
+      MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Reading file with options: ${JSON.stringify(options)} }.`);
+      const len = await fileIo.read((await this.mReader).fd, buffer, options);
       MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Read data successful: ${len} bytes.`);
       return len;
     } catch (error) {
@@ -87,18 +92,16 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
       return false;
     }
 
-    try {
-      if (this.mReader != undefined) {
-        await fileIo.close(this.mReader);
-        this.mReader = undefined;
-        MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Reader closed.`);
+    if (this.mReader) {
+      const reader = this.mReader;
+      this.mReader = undefined;
+      MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Reader closed.`);
+      try {
+        await fileIo.close(await reader);
       }
-      return true;
+      catch (e) { }
     }
-    catch (error) {
-      MCLogger.error(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Error closing read operation: ${error.message}`);
-      throw error as Error;
-    }
+    return true;
   }
 
   async writeData(data: ArrayBuffer, length: number): Promise<number> {
@@ -120,20 +123,16 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
         throw new Error("Please retain a readwrite count before writing data.");
       }
 
-      if (this.mWriter == undefined) {
-        this.mWriter = await fileIo.open(this.mFilePath, fileIo.OpenMode.WRITE_ONLY | fileIo.OpenMode.APPEND | fileIo.OpenMode.CREATE);
+      if (!this.mWriter) {
+        this.mWriter = fileIo.open(this.mFilePath, fileIo.OpenMode.WRITE_ONLY | fileIo.OpenMode.APPEND | fileIo.OpenMode.CREATE);
         MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Writer created.`);
       }
 
-      const lengthWritten = await fileIo.write(this.mWriter.fd, data, { length: length });
+      const lengthWritten = await fileIo.write((await this.mWriter).fd, data, { length: length });
       this.mLength += lengthWritten;
       MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Successfully wrote data: ${lengthWritten} bytes.`);
 
-      Promise.resolve(this.mDataWrittenCallbacks.values()).then((callbacks) => {
-        for (let callback of callbacks) {
-          callback(this, lengthWritten);
-        }
-      });
+      this.dataWritten(lengthWritten);
 
       return lengthWritten;
     }
@@ -141,6 +140,10 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
       MCLogger.error(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Error during write: ${error.message}`);
       throw error as Error;
     }
+  }
+
+  private async dataWritten(length: number): Promise<void> {
+    this.mDataWrittenCallback?.(this, length);
   }
 
   async closeWrite(): Promise<boolean> {
@@ -151,18 +154,16 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
       return false;
     }
 
-    try {
-      if (this.mWriter != undefined) {
-        await fileIo.close(this.mWriter);
-        this.mWriter = undefined;
-        MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Writer closed.`);
+    if (this.mWriter) {
+      const writer = this.mWriter;
+      this.mWriter = undefined;
+      MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Writer closed.`);
+      try {
+        await fileIo.close(await writer);
       }
-      return true;
+      catch (e) { }
     }
-    catch (error) {
-      MCLogger.error(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Error closing write operation: ${error.message}`);
-      throw error as Error;
-    }
+    return true;
   }
 
   async destroy(): Promise<boolean> {
@@ -179,14 +180,9 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
     }
 
     try {
-      if (this.mReader != undefined) {
-        await fileIo.close(this.mReader);
-        this.mReader = undefined;
-      }
-      if (this.mWriter != undefined) {
-        await fileIo.close(this.mWriter);
-        this.mWriter = undefined;
-      }
+      await this.closeRead();
+      await this.closeWrite();
+
       try { await fileIo.unlink(this.mFilePath); } catch (e) { }
       this.mDestroyed = true;
 
@@ -200,11 +196,11 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
   }
 
   on(_: "dataWritten", callback: (content: IMCMediaContent, length: number) => void): void {
-    this.mDataWrittenCallbacks.add(callback);
+    this.mDataWrittenCallback = callback;
   }
 
-  off(_: "dataWritten", callback: (content: IMCMediaContent, length: number) => void): void {
-    this.mDataWrittenCallbacks.delete(callback);
+  off(_: "dataWritten"): void {
+    this.mDataWrittenCallback = undefined;
   }
 
   protected getInstance(): MCMediaContent {

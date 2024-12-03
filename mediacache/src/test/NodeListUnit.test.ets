@@ -95,7 +95,7 @@ class TestMCMediaContent implements IMCMediaContent {
     throw new Error('Method not implemented.');
   }
 
-  off(event: 'dataWritten', callback: (content: IMCMediaContent, length: number) => void): Promise<void> {
+  off(event: 'dataWritten'): Promise<void> {
     throw new Error('Method not implemented.');
   }
 

@@ -15,5 +15,5 @@ export interface IMCMediaContent extends IMCReadwriteReference<IMCMediaContent> 
 
   // 有新的数据被写入后的回调
   on(event: 'dataWritten', callback: (content: IMCMediaContent, length: number) => void): void;
-  off(event: 'dataWritten', callback: (content: IMCMediaContent, length: number) => void): void;
+  off(event: 'dataWritten'): void;
 }

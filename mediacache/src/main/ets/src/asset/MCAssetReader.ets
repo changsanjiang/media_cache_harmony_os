@@ -24,6 +24,8 @@ export class MCAssetReader implements IMCDataReader {
     this.mClientId = clientId;
     this.mProxyRequest = proxyRequest;
     this.mDecrypt = decrypt;
+
+    MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] MCAssetReader instance created.`);
   }
 
   get readableLength(): number {
@@ -66,7 +68,7 @@ export class MCAssetReader implements IMCDataReader {
 
   private responseReady(responseHeaders: string): void {
     if ( !this.mAborted && this.mResponseReadyCallback ) {
-      MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Executing responseReady callback with responseHeaders: ${responseHeaders}.`);
+      MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Executing responseReady callback with responseHeaders: \n${responseHeaders}`);
       this.mResponseReadyCallback(this, responseHeaders);
     }
   }
@@ -82,7 +84,7 @@ export class MCAssetReader implements IMCDataReader {
     try {
       MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Reading data into buffer of size: ${buffer.byteLength}.`);
 
-      const len = this.mMediaReader?.readData(buffer) ?? 0;
+      const len = await this.mMediaReader?.readData(buffer) ?? 0;
       MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Read ${len} bytes of data.`);
       return len;
     }
@@ -97,7 +99,7 @@ export class MCAssetReader implements IMCDataReader {
     try {
       MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Seeking to the end of the readable range.`);
 
-      const len = this.mMediaReader?.seekToEndOfReadableRange() ?? 0;
+      const len = await this.mMediaReader?.seekToEndOfReadableRange() ?? 0;
       MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Seeked to the end, result: ${len} bytes.`);
       return len;
     }
