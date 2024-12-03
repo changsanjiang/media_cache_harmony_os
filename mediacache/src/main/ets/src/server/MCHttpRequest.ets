@@ -13,7 +13,7 @@ import MCUtils from "../utils/MCUtils";
  * @throws Error - 如果消息格式无效、不支持的 HTTP 方法或存在消息体，则抛出异常
  */
 export function parseRequest(clientId: number, rawMessage: string): IMCHttpRequest {
-  MCLogger.debug(MCLogModule.MCHttpRequest, () => `[clientId: ${clientId}] Start parsing HTTP request with rawMessage: ${rawMessage}`);
+  MCLogger.debug(MCLogModule.MCHttpRequest, () => `[clientId: ${clientId}] Start parsing HTTP request with rawMessage: \n${rawMessage}`);
 
   // 分离 header 部分和 body;
   const delimiterIndex = rawMessage.indexOf("\r\n\r\n");
@@ -73,7 +73,7 @@ export function parseRequest(clientId: number, rawMessage: string): IMCHttpReque
     }
 
     const key = line.slice(0, separatorIndex).trim().toLowerCase();
-    const value = line.slice(separatorIndex + 2).trim();
+    const value = line.slice(separatorIndex + 1).trim();
     headers.set(key, value);
   }
 

@@ -62,7 +62,7 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
         for (let i = 0; i < dataView.byteLength; ++i) {
           rawMessage += String.fromCharCode(dataView.getUint8(i));
         }
-        MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Parsing request: ${rawMessage}`);
+        MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Parsing request: \n${rawMessage}`);
         // 解析代理请求;
         proxyRequest = parseRequest(connection.clientId, rawMessage)
         MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Request parsed successfully: ${JSON.stringify(proxyRequest)}`);

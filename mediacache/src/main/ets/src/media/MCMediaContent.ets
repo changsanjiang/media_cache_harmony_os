@@ -206,4 +206,8 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
   off(_: "dataWritten", callback: (content: IMCMediaContent, length: number) => void): void {
     this.mDataWrittenCallbacks.delete(callback);
   }
+
+  protected getInstance(): MCMediaContent {
+    return this;
+  }
 }

@@ -409,7 +409,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       const readRange = new MCRange(curRange.max, nextRange.max - curRange.max);
       let position = readRange.location;
       writer.readwriteRetain();
-      reader.readwriteRelease();
+      reader.readwriteRetain();
       try {
         while (position < readRange.max) {
           const len = await reader.readData(position, buffer, buffer.byteLength);
