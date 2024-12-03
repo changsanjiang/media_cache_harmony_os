@@ -96,7 +96,7 @@ export function parseRequest(clientId: number, rawMessage: string): IMCHttpReque
     }
   }
 
-  MCConfigs.proxyRequestIgnoredHeaders.forEach((key) => {
+  MCConfigs.ignoredHeaders.forEach((key) => {
     headers.delete(key);
   });
 

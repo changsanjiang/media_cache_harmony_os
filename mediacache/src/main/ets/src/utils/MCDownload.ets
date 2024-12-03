@@ -49,7 +49,7 @@ namespace MCDownload {
 
   export let requestHandler: ((request: Request) => void) | undefined = undefined;
 
-  const session = rcp.createSession(MCConfigs.downloadSessionConfiguration);
+  const session = rcp.createSession(MCConfigs.sessionConfiguration);
 
   export function probe(request: Request, signal?: MCAbortSignal): Promise<Response> {
     const req = new rcp.Request(request.url, 'HEAD', request.headers, undefined, request.cookies, undefined, undefined);

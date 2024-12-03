@@ -30,7 +30,7 @@ namespace HLSParser {
   }
 
   // 代理 playlist; throw if error;
-  export function proxy(assetId: string, playlist: string, originalUrl: string, currentUrl: string, variantStreamSelectionHandler?: HLSDefines.VariantStreamSelectionHandler, renditionSelectionHandler?: HLSDefines.RenditionSelectionHandler): string {
+  export async function proxy(assetId: string, playlist: string, originalUrl: string, currentUrl: string, variantStreamSelectionHandler?: HLSDefines.VariantStreamSelectionHandler, renditionSelectionHandler?: HLSDefines.RenditionSelectionHandler): Promise<string> {
     try {
       // let decoder = util.TextDecoder.create('utf-8');
       // let rawContent = decoder.decodeToString(new Uint8Array(playlist));
@@ -79,7 +79,7 @@ namespace HLSParser {
         if ( subtitlesGroupID ) selectedSubtitlesRendition = selectRendition(originalUrl, currentUrl, renditionGroups, subtitlesGroupID, HLSDefines.RenditionType.SUBTITLES, renditionSelectionHandler);
       }
 
-      parsedItems.reverse().forEach((item) => {
+      parsedItems.reverse().forEach(async (item) => {
         let shouldRemove = false;
         switch (item.itemType) {
           case HLSDefines.ItemType.VARIANT_STREAM:
@@ -117,7 +117,7 @@ namespace HLSParser {
             isChildAsset = false;
           }
         }
-        const proxyPath = MCURL.generateProxyPath(absoluteUrl, MCAssetType.HLS, isChildAsset ? MCAssetUtils.generateAssetId(absoluteUrl) : assetId);
+        const proxyPath = MCURL.generateProxyPath(absoluteUrl, MCAssetType.HLS, isChildAsset ? (await MCAssetUtils.generateAssetId(absoluteUrl)) : assetId);
         proxyPlaylist = MCUtils.replaceCharactersInRange(proxyPlaylist, [item.uriRange!.location, uri.length], proxyPath);
       });
       return proxyPlaylist;
