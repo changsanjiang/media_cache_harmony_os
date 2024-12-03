@@ -31,6 +31,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   private mNodeList = new MCMediaContentNodeList();
   private mAssembled = false; // 是否已组合完成, 是否已得到完整内容; 虽然得到了完整内容, 但是文件夹下可能还存在正在读取的冗余数据;
   private mFullyTrimmed = false; // 所有冗余数据都已删除;
+  private mRestructuringPromise?: Promise<void> = undefined;
 
   constructor(id: string, dir: string) {
     super();
@@ -69,7 +70,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
           await this.mContentProvider.removeAllTempContentFiles();
         }
         else if (this.mMetadata.totalLength !== 0) {
-          // await this.restructureContents();
+          await this.restructureContents();
         }
         else {
           this.mAssembled = true;
@@ -300,7 +301,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
 
   // 该方法被回调时, 不仅仅当前 media 的读写计数为 0, 所有的 content 的读写计数也都为 0;
   protected onReadwriteZeroReferences(): void {
-    // this.restructureContents();
+    this.restructureContents();
   }
 
   // 重组内容. 合并数据并移除多余内容;
