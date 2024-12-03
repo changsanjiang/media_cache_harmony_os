@@ -29,11 +29,7 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
 
   readonly contentOffset: number;
 
-  get length(): Promise<number> {
-    return this.mLock.lockAsync(() => this.mLength);
-  }
-
-  get lengthUnsafe(): number {
+  get length(): number {
     return this.mLength;
   }
 
@@ -45,35 +41,7 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
     return this.mTemp;
   }
 
-  readData(position: number, buffer: ArrayBuffer, length: number): Promise<number> {
-    return this.mLock.lockAsync(async () => this.readDataUnsafe(position, buffer, length));
-  }
-
-  closeRead(): Promise<boolean> {
-    return this.mLock.lockAsync(async () => this.closeReadUnsafe());
-  }
-
-  writeData(data: ArrayBuffer, length: number): Promise<number> {
-    return this.mLock.lockAsync(async () => this.writeDataUnsafe(data, length));
-  }
-
-  closeWrite(): Promise<boolean> {
-    return this.mLock.lockAsync(async () => this.closeWriteUnsafe());
-  }
-
-  destroy(): Promise<boolean> {
-    return this.mLock.lockAsync(async () => this.destroyUnsafe());
-  }
-
-  on(_: "dataWritten", callback: (content: IMCMediaContent, length: number) => void): Promise<void> {
-    return this.mLock.lockAsync(() => { this.mDataWrittenCallbacks.add(callback) });
-  }
-
-  off(_: "dataWritten", callback: (content: IMCMediaContent, length: number) => void): Promise<void> {
-    return this.mLock.lockAsync(() => { this.mDataWrittenCallbacks.delete(callback) });
-  }
-
-  async readDataUnsafe(position: number, buffer: ArrayBuffer, length: number): Promise<number> {
+  async readData(position: number, buffer: ArrayBuffer, length: number): Promise<number> {
     MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Attempting to read data from position ${position} with length ${length}.`);
 
     try {
@@ -111,7 +79,7 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
     }
   }
 
-  async closeReadUnsafe(): Promise<boolean> {
+  async closeRead(): Promise<boolean> {
     MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Attempting to close read operation.`);
 
     if (this.mReadwriteCount > 0) {
@@ -133,7 +101,7 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
     }
   }
 
-  async writeDataUnsafe(data: ArrayBuffer, length: number): Promise<number> {
+  async writeData(data: ArrayBuffer, length: number): Promise<number> {
     MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Attempting to write data of length ${length}.`);
 
     try {
@@ -175,7 +143,7 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
     }
   }
 
-  async closeWriteUnsafe(): Promise<boolean> {
+  async closeWrite(): Promise<boolean> {
     MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Attempting to close write operation.`);
 
     if (this.mReadwriteCount > 0) {
@@ -197,7 +165,7 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
     }
   }
 
-  async destroyUnsafe(): Promise<boolean> {
+  async destroy(): Promise<boolean> {
     MCLogger.info(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Attempting to destroy content.`);
 
     if (this.mDestroyed) {
@@ -229,5 +197,13 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
       MCLogger.error(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Error during destruction: ${error.message}`);
       throw error as Error;
     }
+  }
+
+  on(_: "dataWritten", callback: (content: IMCMediaContent, length: number) => void): void {
+    this.mDataWrittenCallbacks.add(callback);
+  }
+
+  off(_: "dataWritten", callback: (content: IMCMediaContent, length: number) => void): void {
+    this.mDataWrittenCallbacks.delete(callback);
   }
 }

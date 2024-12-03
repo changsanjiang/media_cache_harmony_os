@@ -22,16 +22,19 @@ export class MCMediaContentProvider {
       await fileIo.mkdir(`${this.mDir}/temp`)
     }
 
-    const fileNames = await fileIo.listFile(this.mDir);
-    return Promise.all(fileNames.filter((fileName) => fileName.startsWith(this.mPrefix)).map(async (fileName) => {
-      const filePath = `${this.mDir}/${fileName}`;
-      const fileSize = await statfs.getTotalSize(filePath);
-      const props = this.getContentOffsetAndSequence(fileName);
-      const contentOffset = parseInt(props[0], 10);
-      const sequence = parseInt(props[1], 10);
-      if ( this.mSequence < sequence ) this.mSequence = sequence;
-      return new MCMediaContent(this.mMediaId, contentOffset, filePath, fileSize);
-    }));
+    return undefined;
+
+    // const fileNames = await fileIo.listFile(this.mDir);
+    // const contentFileNames = fileNames.length > 0 ? fileNames.filter((fileName) => fileName.startsWith(this.mPrefix)) : undefined;
+    // return contentFileNames && contentFileNames.length > 0 ? Promise.all(contentFileNames.map(async (fileName) => {
+    //   const filePath = `${this.mDir}/${fileName}`;
+    //   const fileSize = await statfs.getTotalSize(filePath);
+    //   const props = this.getContentOffsetAndSequence(fileName);
+    //   const contentOffset = parseInt(props[0], 10);
+    //   const sequence = parseInt(props[1], 10);
+    //   if ( this.mSequence < sequence ) this.mSequence = sequence;
+    //   return new MCMediaContent(this.mMediaId, contentOffset, filePath, fileSize);
+    // })) : undefined;
   }
 
   createContent(contentOffset: number, temp: boolean = false): IMCMediaContent {

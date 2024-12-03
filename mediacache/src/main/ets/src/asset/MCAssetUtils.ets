@@ -1,9 +1,15 @@
 import { url } from '@kit.ArkTS';
-import { MCUtils } from '../../../../../Index';
+import { MCURL, MCUtils } from '../../../../../Index';
 import { MCAssetType } from '../defines/MCAssetType';
 import MCConfigs from '../utils/MCConfigs';
 
 namespace MCAssetUtils {
+  export async function generateProxyUrl(resUrl: string, localServerPort: number): Promise<string> {
+    const assetType = await resolveAssetType(resUrl);
+    const assetId = await generateAssetId(resUrl);
+    return MCURL.generateProxyUrl(resUrl, assetType, assetId, localServerPort);
+  }
+
   export async function resolveAssetType(resUrl: string): Promise<MCAssetType> {
     if ( MCConfigs.resolveAssetType ) {
       return MCConfigs.resolveAssetType(resUrl);
@@ -16,8 +22,8 @@ namespace MCAssetUtils {
     return MCAssetType.FILE_BASED;
   }
 
-  export async function generateAssetId(assetUrl: string): Promise<string> {
-    const target = MCConfigs.resolveAssetIdentifier ? (await MCConfigs.resolveAssetIdentifier(assetUrl)) : assetUrl;
+  export async function generateAssetId(resUrl: string): Promise<string> {
+    const target = MCConfigs.resolveAssetIdentifier ? (await MCConfigs.resolveAssetIdentifier(resUrl)) : resUrl;
     return MCUtils.hash(target);
   }
 }

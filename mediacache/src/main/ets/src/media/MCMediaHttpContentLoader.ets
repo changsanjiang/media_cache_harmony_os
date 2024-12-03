@@ -47,73 +47,67 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
   private async onHeadersReceive(headers: MCDownloadResponseHeaders): Promise<void> {
     MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Headers received for URL: ${this.request.url}.`);
 
-    return this.mLock.lockAsync(async () => {
-      try {
-        if ( this.mAborted || this.mDone ) {
-          MCLogger.warn(MCLogModule.MCMediaContentLoader, () => 'Loader is aborted or done, ignoring headers.');
-          return;
-        }
-        // MCDownloadRequest 请求由 media 创建; 当其中包含范围字段时, 说明服务器必定支持范围请求;
-        //
-        //
-        // 解析内容范围
-        // 如果是 206 请求, response 必须指定 content-range 字段;
-        // 如果是 200 请求: 依赖于 content-length 字段, 有些服务器可能不返回这个字段;
-        //
-        // 200 或 206 => {start, length};
-        // 当 200 请求的响应未指定 content-length 字段时返回 {0, Number.MAX_SAFE_INTEGER}
-        const contentRange = await this.media.parseContentRange(this.request, headers);
-        this.content = await this.media.createContentInRange(contentRange); // content readwrite retained;
-        MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Content created for URL: ${this.request.url} Headers: ${JSON.stringify(headers)}.`);
+    try {
+      if ( this.mAborted || this.mDone ) {
+        MCLogger.warn(MCLogModule.MCMediaContentLoader, () => 'Loader is aborted or done, ignoring headers.');
+        return;
+      }
+      // MCDownloadRequest 请求由 media 创建; 当其中包含范围字段时, 说明服务器必定支持范围请求;
+      //
+      //
+      // 解析内容范围
+      // 如果是 206 请求, response 必须指定 content-range 字段;
+      // 如果是 200 请求: 依赖于 content-length 字段, 有些服务器可能不返回这个字段;
+      //
+      // 200 或 206 => {start, length};
+      // 当 200 请求的响应未指定 content-length 字段时返回 {0, Number.MAX_SAFE_INTEGER}
+      const contentRange = await this.media.parseContentRange(this.request, headers);
+      this.content = await this.media.createContentInRange(contentRange); // content readwrite retained;
+      MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Content created for URL: ${this.request.url} Headers: ${JSON.stringify(headers)}.`);
 
-        if ( !this.content.isTemp ) { // 临时内容需要在下载完成后才能通知父类 contentReady;
-          this.contentReady(this.content, contentRange);
-        }
+      if ( !this.content.isTemp ) { // 临时内容需要在下载完成后才能通知父类 contentReady;
+        this.contentReady(this.content, contentRange);
       }
-      catch (error) {
-        MCLogger.error(MCLogModule.MCMediaContentLoader, () => `Error in onHeadersReceive: ${(error as Error).message}`);
-        this.abortUnsafe(error);
-        throw error as Error;
-      }
-    });
+    }
+    catch (error) {
+      MCLogger.error(MCLogModule.MCMediaContentLoader, () => `Error in onHeadersReceive: ${(error as Error).message}`);
+      this.abort(error);
+      throw error as Error;
+    }
   }
 
-  private onDataReceive(data: ArrayBuffer): Promise<void> {
+  private async onDataReceive(data: ArrayBuffer): Promise<void> {
     MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Data received: ${data.byteLength} bytes.`);
 
-    return this.mLock.lockAsync(async () => {
-      if ( this.mAborted || this.mDone ) {
-        MCLogger.warn(MCLogModule.MCMediaContentLoader, () => 'Loader is aborted or done, ignoring received data.');
-        return;
-      }
+    if ( this.mAborted || this.mDone ) {
+      MCLogger.warn(MCLogModule.MCMediaContentLoader, () => 'Loader is aborted or done, ignoring received data.');
+      return;
+    }
 
-      try {
-        await this.content!.writeData(data, data.byteLength);
-        MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Data written to content: ${data.byteLength} bytes.`);
-      }
-      catch (error) {
-        MCLogger.error(MCLogModule.MCMediaContentLoader, () => `Error in onDataReceive: ${(error as Error).message}`);
-        this.abortUnsafe(error);
-        throw error as Error;
-      }
-    });
+    try {
+      await this.content!.writeData(data, data.byteLength);
+      MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Data written to content: ${data.byteLength} bytes.`);
+    }
+    catch (error) {
+      MCLogger.error(MCLogModule.MCMediaContentLoader, () => `Error in onDataReceive: ${(error as Error).message}`);
+      this.abort(error);
+      throw error as Error;
+    }
   }
 
-  private complete(res: MCDownload.Response): void {
-    this.mLock.lockAsync(async () => {
-      if ( this.mAborted || !this.content || !this.content.isTemp ) {
-        return;
-      }
+  private async complete(res: MCDownload.Response): Promise<void> {
+    if ( this.mAborted || !this.content || !this.content.isTemp ) {
+      return;
+    }
 
-      if ( res.statusCode !== 200 ) {
-        this.abortUnsafe(); // TODO: http error, 响应不是200时， 抛出异常;
-        return;
-      }
+    if ( res.statusCode !== 200 ) {
+      this.abort(); // TODO: http error, 响应不是200时， 抛出异常;
+      return;
+    }
 
-      await this.media.copyTempContent(this.content); // 临时内容下载完成, 复制到正式目录;
-      const range = new MCRange(this.content.contentOffset, await this.content.length);
-      this.contentReady(this.content, range); // 临时内容下载完成, 通知父类 contentReady;
-    });
+    await this.media.copyTempContent(this.content); // 临时内容下载完成, 复制到正式目录;
+    const range = new MCRange(this.content.contentOffset, this.content.length);
+    this.contentReady(this.content, range); // 临时内容下载完成, 通知父类 contentReady;
   }
 
   protected onClearAfter(): void {

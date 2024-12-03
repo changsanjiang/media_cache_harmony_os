@@ -19,7 +19,7 @@ export class MCMediaFileContentLoader extends MCMediaContentLoader {
     const start = this.loadRange.location;
     const end = this.loadRange.max;
     const contentStart = this.content.contentOffset;
-    const contentEnd = this.content.contentOffset + await this.content.length;
+    const contentEnd = this.content.contentOffset + this.content.length;
 
     MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Preparing MCMediaFileContentLoader with range [${start}, ${end}) and content range [${contentStart}, ${contentEnd}).`);
 
@@ -27,7 +27,7 @@ export class MCMediaFileContentLoader extends MCMediaContentLoader {
       throw new Error(`Load range [${start}, ${end}) is out of bounds for content range [${contentStart}, ${contentEnd}).`);;
     }
 
-    this.contentReady(await this.content.readwriteRetain(), this.loadRange);
+    this.contentReady(this.content.readwriteRetain(), this.loadRange);
   }
 
   protected onClearBefore(): void {

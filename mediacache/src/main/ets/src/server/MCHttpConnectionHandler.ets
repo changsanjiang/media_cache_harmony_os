@@ -35,7 +35,7 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
           MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Data sent, size: ${(typeof data === 'string') ? data.length : data.byteLength}`);
 
           // 所有数据都发送完毕后, 关闭连接;
-          if ( await response.isDone ) {
+          if ( response.isDone ) {
             MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] All data sent, closing connection.`);
             this.clean(response, connection);
             break;
@@ -93,7 +93,7 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
 
     connection.on('close', async () => {
       MCLogger.warn(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Connection closed.`);
-      if ( !(await response.isAborted || await response.isDone) ) {
+      if ( !(response.isAborted || response.isDone) ) {
         response.off('newDataAvailable');
         response.off('aborted');
         response.abort(new Error("Connection closed unexpectedly."));
@@ -102,7 +102,7 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
   }
 
   async internalError(response: IMCHttpResponse, connection: socket.TCPSocketConnection, shouldAborted: boolean = false, error?: Error) {
-    if ( !(await response.isHeadersSent) ) connection.send({ data: "HTTP/1.1 500 Internal Server Error\r\n\r\n" });
+    if ( !(response.isHeadersSent) ) connection.send({ data: "HTTP/1.1 500 Internal Server Error\r\n\r\n" });
     this.clean(response, connection, shouldAborted, error);
   }
 
@@ -114,7 +114,7 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
   async clean(response: IMCHttpResponse, connection: socket.TCPSocketConnection, shouldAborted: boolean = false, error?: Error) {
     response.off('newDataAvailable');
     response.off('aborted');
-    if ( shouldAborted && !(await response.isAborted || await response.isDone)) response.abort(error);
+    if ( shouldAborted && !(response.isAborted || response.isDone)) response.abort(error);
     connection.off('message');
     connection.off('error');
     connection.off('close');

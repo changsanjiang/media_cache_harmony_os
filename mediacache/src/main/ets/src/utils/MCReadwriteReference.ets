@@ -1,28 +1,18 @@
 import { IMCReadwriteReference } from "../defines/IMCReadwriteReference";
-import { ArkTSUtils } from "@kit.ArkTS";
 
 export class MCReadwriteReference<T> implements IMCReadwriteReference<T> {
   protected mReadwriteCount = 0;
-  protected mLock: ArkTSUtils.locks.AsyncLock = new ArkTSUtils.locks.AsyncLock();
 
-  get readwriteCount(): Promise<number> {
-    return this.mLock.lockAsync(() => this.mReadwriteCount);
+  get readwriteCount(): number {
+    return this.mReadwriteCount;
   }
 
-  readwriteRetain(): Promise<T> {
-    return this.mLock.lockAsync(() => this.readwriteRetain());
-  }
-
-  readwriteRelease(): Promise<void> {
-    return this.mLock.lockAsync(() => this.readwriteRelease());
-  }
-
-  readwriteRetainUnsafe(): T {
+  readwriteRetain(): T {
     this.mReadwriteCount += 1;
     return this.getInstance();
   }
 
-  readwriteReleaseUnsafe(): void {
+  readwriteRelease(): void {
     if (this.mReadwriteCount <= 0) {
       throw new Error("Release called with zero references.");
     }

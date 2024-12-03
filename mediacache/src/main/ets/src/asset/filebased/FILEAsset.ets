@@ -29,7 +29,7 @@ export class FILEAsset extends MCReadwriteReference<FILEAsset> implements IMCAss
     return this.mMedia.prepare();
   }
 
-  getMediaBy(_: string): Promise<IMCMedia> {
+  async getMediaBy(_: string): Promise<IMCMedia> {
     return this.mMedia.readwriteRetain();
   }
 
