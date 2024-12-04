@@ -17,6 +17,10 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
   private mReadRange?: MCRange = undefined;
   private mSerialQueue = new MCSerialQueue();
 
+  constructor() {
+    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Instance created.`);
+  }
+
   get isDone(): boolean {
     return this.mDone;
   }
@@ -41,11 +45,12 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
     }
 
     try {
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => 'Performing preparation steps...');
       await this.onPrepare();
       MCLogger.info(MCLogModule.MCMediaContentLoader, () => 'Loader preparation complete.');
     }
     catch (error) {
-      MCLogger.error(MCLogModule.MCMediaContentLoader, () => `Error during preparation: ${(error as Error).message}`);
+      MCLogger.error(MCLogModule.MCMediaContentLoader, () => `Error during preparation: ${(error as Error).message}, stack: ${error.stack}}`);
       this.abort(error);
       throw error as Error;
     }
@@ -77,6 +82,7 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
       this.mReadOffset = range.location;
       this.mContent.on('dataWritten', (content: IMCMediaContent, length: number) => this.dataWritten(content, length)); // 实现类通知抽象类可加载数据了;
 
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Read offset set to ${this.mReadOffset}.`);
       MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Content is ready. Range: ${JSON.stringify(range)}, Content offset: ${content.contentOffset}.`);
 
       if (this.mPreparedCallback) {
@@ -89,7 +95,7 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
       }
     }
     catch (error) {
-      MCLogger.error(MCLogModule.MCMediaContentLoader, () => `Error in contentReady: ${(error as Error).message}`);
+      MCLogger.error(MCLogModule.MCMediaContentLoader, () => `Error in contentReady: ${(error as Error).message}, stack: ${error.stack}`);
       this.abort(error);
       throw error as Error;
     }
@@ -179,7 +185,7 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
         return readableLength;
       }
       catch (error) {
-        MCLogger.error(MCLogModule.MCMediaContentLoader, () => `Error seeking to the end of readable range: ${(error as Error).message}`);
+        MCLogger.error(MCLogModule.MCMediaContentLoader, () => `Error seeking to the end of readable range: ${(error as Error).message}, stack: ${error.stack}`);
         this.abort(error);
         throw error as Error;
       }
@@ -241,6 +247,7 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
   private async clear(): Promise<void> {
     this.onClearBefore();
     if ( this.mContent ) {
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Clearing content.`);
       this.mContent.off('dataWritten');
       this.mContent.readwriteRelease();
       await this.mContent.closeRead();
