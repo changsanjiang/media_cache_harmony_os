@@ -29,6 +29,10 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
     return this.mRange;
   }
 
+  get offset(): number {
+    return this.mOffset;
+  }
+
   get readableLength(): number {
     if ( !this.mContent || !this.mRange || this.mAborted || this.mDone ) {
       return 0;

@@ -82,16 +82,11 @@ export class MCHttpResponse implements IMCHttpResponse {
         return responseHeaders;
       }
 
-      // 读取可读数据
-      const readableLength = reader.readableLength;
-      if ( readableLength > 0 ) {
-        const bufferSize = Math.min(4 * 1024 * 1024, readableLength);
-        const buffer = new ArrayBuffer(bufferSize);
-        const length = await reader.readData(buffer);
-        if (length > 0) {
-          MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Data chunk read (${length} bytes).`);
-          return length === bufferSize ? buffer : buffer.slice(0, length);
-        }
+      // 读取数据
+      const buffer = await reader.readData();
+      if ( buffer ) {
+        MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Data chunk read (${buffer?.byteLength} bytes).`);
+        return buffer;
       }
 
       MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] No data available for reading.`);
@@ -128,6 +123,16 @@ export class MCHttpResponse implements IMCHttpResponse {
     this.clear();
   }
 
+  private clear(shouldAborted: boolean = false, error?: Error): void {
+    if ( this.mDataReader ) {
+      this.mDataReader.off('responseReady');
+      this.mDataReader.off('newDataReadable');
+      this.mDataReader.off('aborted');
+      if ( shouldAborted ) this.mDataReader.abort(error);
+      this.mDataReader = undefined;
+    }
+  }
+
   on(event: 'newDataAvailable' | 'aborted', callback: Object): void {
     switch (event) {
       case 'newDataAvailable': {
@@ -156,15 +161,5 @@ export class MCHttpResponse implements IMCHttpResponse {
         break;
     }
     MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Event listener for '${event}' unregistered.`);
-  }
-
-  private clear(shouldAborted: boolean = false, error?: Error): void {
-    if ( this.mDataReader ) {
-      this.mDataReader.off('responseReady');
-      this.mDataReader.off('newDataReadable');
-      this.mDataReader.off('aborted');
-      if ( shouldAborted ) this.mDataReader.abort(error);
-      this.mDataReader = undefined;
-    }
   }
 }

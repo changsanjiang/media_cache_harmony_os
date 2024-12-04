@@ -28,9 +28,6 @@ export class MCAssetReader implements IMCDataReader {
     MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] MCAssetReader instance created.`);
   }
 
-  get readableLength(): number {
-    return this.mMediaReader?.readableLength ?? 0;
-  }
   get responseHeaders(): string | undefined {
     return this.mMediaReader?.responseHeaders;
   }
@@ -80,13 +77,18 @@ export class MCAssetReader implements IMCDataReader {
     }
   }
 
-  async readData(buffer: ArrayBuffer): Promise<number> {
+  async readData(): Promise<ArrayBuffer | undefined> {
     try {
-      MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Reading data into buffer of size: ${buffer.byteLength}.`);
+      MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Reading data.`);
 
-      const len = await this.mMediaReader?.readData(buffer) ?? 0;
-      MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Read ${len} bytes of data.`);
-      return len;
+      const buffer = await this.mMediaReader?.readData();
+      if ( buffer ) {
+        MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Read ${buffer.byteLength} bytes of data.`);
+      }
+      else {
+        MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] No data available for reading.`);
+      }
+      return buffer;
     }
     catch (error) {
       MCLogger.error(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Error during data read: ${error.message}`);

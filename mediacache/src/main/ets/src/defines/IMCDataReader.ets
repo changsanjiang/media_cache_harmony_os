@@ -1,11 +1,10 @@
 export interface IMCDataReader {
   readonly responseHeaders: string | undefined;
-  readonly readableLength: number; // 当前已准备好的可进行读取的数据的长度;
   readonly isDone: boolean;
   readonly isAborted: boolean;
 
   prepare(): Promise<void>
-  readData(buffer: ArrayBuffer): Promise<number>;
+  readData(): Promise<ArrayBuffer | undefined>;
   seekToEndOfReadableRange(): Promise<number>; // 跳转到当前可读范围的尾部，并返回跳转了的长度(readableLength);
   abort(error?: Error): Promise<void>;
 
