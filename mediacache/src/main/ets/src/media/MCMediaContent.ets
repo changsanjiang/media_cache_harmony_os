@@ -81,7 +81,7 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
           offset: position - this.contentOffset,
           length: Math.min(buffer.byteLength, length)
         };
-        MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Reading file with options: ${JSON.stringify(options)} }.`);
+        MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Reading file with options: ${JSON.stringify(options)}}.`);
 
         const len = await fileIo.read(this.mReader.fd, buffer, options);
         MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Read successful: ${len} bytes from file ${this.mFilePath}.`);
