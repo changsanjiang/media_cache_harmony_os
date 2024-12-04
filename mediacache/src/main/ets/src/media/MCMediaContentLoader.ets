@@ -125,6 +125,10 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
         }
 
         const readableLength = Math.min(this.mReadRange.max, (this.mContent.contentOffset + this.mContent.length)) - this.mReadOffset;
+        if ( readableLength == 0 ) {
+          return undefined;
+        }
+
         const bufferSize = Math.min(4 * 1024 * 1024, readableLength);
         MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Calculated buffer size: ${bufferSize}.`);
         const buffer = new ArrayBuffer(bufferSize);
@@ -169,7 +173,7 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
         const readableLength = Math.min(this.mReadRange.max, (this.mContent.contentOffset + this.mContent.length)) - this.mReadOffset;
         if ( readableLength > 0 ) {
           MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Seeked to the end of readable range. Total readable length: ${readableLength}.`);
-          this.increaseReadOffset(readableLength);
+          this.increaseReadOffset(readableLength); // 直接增加偏移量即可;
         }
         return readableLength;
       }

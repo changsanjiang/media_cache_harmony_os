@@ -84,8 +84,7 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
         MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Reading file with options: ${JSON.stringify(options)}}.`);
 
         const len = await fileIo.read(this.mReader.fd, buffer, options);
-        MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Read successful: ${len} bytes from file ${this.mFilePath}.`);
-
+        MCLogger.info(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Reader successfully read ${len} bytes from position ${position}.`);
         return len;
       }
       catch (error) {
@@ -123,7 +122,7 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
 
         const lengthWritten = await fileIo.write((this.mWriter).fd, data, { length: length });
         this.mLength += lengthWritten;
-        MCLogger.info(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Successfully wrote ${lengthWritten} bytes to file: ${this.mFilePath}. Total length: ${this.mLength}.`);
+        MCLogger.info(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Writer successfully wrote ${lengthWritten} bytes. Total length: ${this.mLength}.`);
 
         this.dataWritten(lengthWritten);
 
@@ -152,7 +151,7 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
 
   destroy(): Promise<boolean> {
     return this.mSerialQueue.enqueue(async () => {
-      MCLogger.info(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Attempting to destroy content.`);
+      MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Attempting to destroy content.`);
 
       if (this.mDestroyed) {
         MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Content already destroyed.`);
