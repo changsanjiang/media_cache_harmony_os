@@ -16,12 +16,12 @@ import { parseRequestRange, toRequestRange, toRequestRangeHeader } from "../defi
 import { MCMediaFileContentLoader } from "./MCMediaFileContentLoader";
 import MCLogger from "../utils/MCLogger";
 import { MCLogModule } from "../defines/MCLogModule";
-import { MCMediaContent } from "./MCMediaContent";
 import MCDownload from "../utils/MCDownload";
 import { IMCDataRequest } from "../defines/IMCDataRequest";
 import { MCDownloadRequest } from "../utils/MCDownloadRequest";
 import { IMCDataOkResponse, IMCDataPartialContentResponse, IMCDataResponse } from "../defines/IMCDataResponse";
 import { MCDataResponseError } from "../defines/MCDataResponseError";
+import { MCSerialQueue } from "../../../../../Index";
 
 export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   readonly id: string;
@@ -31,7 +31,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   private mNodeList = new MCMediaContentNodeList();
   private mAssembled = false; // 是否已组合完成, 是否已得到完整内容; 虽然得到了完整内容, 但是文件夹下可能还存在正在读取的冗余数据;
   private mFullyTrimmed = false; // 所有冗余数据都已删除;
-  private mRestructuringPromise?: Promise<void> = undefined;
+  private mTaskQueue = new MCSerialQueue();
 
   constructor(id: string, dir: string) {
     super();
@@ -70,7 +70,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
           await this.mContentProvider.removeAllTempContentFiles();
         }
         else if (this.mMetadata.totalLength !== 0) {
-          await this.restructureContents();
+          await this.restructureContentsUnsafe();
         }
         else {
           this.mAssembled = true;
@@ -85,7 +85,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   }
 
   fetch(request: IMCDataRequest): Promise<IMCDataResponse> {
-    return this.probe(request).then(() => this.resolve(request)).catch((error: Error) => {
+    return this.probe(request).then(() => this.mTaskQueue.enqueue(() => this.resolveUnsafe(request))).catch((error: Error) => {
       let statusCode = 500;
       if ( error instanceof MCDataResponseError ) {
         statusCode = error.statusCode;
@@ -139,12 +139,12 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
         totalLength: totalLength,
         byteRangeAccessSupported: byteRangeAccessSupported
       };
-      await MCDatabase.saveMediaMetadata(this.id, metadata);
       this.mMetadata = metadata;
+      MCDatabase.saveMediaMetadata(this.id, metadata);
     });
   }
 
-  private async resolve(proxyRequest: IMCDataRequest): Promise<IMCDataResponse> {
+  private async resolveUnsafe(proxyRequest: IMCDataRequest): Promise<IMCDataResponse> {
     const url = MCURL.parseUrl(proxyRequest.requestTarget);
     if (!url) {
       throw new MCDataResponseError(400, "Failed to restore URL from the provided request.");
@@ -264,35 +264,41 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     return this.createContentAt(range.location, range.length === Number.MAX_SAFE_INTEGER);
   }
 
-  async createContentAt(offset: number, isTemp: boolean): Promise<IMCMediaContent> {
-    const content = this.mContentProvider!.createContent(offset, isTemp);
-    this.mNodeList.upsertNode(offset, content);
-    return content.readwriteRetain();
+  createContentAt(offset: number, isTemp: boolean): Promise<IMCMediaContent> {
+    return this.mTaskQueue.enqueue(() => {
+      const content = this.mContentProvider!.createContent(offset, isTemp);
+      this.mNodeList.upsertNode(offset, content);
+      return content.readwriteRetain();
+    });
   }
 
-  async destroyTempContent(content: IMCMediaContent): Promise<void> {
-    if ( content.isTemp ) {
-      if ( !(await content.destroy()) ) {
-        throw new Error(`xxx`);
+  destroyTempContent(content: IMCMediaContent): Promise<void> {
+    return this.mTaskQueue.enqueue(async () => {
+      if ( content.isTemp ) {
+        if ( !(await content.destroy()) ) {
+          throw new Error(`xxx`);
+        }
+        const node = this.mNodeList.getNodeBy(content.contentOffset);
+        node?.removeContent(content);
       }
-      const node = this.mNodeList.getNodeBy(content.contentOffset);
-      node?.removeContent(content);
-    }
+    });
   }
 
-  async copyTempContent(content: IMCMediaContent): Promise<void> {
-    if ( content.isTemp ) {
-      const newContent = this.mContentProvider!.createContent(0);
-      this.mNodeList.upsertNode(0, newContent);
-      await this.mergeData(newContent, content);
-      const metadata: IMCMediaMetadata = {
-        contentType: this.mMetadata!.contentType,
-        totalLength: newContent.length,
-        byteRangeAccessSupported: true,
-      };
-      this.mMetadata = metadata;
-      MCDatabase.saveMediaMetadata(this.id, metadata);
-    }
+  copyTempContent(content: IMCMediaContent): Promise<void> {
+    return this.mTaskQueue.enqueue(async () => {
+      if ( content.isTemp ) {
+        const newContent = this.mContentProvider!.createContent(0);
+        this.mNodeList.upsertNode(0, newContent);
+        await this.mergeDataUnsafe(newContent, content);
+        const metadata: IMCMediaMetadata = {
+          contentType: this.mMetadata!.contentType,
+          totalLength: newContent.length,
+          byteRangeAccessSupported: true,
+        };
+        this.mMetadata = metadata;
+        MCDatabase.saveMediaMetadata(this.id, metadata);
+      }
+    });
   }
 
   protected getInstance(): MCMedia {
@@ -301,11 +307,11 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
 
   // 该方法被回调时, 不仅仅当前 media 的读写计数为 0, 所有的 content 的读写计数也都为 0;
   protected onReadwriteZeroReferences(): void {
-    this.restructureContents();
+    this.mTaskQueue.enqueue(() => this.restructureContentsUnsafe());
   }
 
   // 重组内容. 合并数据并移除多余内容;
-  private async restructureContents(): Promise<void> {
+  private async restructureContentsUnsafe(): Promise<void> {
     if ( !this.mFullyTrimmed && this.mMetadata && this.mMetadata.totalLength !== Number.MAX_SAFE_INTEGER ) {
       try {
         const head = this.mNodeList.head;
@@ -313,13 +319,13 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
 
         while (curNode) {
           if ( curNode.numberOfContents > 1 ) {
-            await this.trimRedundantContents(curNode);
+            await this.trimRedundantContentsUnsafe(curNode);
           }
           const nextNode = curNode.next;
           if ( !nextNode ) break;  // break;
 
           if ( nextNode.numberOfContents > 1 ) {
-            await this.trimRedundantContents(curNode);
+            await this.trimRedundantContentsUnsafe(curNode);
           }
 
           const writer = curNode.longestContent;
@@ -331,7 +337,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
           }
 
           if ( writer && reader ) {
-            const isMerged = await this.mergeData(writer, reader);
+            const isMerged = await this.mergeDataUnsafe(writer, reader);
             if ( isMerged ) {
               await reader.destroy();
               nextNode.removeContent(reader);
@@ -361,7 +367,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     }
   }
 
-  private async trimRedundantContents(node: IMCMediaContentNode): Promise<void> {
+  private async trimRedundantContentsUnsafe(node: IMCMediaContentNode): Promise<void> {
     if ( node.numberOfContents > 1 ) {
       MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Trimming redundant contents for node at offset: ${node.placement}.`);
 
@@ -384,7 +390,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
 
   // 合并数据; 被合并后返回 true;
   // writer.contentOffset <= reader.contentOffset;
-  private async mergeData(writer: IMCMediaContent, reader: IMCMediaContent): Promise<boolean> {
+  private async mergeDataUnsafe(writer: IMCMediaContent, reader: IMCMediaContent): Promise<boolean> {
     MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Attempting to merge data between writer at offset ${writer.contentOffset} and reader at offset ${reader.contentOffset}.`);
     if ( writer.contentOffset > reader.contentOffset ) {
       // writer的内容偏移量 必须在 reader 的前面, 这样才能在存在交集时合并数据;
