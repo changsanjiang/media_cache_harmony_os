@@ -77,7 +77,7 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
       this.mReadOffset = range.location;
       this.mContent.on('dataWritten', (content: IMCMediaContent, length: number) => this.dataWritten(content, length)); // 实现类通知抽象类可加载数据了;
 
-      MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Content is ready. Range: ${JSON.stringify(range)}, Content offset: ${content.contentOffset}, Done: ${this.mDone}.`);
+      MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Content is ready. Range: ${JSON.stringify(range)}, Content offset: ${content.contentOffset}.`);
 
       if (this.mPreparedCallback) {
         MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Executing prepared callback.`);
@@ -96,7 +96,8 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
   }
 
   private dataWritten(_: IMCMediaContent, length: number): void {
-    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Data loaded: ${length} bytes.`);
+    // 有新的数据写入了， 通知外部可以读取数据了;
+    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `New data readable: ${length} bytes.`);
 
     if ( !this.mDone && !this.mAborted && this.mDataLoadedCallback ) {
       MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Executing dataLoaded callback.`);
