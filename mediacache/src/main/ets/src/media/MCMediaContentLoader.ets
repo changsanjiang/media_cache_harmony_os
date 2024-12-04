@@ -115,23 +115,23 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
   }
 
   async readData(decrypt?: MCMediaContentDecryptHandler): Promise<ArrayBuffer | undefined> {
-    this.mSerialQueue.enqueue(async () => {
+    return this.mSerialQueue.enqueue(async () => {
       try {
         MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Attempting to read data.`);
 
         if (this.mAborted) {
           MCLogger.warn(MCLogModule.MCMediaContentLoader, () => 'Read aborted due to loader being aborted.');
-          return 0;
+          return undefined;
         }
 
         if (this.mDone) {
           MCLogger.info(MCLogModule.MCMediaContentLoader, () => 'Read operation ignored as the loader is already done.');
-          return 0;
+          return undefined;
         }
 
         if (!this.mContent || !this.mRange) {
           MCLogger.warn(MCLogModule.MCMediaContentLoader, () => 'No content available for reading.');
-          return 0;
+          return undefined;
         }
 
         const readableLength = Math.min(this.mRange.max, (this.mContent.contentOffset + this.mContent.length)) - this.mReadOffset;
@@ -165,7 +165,6 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
         throw error as Error;
       }
     });
-    return undefined;
   }
 
   async seekToEndOfReadableRange(): Promise<number> {
