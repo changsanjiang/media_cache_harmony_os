@@ -12,7 +12,7 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
   private mDestroyed = false;
   private mReader?: fileIo.File | undefined = undefined;
   private mWriter?: fileIo.File | undefined = undefined;
-  private mDataWrittenCallback: ((content: IMCMediaContent, length: number) => void) | undefined = undefined;
+  private mDataWrittenCallback: ((content: IMCMediaContent) => void) | undefined = undefined;
   private mTemp = false; // 是否是临时内容
   private mSerialQueue = new MCSerialQueue();
 
@@ -124,7 +124,7 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
         this.mLength += lengthWritten;
         MCLogger.info(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Writer successfully wrote ${lengthWritten} bytes. Total length: ${this.mLength}.`);
 
-        this.dataWritten(lengthWritten);
+        this.dataWritten();
 
         return lengthWritten;
       }
@@ -135,14 +135,16 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
     });
   }
 
-  private dataWritten(length: number): void {
-    if (this.mDataWrittenCallback) {
-      MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Executing dataWritten callback with length: ${length}.`);
-      this.mDataWrittenCallback(this, length);
-    }
-    else {
-      MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] No dataWritten callback to execute.`);
-    }
+  private dataWritten(): void {
+    setTimeout(() => {
+      if (this.mDataWrittenCallback) {
+        MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] Executing dataWritten callback.`);
+        this.mDataWrittenCallback(this);
+      }
+      else {
+        MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${this.mMediaId}, offset: ${this.contentOffset}] No dataWritten callback to execute.`);
+      }
+    });
   }
 
   closeWrite(): Promise<boolean> {
@@ -232,7 +234,7 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
     return true;
   }
 
-  on(_: "dataWritten", callback: (content: IMCMediaContent, length: number) => void): void {
+  on(_: "dataWritten", callback: (content: IMCMediaContent) => void): void {
     this.mDataWrittenCallback = callback;
   }
 

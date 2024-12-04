@@ -6,8 +6,7 @@ import MCLogger from "../utils/MCLogger";
 import { MCSerialQueue } from "../../../../../Index";
 
 export class MCMediaContentLoader implements IMCMediaContentLoader {
-  private mPreparedCallback?: (loader: IMCMediaContentLoader, range: MCRange) => void = undefined;
-  private mDataLoadedCallback?: (loader: IMCMediaContentLoader, length: number) => void = undefined;
+  private mNewDataReadableCallback?: (loader: IMCMediaContentLoader) => void = undefined;
   private mAbortedCallback?: (loader: IMCMediaContentLoader, error?: Error) => void = undefined;
   private mDoneCallback?: (loader: IMCMediaContentLoader) => void = undefined;
   private mReadOffset = 0;
@@ -38,16 +37,15 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
   }
 
   async prepare(): Promise<void> {
-    MCLogger.info(MCLogModule.MCMediaContentLoader, () => 'Starting preparation.');
+    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => 'Starting preparation.');
     if (this.mAborted) {
       MCLogger.warn(MCLogModule.MCMediaDataReader, () => `Cannot prepare as the loader has been aborted.`);
       return;
     }
 
     try {
-      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => 'Performing preparation steps...');
       await this.onPrepare();
-      MCLogger.info(MCLogModule.MCMediaContentLoader, () => 'Loader preparation complete.');
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => 'Loader preparation complete.');
     }
     catch (error) {
       MCLogger.error(MCLogModule.MCMediaContentLoader, () => `Error during preparation: ${(error as Error).message}, stack: ${error.stack}}`);
@@ -80,14 +78,15 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
       this.mContent = content;
       this.mReadRange = range;
       this.mReadOffset = range.location;
-      this.mContent.on('dataWritten', (content: IMCMediaContent, length: number) => this.dataWritten(content, length)); // 实现类通知抽象类可加载数据了;
+      this.mContent.on('dataWritten', (_: IMCMediaContent) => this.newDataReadable()); // 实现类通知抽象类可加载数据了;
+
+      const readableLength = Math.min(this.mReadRange.max, (this.mContent.contentOffset + this.mContent.length)) - this.mReadOffset;
 
       MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Read offset set to ${this.mReadOffset}.`);
-      MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Content is ready. Range: ${JSON.stringify(range)}, Content offset: ${content.contentOffset}.`);
+      MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Content is ready. Range: ${JSON.stringify(range)}, Content offset: ${content.contentOffset}, Readable length: ${readableLength}.`);
 
-      if (this.mPreparedCallback) {
-        MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Executing prepared callback.`);
-        this.mPreparedCallback(this, range);
+      if ( readableLength > 0 ) {
+        this.newDataReadable();
       }
 
       if ( range.length === 0 ) {
@@ -101,14 +100,16 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
     }
   }
 
-  private dataWritten(_: IMCMediaContent, length: number): void {
-    // 有新的数据写入了， 通知外部可以读取数据了;
-    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `New data readable: ${length} bytes.`);
+  // 有新的数据写入了， 通知外部可以读取数据了;
+  private newDataReadable(): void {
+    setTimeout(() => {
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `New data readable.`);
 
-    if ( !this.mDone && !this.mAborted && this.mDataLoadedCallback ) {
-      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Executing dataLoaded callback.`);
-      this.mDataLoadedCallback(this, length);
-    }
+      if ( !this.mDone && !this.mAborted && this.mNewDataReadableCallback ) {
+        MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Executing dataLoaded callback.`);
+        this.mNewDataReadableCallback(this);
+      }
+    });
   }
 
   async readData(decrypt?: MCMediaContentDecryptHandler): Promise<ArrayBuffer | undefined> {
@@ -133,6 +134,7 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
 
         const readableLength = Math.min(this.mReadRange.max, (this.mContent.contentOffset + this.mContent.length)) - this.mReadOffset;
         if ( readableLength == 0 ) {
+          MCLogger.info(MCLogModule.MCMediaContentLoader, () => `No data available to read (readable length is 0).`);
           return undefined;
         }
 
@@ -142,19 +144,20 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
 
         // 执行读取操作
         const len = await this.mContent.readData(this.mReadOffset, buffer, bufferSize);
-        MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Read ${len} bytes at offset ${this.mReadOffset}.`);
         if ( len > 0 ) {
+          MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Successfully read ${len} bytes at offset ${this.mReadOffset}.`);
+
           if ( decrypt ) {
             const decryptedLength = await decrypt(this.mReadOffset, buffer, len);
             // 解密后的数据长度不能发生改变;
             if (decryptedLength !== len) {
               throw new Error(`Decryption failed: expected ${len} bytes, but got ${decryptedLength} bytes.`);
             }
-            MCLogger.trace(MCLogModule.MCMediaContentLoader, () => `Successfully decrypted ${decryptedLength} bytes.`);
+            MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Successfully decrypted ${decryptedLength} bytes.`);
           }
         }
         else {
-          MCLogger.info(MCLogModule.MCMediaContentLoader, () => `No data read.`);
+          MCLogger.info(MCLogModule.MCMediaContentLoader, () => `No data read (buffer length is zero).`);
         }
 
         this.increaseReadOffset(len);
@@ -182,6 +185,9 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
           MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Seeked to the end of readable range. Total readable length: ${readableLength}.`);
           this.increaseReadOffset(readableLength); // 直接增加偏移量即可;
         }
+        else {
+          MCLogger.info(MCLogModule.MCMediaContentLoader, () => `No data can be skipped (already at the end).`);
+        }
         return readableLength;
       }
       catch (error) {
@@ -205,19 +211,21 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
     }
   }
 
-  private done(): void {
+  private async done(): Promise<void> {
     if ( this.mAborted || this.mDone ) {
       return;
     }
 
     this.mDone = true;
-    MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Loading complete. Final offset: ${this.mReadOffset}, Range max: ${this.mReadRange!.max}.`);
+    MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Reading complete. Final offset: ${this.mReadOffset}, Range max: ${this.mReadRange!.max}.`);
     this.clear();
 
-    if ( this.mDoneCallback ) {
-      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Executing done callback.`);
-      this.mDoneCallback(this);
-    }
+    setTimeout(() => {
+      if ( this.mDoneCallback ) {
+        MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Executing done callback.`);
+        this.mDoneCallback(this);
+      }
+    });
   }
 
   abort(error?: Error | undefined): Promise<void> {
@@ -260,15 +268,12 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
   // 清理操作执行之后, 子类可以做一些自定义操作;
   protected onClearAfter() { }
 
-  on(event: "prepared" | "dataLoaded" | "aborted" | "done", callback: Function): void {
+  on(event: "newDataReadable" | "aborted" | "done", callback: Function): void {
     MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Registering callback for event '${event}'.`);
 
     switch (event) {
-      case 'prepared':
-        this.mPreparedCallback = callback as (loader: IMCMediaContentLoader, range: MCRange) => void;
-        break;
-      case 'dataLoaded':
-        this.mDataLoadedCallback = callback as (loader: IMCMediaContentLoader, length: number) => void;
+      case 'newDataReadable':
+        this.mNewDataReadableCallback = callback as (loader: IMCMediaContentLoader) => void;
         break;
       case 'aborted':
         this.mAbortedCallback = callback as (loader: IMCMediaContentLoader, error?: Error) => void;
@@ -279,15 +284,12 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
     }
   }
 
-  off(event: "prepared" | "dataLoaded" | "aborted" | "done"): void {
+  off(event: "newDataReadable" | "aborted" | "done"): void {
     MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Removing callback for event '${event}'.`);
 
     switch (event) {
-      case 'prepared':
-        this.mPreparedCallback = undefined;
-        break;
-      case 'dataLoaded':
-        this.mDataLoadedCallback = undefined;
+      case 'newDataReadable':
+        this.mNewDataReadableCallback = undefined;
         break;
       case 'aborted':
         this.mAbortedCallback = undefined;

@@ -11,7 +11,7 @@ namespace MCLogger {
   /** 禁止哪些模块的日志; */
   export let blacklist: MCLogModule[] | undefined = undefined;
   /** 允许哪些模块的日志; */
-  export let whitelist: MCLogModule[] | undefined = [MCLogModule.MCMediaContent];
+  export let whitelist: MCLogModule[] | undefined = [MCLogModule.MCMediaDataReader];
 
   export function log(module: MCLogModule, level: MCLogLevel, messageFn: () => string): void {
     if ( enabled && level >= logLevel ) {

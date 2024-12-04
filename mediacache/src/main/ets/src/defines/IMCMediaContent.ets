@@ -14,6 +14,6 @@ export interface IMCMediaContent extends IMCReadwriteReference<IMCMediaContent> 
   destroy(): Promise<boolean>; // 销毁内容; 删除本地文件; 如果内容正在被读写时, 则无法删除;
 
   // 有新的数据被写入后的回调
-  on(event: 'dataWritten', callback: (content: IMCMediaContent, length: number) => void): void;
+  on(event: 'dataWritten', callback: (content: IMCMediaContent) => void): void;
   off(event: 'dataWritten'): void;
 }
