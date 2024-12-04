@@ -48,7 +48,7 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
           MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Data sent, size: ${(typeof data === 'string') ? data.length : data.byteLength}`);
         }
       });
-      response.on('aborted', async (response: IMCHttpResponse, error?: Error) => {
+      response.on('aborted', async (response: IMCHttpResponse, _?: Error) => {
         this.clearResponseEvents(response);
         if ( this.mResponseMap.get(clientId) === response ) {
           this.mResponseMap.delete(clientId);
