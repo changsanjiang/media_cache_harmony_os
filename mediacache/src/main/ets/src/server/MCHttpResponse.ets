@@ -30,22 +30,14 @@ export class MCHttpResponse implements IMCHttpResponse {
   async prepare(): Promise<void> {
     MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Preparing response for request: ${JSON.stringify(this.mRequest)}`);
 
-    try {
-      this.mDataReader = new MCAssetReader(this.mClientId, {
-        requestTarget: this.mRequest.requestTarget,
-        headers: this.mRequest.headers
-      });
-      this.mDataReader.on('responseReady', (_) => this.dataReceive());
-      this.mDataReader.on('newDataReadable', (_) => this.dataReceive());
-      this.mDataReader.on('aborted', (_, error) => this.abort(error));
-      await this.mDataReader.prepare();
-      MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Response prepared successfully.`);
-    }
-    catch (error) {
-      MCLogger.error(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Failed to prepare data reader: ${error.message}`);
-      this.abort(error as Error);
-      throw error as Error;
-    }
+    this.mDataReader = new MCAssetReader(this.mClientId, {
+      requestTarget: this.mRequest.requestTarget,
+      headers: this.mRequest.headers
+    });
+    this.mDataReader.on('responseReady', (_) => this.dataReceive());
+    this.mDataReader.on('newDataReadable', (_) => this.dataReceive());
+    this.mDataReader.on('aborted', (_, error) => this.abort(error));
+    this.mDataReader.prepare();
   }
 
   private async dataReceive(): Promise<void> {
@@ -74,7 +66,7 @@ export class MCHttpResponse implements IMCHttpResponse {
           }
           await callback(this, responseHeaders);
           this.mHeadersSent = true;
-          MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Response headers sent to client: \n${responseHeaders}`);
+          MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Response headers has been sent: \n${responseHeaders}`);
         }
         // 再发送响应的 body 数据;
         else {
