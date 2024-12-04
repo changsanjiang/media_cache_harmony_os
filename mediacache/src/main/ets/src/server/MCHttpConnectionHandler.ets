@@ -1,5 +1,5 @@
 import { socket } from "@kit.NetworkKit";
-import { MCSerialQueue } from "../../../../../Index";
+import { IMCHttpKeepAlive, parseKeepAlive } from "../defines/IMCHttpKeepAlive";
 import { IMCHttpRequest } from "../defines/IMCHttpRequest";
 import { IMCHttpResponse } from "../defines/IMCHttpResponse";
 import { MCLogModule } from "../defines/MCLogModule";
@@ -12,126 +12,140 @@ export interface IMCHttpConnectionHandler {
 }
 
 export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
+  private mResponseMap: Map<number, MCHttpResponse> = new Map();
+
   constructor() {
     MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => ` New HttpConnectionHandler instance created.`);
   }
 
   handleConnection(connection: socket.TCPSocketConnection): void {
-    MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] New connection established.`);
-    MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Creating response object.`);
-    const response: IMCHttpResponse = new MCHttpResponse(connection.clientId);
-    const serialQueue = new MCSerialQueue();
+    const clientId: number = connection.clientId;
+    MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] New connection established.`);
 
-    // 监听响应数据, 有可用数据时发送给客户端;
-    response.on("newDataAvailable", async (response: IMCHttpResponse) => {
-      serialQueue.enqueue(async () => {
-        try {
-          while (!response.isDone && !response.isAborted) {
-            // 读取一段数据;
-            const data = await response.readData();
-            if (!data) {
-              MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] No data available, waiting for next callback...`);
-              // break, 等待下一段可用数据的回调;
-              break;
-            }
-            // 发送数据;
-            await connection.send({ data: data })
-            MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Data sent, size: ${(typeof data === 'string') ? data.length : data.byteLength}`);
-
-            // 所有数据都发送完毕后, 关闭连接;
-            if ( response.isDone ) {
-              MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] All data sent, closing connection.`);
-              this.clean(response, connection);
-              break;
-            }
-          }
-        }
-        catch (e) {
-          MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Error while sending data: ${(e as Error).message}. Closing connection.`);
-          this.internalError(response, connection, true);
-        }
-      });
-    });
-
-    response.on('aborted', async (response) => {
-      serialQueue.enqueue(() => {
-        this.internalError(response, connection);
-      });
-    });
-
-    // 监听客户端消息;
     connection.on('message', async (data: socket.SocketMessageInfo) => {
-      serialQueue.enqueue(async () => {
-        let proxyRequest: IMCHttpRequest | undefined = undefined;
-        try {
-          let buffer: ArrayBuffer = data.message;
-          let dataView = new DataView(buffer);
-          let rawMessage = "";
-          for (let i = 0; i < dataView.byteLength; ++i) {
-            rawMessage += String.fromCharCode(dataView.getUint8(i));
-          }
-          MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Parsing request: \n${rawMessage}`);
-          // 解析代理请求;
-          proxyRequest = parseRequest(connection.clientId, rawMessage)
-          MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Request parsed successfully: ${JSON.stringify(proxyRequest)}`);
-        }
-        catch (e) {
-          MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Error while parsing request: ${(e as Error).message}. Closing connection.`);
-          this.badRequestError(response, connection, e);
-        }
+      MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] New message received.`);
+      this.abortResponseBy(clientId, new Error(`Request cancelled`)); // 取消之前的响应
 
-        if (proxyRequest) {
-          try {
-            // 准备响应
-            MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Preparing response.`);
-            await response.prepare(proxyRequest);
-            MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Response prepared successfully.`);
-          }
-          catch (e) {
-            MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Error while preparing response: ${(e as Error).message}. Closing connection.`);
-            this.internalError(response, connection, e);
-          }
+      let request: IMCHttpRequest | undefined = undefined;
+      try {
+        request = this.parseHttpRequest(clientId, data)
+      }
+      catch (error) {
+        MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Error while parsing request: ${(error as Error).message}. Closing connection.`);
+        await connection.send({ data: "HTTP/1.1 400 Bad Request\r\n\r\n" });
+        connection.close();
+      }
+
+      if ( !request ) {
+        return;
+      }
+
+      const response = new MCHttpResponse(clientId, request);
+      this.mResponseMap.set(clientId, response);
+      response.on('dataReceive', async (response: IMCHttpResponse, data: string | ArrayBuffer) => {
+        if ( this.mResponseMap.get(clientId) === response ) {
+          await connection.send({ data: data });
+          MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Data sent, size: ${(typeof data === 'string') ? data.length : data.byteLength}`);
         }
       });
+      response.on('aborted', async (response: IMCHttpResponse, error?: Error) => {
+        this.clearResponseEvents(response);
+        if ( this.mResponseMap.get(clientId) === response ) {
+          this.mResponseMap.delete(clientId);
+          if ( !(response.isHeadersSent) ) await connection.send({ data: "HTTP/1.1 500 Internal Server Error\r\n\r\n" });
+          this.closeOrKeepConnection(request!, connection);
+        }
+      });
+      response.on('done', (response: IMCHttpResponse) => {
+        this.clearResponseEvents(response);
+        if ( this.mResponseMap.get(clientId) === response ) {
+          this.mResponseMap.delete(clientId);
+          this.closeOrKeepConnection(request!, connection);
+        }
+      });
+      MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Preparing response.`);
+      response.prepare();
     });
 
-    connection.on('error', async (e: Error) => {
-      serialQueue.enqueue(() => {
-        MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Connection error: ${e.message}`);
-        this.internalError(response, connection, true, e);
-      });
+    connection.on('error', (e: Error) => {
+      const response = this.mResponseMap.get(clientId);
+      if ( response ) {
+        this.mResponseMap.delete(clientId);
+        response.abort(e);
+      }
+      this.clearConnectionEvents(connection);
     });
 
-    connection.on('close', async () => {
-      serialQueue.enqueue(() => {
-        MCLogger.warn(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Connection closed.`);
-        if ( !(response.isAborted || response.isDone) ) {
-          response.off('newDataAvailable');
-          response.off('aborted');
-          response.abort(new Error("Connection closed unexpectedly."));
-        }
-      });
+    connection.on('close', () => {
+      const response = this.mResponseMap.get(clientId);
+      if ( response ) {
+        this.mResponseMap.delete(clientId);
+        response.abort(new Error("Connection closed unexpectedly."));
+      }
+      this.clearConnectionEvents(connection);
     });
   }
 
-  async internalError(response: IMCHttpResponse, connection: socket.TCPSocketConnection, shouldAborted: boolean = false, error?: Error) {
-    if ( !(response.isHeadersSent) ) connection.send({ data: "HTTP/1.1 500 Internal Server Error\r\n\r\n" });
-    this.clean(response, connection, shouldAborted, error);
+  private mTimeoutIdMap: Map<number, number> = new Map(); // key: clientId, value: timeoutId;
+
+  private closeOrKeepConnection(request: IMCHttpRequest, connection: socket.TCPSocketConnection) {
+    this.cancelTimeoutBy(connection.clientId);
+
+    if ( request.headers[`connection`] === `keep-alive` ) {
+      const keepAliveHeader = request.headers[`keep-alive:`];
+      const keepAlive: IMCHttpKeepAlive = keepAliveHeader ? parseKeepAlive(keepAliveHeader, 10, -1) : { timeout: 10, max: -1 };
+      //  max param will be ignored;
+      const shouldKeepAlive = keepAlive.timeout > 0;
+
+      if ( shouldKeepAlive ) {
+        const timeoutID = setTimeout(() => {
+          this.mTimeoutIdMap.delete(connection.clientId);
+          connection.close();
+        }, keepAlive.timeout * 1000);
+        this.mTimeoutIdMap.set(connection.clientId, timeoutID);
+      }
+    }
+    else {
+      connection.close();
+    }
   }
 
-  async badRequestError(response: IMCHttpResponse, connection: socket.TCPSocketConnection, error: Error) {
-    await connection.send({ data: "HTTP/1.1 400 Bad Request\r\n\r\n" })
-    this.clean(response, connection, true, error);
+  private cancelTimeoutBy(clientId: number) {
+    const timeoutId = this.mTimeoutIdMap.get(clientId);
+    if ( timeoutId ) {
+      this.mTimeoutIdMap.delete(timeoutId);
+      clearTimeout(timeoutId);
+    }
   }
 
-  async clean(response: IMCHttpResponse, connection: socket.TCPSocketConnection, shouldAborted: boolean = false, error?: Error) {
-    response.off('newDataAvailable');
+  private abortResponseBy(clientId: number, error?: Error) {
+    const response = this.mResponseMap.get(clientId);
+    if ( response ) {
+      this.clearResponseEvents(response);
+      this.mResponseMap.delete(clientId);
+      response.abort(error);
+    }
+  }
+
+  private clearResponseEvents(response: IMCHttpResponse) {
+    response.off('dataReceive');
     response.off('aborted');
-    if ( shouldAborted && !(response.isAborted || response.isDone)) response.abort(error);
+    response.off('done');
+  }
+
+  private clearConnectionEvents(connection: socket.TCPSocketConnection) {
     connection.off('message');
     connection.off('error');
     connection.off('close');
-    connection.close();
-    MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Connection cleaned up, aborted: ${shouldAborted}`);
+  }
+
+  private parseHttpRequest(clientId: number, data: socket.SocketMessageInfo): IMCHttpRequest { // throw if error
+    let buffer: ArrayBuffer = data.message;
+    let dataView = new DataView(buffer);
+    let rawMessage = "";
+    for (let i = 0; i < dataView.byteLength; ++i) {
+      rawMessage += String.fromCharCode(dataView.getUint8(i));
+    }
+    return parseRequest(clientId, rawMessage);
   }
 }

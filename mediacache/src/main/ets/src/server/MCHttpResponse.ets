@@ -7,57 +7,40 @@ import { MCAssetReader } from "../asset/MCAssetReader";
 
 export class MCHttpResponse implements IMCHttpResponse {
   private mClientId: number;
-  /// headers是否已发送给客户端;
-  private mHeadersSent = false;
+  private mRequest: IMCHttpRequest
   private mDataReader?: IMCDataReader = undefined;
-  private mNewDataCallback?: (response: IMCHttpResponse) => void = undefined;
-  private mAbortedCallback?: (response: IMCHttpResponse, error?: Error) => void = undefined;
+  private mHeadersSent = false;
+  private mDataReceiveCallback?: (response: IMCHttpResponse, data: string | ArrayBuffer) => void | Promise<void> = undefined;
+  private mAbortedCallback?: (response: IMCHttpResponse, error?: Error) => void | Promise<void> = undefined;
+  private mDoneCallback?: (response: IMCHttpResponse) => void | Promise<void> = undefined;
+  private mReading = false;
   private mAborted = false;
   private mDone = false;
 
-  constructor(clientId: number) {
+  constructor(clientId: number, request: IMCHttpRequest) {
     this.mClientId = clientId;
-    MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] New MCHttpResponse instance created.`);
-  }
-
-  get isDone(): boolean {
-    return this.mDone;
-  }
-
-  get isAborted(): boolean {
-    return this.mAborted;
+    this.mRequest = request;
+    MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${clientId}] Instance created for request: ${JSON.stringify(request)}.`);
   }
 
   get isHeadersSent(): boolean {
     return this.mHeadersSent;
   }
 
-  async prepare(proxyRequest: IMCHttpRequest): Promise<void> {
+  async prepare(): Promise<void> {
+    MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Preparing response for request: ${JSON.stringify(this.mRequest)}`);
+
     try {
-      if (this.mDataReader) {
-        throw new Error("A request is already being processed.");
-      }
-
-      if ( this.mDone || this.mAborted ) {
-        console.log(`fdasfsdafsdafsdafsd`);
-      }
-
-      this.mDone = false;
-      this.mAborted = false;
-      this.mHeadersSent = false;
-
-      MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Preparing data reader for request: ${JSON.stringify(proxyRequest)}`);
-
       this.mDataReader = new MCAssetReader(this.mClientId, {
-        requestTarget: proxyRequest.requestTarget,
-        headers: proxyRequest.headers
+        requestTarget: this.mRequest.requestTarget,
+        headers: this.mRequest.headers
       });
-      this.mDataReader.on('responseReady', (_) => this.mNewDataCallback?.(this));
-      this.mDataReader.on('newDataReadable', (_) => this.mNewDataCallback?.(this));
+      this.mDataReader.on('responseReady', (_) => this.dataReceive());
+      this.mDataReader.on('newDataReadable', (_) => this.dataReceive());
       this.mDataReader.on('aborted', (_, error) => this.abort(error));
-      this.mDataReader.on('done', (_) => this.done());
+      // this.mDataReader.on('done', (_) => this.done());
       await this.mDataReader.prepare();
-      MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Data reader prepared successfully.`);
+      MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Response prepared successfully.`);
     }
     catch (error) {
       MCLogger.error(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Failed to prepare data reader: ${error.message}`);
@@ -66,70 +49,81 @@ export class MCHttpResponse implements IMCHttpResponse {
     }
   }
 
-  async readData(): Promise<string | ArrayBuffer | undefined> {
-    MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Starting read data operation.`);
+  private async dataReceive(): Promise<void> {
+    if ( this.mAborted || this.mDone || this.mReading ) {
+      MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Skipping dataReceive: Aborted=${this.mAborted}, Done=${this.mDone}, Reading=${this.mReading}.`);
+      return;
+    }
 
+    const reader = this.mDataReader;
+    if ( !reader ) {
+      MCLogger.error(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] No data reader found while attempting to read data.`);
+      return undefined;
+    }
+
+    this.mReading = true;
     try {
-      if ( this.mDone || this.mAborted ) {
-        MCLogger.warn(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Attempt to read data after response completion or abortion.`);
-        return undefined;
-      }
-
-      const reader = this.mDataReader;
-      if ( !reader ) {
-        MCLogger.error(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] No data reader found while attempting to read data.`);
-        return undefined;
-      }
-
-      // 先向客户端发送响应头消息
-      if ( !this.mHeadersSent ) {
-        MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Generating response headers for data response.`);
-        const responseHeaders = reader.responseHeaders;
-        if ( responseHeaders ) {
+      const callback = this.mDataReceiveCallback;
+      while (!this.mAborted && !this.mDone && callback) {
+        // 先发送响应头消息;
+        if (!this.mHeadersSent) {
+          const responseHeaders = reader.responseHeaders;
+          if ( !responseHeaders ) {
+            break;
+          }
+          await callback(this, responseHeaders);
           this.mHeadersSent = true;
           MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Response headers sent to client: \n${responseHeaders}`);
         }
-        return responseHeaders;
-      }
+        // 再发送响应的 body 数据;
+        else {
+          const buffer = await reader.readData();
+          if ( !buffer ) {
+            break;
+          }
 
-      // 读取数据
-      const buffer = await reader.readData();
-      if ( buffer ) {
-        MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Data chunk read (${buffer?.byteLength} bytes).`);
-        return buffer;
+          await callback(this, buffer);
+          MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Data chunk read (${buffer.byteLength} bytes).`);
+        }
       }
-
-      MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] No data available for reading.`);
-      return undefined;
     }
     catch (error) {
       MCLogger.error(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Error during data read: ${error.message}`);
       this.abort(error as Error);
       throw error as Error;
     }
+    finally {
+      this.mReading = false;
+      if ( reader.isDone ) {
+        MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] All data has been successfully read. `);
+        this.done();
+        return;
+      }
+      MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] No data available for reading. Waiting for the next callback...`);
+    }
   }
 
-  async abort(error?: Error): Promise<void> {
+  async abort(error?: Error | undefined): Promise<void> {
     if ( this.mAborted || this.mDone ) {
+      MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Abort ignored: Aborted=${this.mAborted}, Done=${this.mDone}.`);
       return;
     }
 
-    MCLogger.warn(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Aborting MCHttpResponse${error ? ` due to error: ${error.message}` : ""}.`);
-
-    MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Marking response as aborted.`);
+    MCLogger.warn(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Aborting MCHttpResponse${error ? ` due to error: ${error.message}` : ''}.`);
 
     this.mAborted = true;
 
     this.clear(true, error);
 
     if ( this.mAbortedCallback ) {
-      MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Executing aborted callback with error: ${error?.message || "None"}.`);
+      MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Executing aborted callback with error: ${error?.message || 'None'}.`);
       this.mAbortedCallback(this, error);
     }
   }
 
   private done(): void {
     if ( this.mAborted || this.mDone ) {
+      MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Done ignored: Aborted=${this.mAborted}, Done=${this.mDone}.`);
       return;
     }
 
@@ -137,10 +131,15 @@ export class MCHttpResponse implements IMCHttpResponse {
 
     this.mDone = true;
     this.clear();
+
+    if ( this.mDoneCallback ) {
+      MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Executing done callback.`);
+      this.mDoneCallback(this);
+    }
   }
 
   private clear(shouldAborted: boolean = false, error?: Error): void {
-    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Clearing data reader" ${this.mDataReader}, shouldAborted: ${shouldAborted}.`);
+    MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Clearing data reader, shouldAborted: ${shouldAborted}.`);
 
     if ( this.mDataReader ) {
       this.mDataReader.off('responseReady');
@@ -148,36 +147,39 @@ export class MCHttpResponse implements IMCHttpResponse {
       this.mDataReader.off('aborted');
       if ( shouldAborted ) this.mDataReader.abort(error);
       this.mDataReader = undefined;
+      MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Data reader cleared.`);
     }
   }
 
-  on(event: 'newDataAvailable' | 'aborted', callback: Object): void {
+  on(event: "dataReceive" | "aborted" | "done", callback: Function): void {
     switch (event) {
-      case 'newDataAvailable': {
-        if (this.mNewDataCallback) MCLogger.warn(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Event listener for 'newDataAvailable' is already registered.`);
-        this.mNewDataCallback = callback as (reader: IMCHttpResponse) => void;
-      }
+      case 'dataReceive':
+        this.mDataReceiveCallback = callback as (response: IMCHttpResponse, data: string | ArrayBuffer) => void | Promise<void>;
         break;
-      case 'aborted': {
-        if (this.mAbortedCallback) MCLogger.warn(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Event listener for '${event}' is being replaced.`);
-        this.mAbortedCallback = callback as (reader: IMCHttpResponse, error?: Error) => void;
-      }
+      case 'aborted':
+        this.mAbortedCallback = callback as (response: IMCHttpResponse, error?: Error) => void | Promise<void>;
+        break;
+      case 'done':
+        this.mDoneCallback = callback as (response: IMCHttpResponse) => void | Promise<void>;
         break;
     }
-    MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Event listener for '${event}' registered.`);
+
+    MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Event listener for '${event}' registered.`);
   }
 
-  off(event: 'newDataAvailable' | 'aborted'): void {
+  off(event: "dataReceive" | "aborted" | "done"): void {
     switch (event) {
-      case 'newDataAvailable': {
-        this.mNewDataCallback = undefined;
-      }
+      case 'dataReceive':
+        this.mDataReceiveCallback = undefined;
         break;
-      case 'aborted': {
+      case 'aborted':
         this.mAbortedCallback = undefined;
-      }
+        break;
+      case 'done':
+        this.mDoneCallback = undefined;
         break;
     }
-    MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Event listener for '${event}' unregistered.`);
+
+    MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Event listener for '${event}' unregistered.`);
   }
 }
