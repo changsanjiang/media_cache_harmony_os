@@ -7,6 +7,7 @@ import { MCSerialQueue } from "../../../../../Index";
 
 export class MCMediaContent extends MCReadwriteReference<MCMediaContent> implements IMCMediaContent {
   private mMediaId: string;
+  private mContentOffset: number;
   private mLength = 0;
   private mFilePath: string;
   private mDestroyed = false;
@@ -24,7 +25,7 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
   constructor(mediaId: string, contentOffset: number, filePath: string, length: number = 0, isTemp: boolean = false) {
     super();
     this.mMediaId = mediaId;
-    this.contentOffset = contentOffset;
+    this.mContentOffset = contentOffset;
     this.mFilePath = filePath;
     this.mTemp = isTemp;
     if (length > 0) {
@@ -38,7 +39,9 @@ export class MCMediaContent extends MCReadwriteReference<MCMediaContent> impleme
     }`);
   }
 
-  readonly contentOffset: number;
+  get contentOffset(): number {
+    return this.mContentOffset;
+  }
 
   get length(): number {
     return this.mLength;

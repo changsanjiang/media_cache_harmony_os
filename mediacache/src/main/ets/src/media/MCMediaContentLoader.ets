@@ -83,7 +83,7 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
       const readableLength = Math.min(this.mReadRange.max, (this.mContent.contentOffset + this.mContent.length)) - this.mReadOffset;
 
       MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Read offset set to ${this.mReadOffset}.`);
-      MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Content is ready. Range: ${JSON.stringify(range)}, Content offset: ${content.contentOffset}, Readable length: ${readableLength}.`);
+      MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Content is ready. Content readable range: (${content.contentOffset}, ${content.length}), Read range: (${range.location}, ${range.length}), Read offset: ${this.mReadOffset}, Readable length: ${readableLength}.`);
 
       if ( readableLength > 0 ) {
         this.newDataReadable();
@@ -123,7 +123,7 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
         }
 
         if (this.mDone) {
-          MCLogger.info(MCLogModule.MCMediaContentLoader, () => 'Read operation ignored as the loader is already done.');
+          MCLogger.debug(MCLogModule.MCMediaContentLoader, () => 'Read operation ignored as the loader is already done.');
           return undefined;
         }
 

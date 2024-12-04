@@ -37,6 +37,7 @@ namespace MCDownload {
   export interface Options {
     headersReceive: (headers: MCDownloadResponseHeaders) => void | Promise<void>;
     dataReceive: (data: ArrayBuffer) => void | Promise<void>;
+    dataEnd?: () => void;
     signal?: MCAbortSignal;
   }
 
@@ -63,7 +64,8 @@ namespace MCDownload {
       tracing: {
         httpEventsHandler: {
           onHeaderReceive: options.headersReceive,
-          onDataReceive: options.dataReceive
+          onDataReceive: options.dataReceive,
+          onDataEnd: options.dataEnd,
         }
       }
     };
