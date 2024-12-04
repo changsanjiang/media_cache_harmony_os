@@ -1,5 +1,5 @@
 import { IMCMedia } from "../defines/IMCMedia";
-import { IMCMediaContentLoader } from "../defines/IMCMediaContentLoader";
+import { IMCMediaContentLoader, MCMediaContentDecryptHandler } from "../defines/IMCMediaContentLoader";
 import { IMCDataReader } from "../defines/IMCDataReader";
 import {
   IMCDataOkResponse,
@@ -157,8 +157,8 @@ export class MCMediaDataReader implements IMCDataReader {
         this.prepareNextLoader();
       });
 
-      await loader.prepare();
-      MCLogger.info(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Loader at index ${nextIndex} is now prepared.`);
+      MCLogger.info(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Loader at index ${nextIndex} beging prepare.`);
+      loader.prepare();
     }
     catch (error) {
       MCLogger.error(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Failed to prepare next loader. Error: ${error.message}`);
@@ -174,33 +174,22 @@ export class MCMediaDataReader implements IMCDataReader {
         return undefined;
       }
 
-      try {
-        const readableLength = this.mCurrentLoader.readableLength;
-        if ( readableLength > 0 ) {
-          const bufferSize = Math.min(4 * 1024 * 1024, readableLength);
-          const buffer = new ArrayBuffer(bufferSize);
-          const offset = this.mCurrentLoader.offset;
-          const len = await this.mCurrentLoader.readData(buffer);
-          MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Loader read ${len} bytes of data.`);
+      const decrypt: MCMediaContentDecryptHandler | undefined = this.mDecrypt ? (offset: number, data: ArrayBuffer, len: number) => {
+        return this.mDecrypt!(this.mProxyRequest, offset, data, len);
+      } : undefined;
 
-          if ( len > 0 ) {
-            if ( this.mDecrypt ) {
-              const decryptedLength = await this.mDecrypt(this.mProxyRequest, offset, buffer, len);
-              // 解密后的数据长度不能发生改变;
-              if (decryptedLength !== len) {
-                throw new Error(`Decryption failed: expected ${len} bytes, but got ${decryptedLength} bytes.`);
-              }
-              MCLogger.trace(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Successfully decrypted ${decryptedLength} bytes.`);
-            }
-            return buffer.byteLength === len ? buffer : buffer.slice(0, len);
-          }
-          else {
-            MCLogger.info(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] No data read.`);
-          }
+      try {
+        const buffer = await this.mCurrentLoader.readData(decrypt);
+        if ( buffer ) {
+          MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Loader read ${buffer.byteLength} bytes of data.`);
         }
-        return undefined;
+        else {
+          MCLogger.info(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] No data read.`);
+        }
+        return buffer;
       }
       catch (error) {
+        MCLogger.error(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Error during data read: ${error.message}`);
         throw error as Error;
       }
     });

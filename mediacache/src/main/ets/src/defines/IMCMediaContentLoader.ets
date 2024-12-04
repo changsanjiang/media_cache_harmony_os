@@ -1,4 +1,7 @@
 import { MCRange } from "../utils/MCRange";
+import { MCDataDecryptHandler } from "./MCDataDecryptHandler";
+
+export type MCMediaContentDecryptHandler = (offset: number, data: ArrayBuffer, len: number) => number | Promise<number>;
 
 /** 加载数据; */
 export interface IMCMediaContentLoader {
@@ -9,7 +12,7 @@ export interface IMCMediaContentLoader {
   readonly readableLength: number; // 当前已加载可读取的数据长度;
 
   prepare(): Promise<void>;
-  readData(buffer: ArrayBuffer): Promise<number>;
+  readData(decrypt?: MCMediaContentDecryptHandler): Promise<ArrayBuffer | undefined>;
   seekToEndOfReadableRange(): Promise<number>; // 跳转到可读取的数据的尾部;
   abort(error?: Error): Promise<void>;
 
