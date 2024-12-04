@@ -38,7 +38,6 @@ export class MCHttpResponse implements IMCHttpResponse {
       this.mDataReader.on('responseReady', (_) => this.dataReceive());
       this.mDataReader.on('newDataReadable', (_) => this.dataReceive());
       this.mDataReader.on('aborted', (_, error) => this.abort(error));
-      // this.mDataReader.on('done', (_) => this.done());
       await this.mDataReader.prepare();
       MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Response prepared successfully.`);
     }
@@ -50,6 +49,8 @@ export class MCHttpResponse implements IMCHttpResponse {
   }
 
   private async dataReceive(): Promise<void> {
+    MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Starting dataReceive: Aborted=${this.mAborted}, Done=${this.mDone}, Reading=${this.mReading}.`);
+
     if ( this.mAborted || this.mDone || this.mReading ) {
       MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Skipping dataReceive: Aborted=${this.mAborted}, Done=${this.mDone}, Reading=${this.mReading}.`);
       return;
