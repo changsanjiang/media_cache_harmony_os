@@ -1,4 +1,5 @@
 import { socket } from "@kit.NetworkKit";
+import { MCSerialQueue } from "../../../../../Index";
 import { IMCHttpRequest } from "../defines/IMCHttpRequest";
 import { IMCHttpResponse } from "../defines/IMCHttpResponse";
 import { MCLogModule } from "../defines/MCLogModule";
@@ -19,91 +20,97 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
     MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] New connection established.`);
     MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Creating response object.`);
     const response: IMCHttpResponse = new MCHttpResponse(connection.clientId);
-    let isReading = false;
+    const serialQueue = new MCSerialQueue();
+
     // 监听响应数据, 有可用数据时发送给客户端;
     response.on("newDataAvailable", async (response: IMCHttpResponse) => {
-      if ( isReading ) return;
-      isReading = true;
-      try {
-        while (true) {
-          // 读取一段数据;
-          const data = await response.readData();
-          if (!data) {
-            MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] No data available, waiting for next callback...`);
-            // break, 等待下一段可用数据的回调;
-            break;
-          }
-          // 发送数据;
-          await connection.send({ data: data })
-          MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Data sent, size: ${(typeof data === 'string') ? data.length : data.byteLength}`);
+      serialQueue.enqueue(async () => {
+        try {
+          while (!response.isDone && !response.isAborted) {
+            // 读取一段数据;
+            const data = await response.readData();
+            if (!data) {
+              MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] No data available, waiting for next callback...`);
+              // break, 等待下一段可用数据的回调;
+              break;
+            }
+            // 发送数据;
+            await connection.send({ data: data })
+            MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Data sent, size: ${(typeof data === 'string') ? data.length : data.byteLength}`);
 
-          // 所有数据都发送完毕后, 关闭连接;
-          if ( response.isDone ) {
-            MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] All data sent, closing connection.`);
-            this.clean(response, connection);
-            break;
+            // 所有数据都发送完毕后, 关闭连接;
+            if ( response.isDone ) {
+              MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] All data sent, closing connection.`);
+              this.clean(response, connection);
+              break;
+            }
           }
         }
-      }
-      catch (e) {
-        MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Error while sending data: ${(e as Error).message}. Closing connection.`);
-        this.internalError(response, connection, true);
-      }
-      finally {
-        isReading = false;
-      }
+        catch (e) {
+          MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Error while sending data: ${(e as Error).message}. Closing connection.`);
+          this.internalError(response, connection, true);
+        }
+      });
     });
 
     response.on('aborted', async (response) => {
-      this.internalError(response, connection);
+      serialQueue.enqueue(() => {
+        this.internalError(response, connection);
+      });
     });
 
     // 监听客户端消息;
     connection.on('message', async (data: socket.SocketMessageInfo) => {
-      let proxyRequest: IMCHttpRequest | undefined = undefined;
-      try {
-        let buffer: ArrayBuffer = data.message;
-        let dataView = new DataView(buffer);
-        let rawMessage = "";
-        for (let i = 0; i < dataView.byteLength; ++i) {
-          rawMessage += String.fromCharCode(dataView.getUint8(i));
-        }
-        MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Parsing request: \n${rawMessage}`);
-        // 解析代理请求;
-        proxyRequest = parseRequest(connection.clientId, rawMessage)
-        MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Request parsed successfully: ${JSON.stringify(proxyRequest)}`);
-      }
-      catch (e) {
-        MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Error while parsing request: ${(e as Error).message}. Closing connection.`);
-        this.badRequestError(response, connection, e);
-      }
-
-      if (proxyRequest) {
+      serialQueue.enqueue(async () => {
+        let proxyRequest: IMCHttpRequest | undefined = undefined;
         try {
-          // 准备响应
-          MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Preparing response.`);
-          await response.prepare(proxyRequest);
-          MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Response prepared successfully.`);
+          let buffer: ArrayBuffer = data.message;
+          let dataView = new DataView(buffer);
+          let rawMessage = "";
+          for (let i = 0; i < dataView.byteLength; ++i) {
+            rawMessage += String.fromCharCode(dataView.getUint8(i));
+          }
+          MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Parsing request: \n${rawMessage}`);
+          // 解析代理请求;
+          proxyRequest = parseRequest(connection.clientId, rawMessage)
+          MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Request parsed successfully: ${JSON.stringify(proxyRequest)}`);
         }
         catch (e) {
-          MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Error while preparing response: ${(e as Error).message}. Closing connection.`);
-          this.internalError(response, connection, e);
+          MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Error while parsing request: ${(e as Error).message}. Closing connection.`);
+          this.badRequestError(response, connection, e);
         }
-      }
+
+        if (proxyRequest) {
+          try {
+            // 准备响应
+            MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Preparing response.`);
+            await response.prepare(proxyRequest);
+            MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Response prepared successfully.`);
+          }
+          catch (e) {
+            MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Error while preparing response: ${(e as Error).message}. Closing connection.`);
+            this.internalError(response, connection, e);
+          }
+        }
+      });
     });
 
     connection.on('error', async (e: Error) => {
-      MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Connection error: ${e.message}`);
-      this.internalError(response, connection, true, e);
+      serialQueue.enqueue(() => {
+        MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Connection error: ${e.message}`);
+        this.internalError(response, connection, true, e);
+      });
     });
 
     connection.on('close', async () => {
-      MCLogger.warn(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Connection closed.`);
-      if ( !(response.isAborted || response.isDone) ) {
-        response.off('newDataAvailable');
-        response.off('aborted');
-        response.abort(new Error("Connection closed unexpectedly."));
-      }
+      serialQueue.enqueue(() => {
+        MCLogger.warn(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Connection closed.`);
+        if ( !(response.isAborted || response.isDone) ) {
+          response.off('newDataAvailable');
+          response.off('aborted');
+          response.abort(new Error("Connection closed unexpectedly."));
+        }
+      });
     });
   }
 

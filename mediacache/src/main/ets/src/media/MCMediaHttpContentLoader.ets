@@ -121,6 +121,8 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
   }
 
   protected onClearBefore(): void {
+    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Executing custom operations before clearing.`);
+
     if (this.abortController) {
       MCLogger.warn(MCLogModule.MCMediaContentLoader, () => 'Aborting download.');
       this.abortController.abort();
@@ -129,6 +131,8 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
   }
 
   protected onClearAfter(): void {
+    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Executing custom operations after clearing.`);
+
     if ( this.content ) {
       MCLogger.debug(MCLogModule.MCMediaContentLoader, () => 'Closing content writer.');
       !this.content.isTemp ? this.content.closeWrite() : this.media.destroyTempContent(this.content);

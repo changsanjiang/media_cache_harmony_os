@@ -38,6 +38,14 @@ export class MCHttpResponse implements IMCHttpResponse {
         throw new Error("A request is already being processed.");
       }
 
+      if ( this.mDone || this.mAborted ) {
+        console.log(`fdasfsdafsdafsdafsd`);
+      }
+
+      this.mDone = false;
+      this.mAborted = false;
+      this.mHeadersSent = false;
+
       MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Preparing data reader for request: ${JSON.stringify(proxyRequest)}`);
 
       this.mDataReader = new MCAssetReader(this.mClientId, {
@@ -59,6 +67,8 @@ export class MCHttpResponse implements IMCHttpResponse {
   }
 
   async readData(): Promise<string | ArrayBuffer | undefined> {
+    MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Starting read data operation.`);
+
     try {
       if ( this.mDone || this.mAborted ) {
         MCLogger.warn(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Attempt to read data after response completion or abortion.`);
@@ -101,17 +111,21 @@ export class MCHttpResponse implements IMCHttpResponse {
 
   async abort(error?: Error): Promise<void> {
     if ( this.mAborted || this.mDone ) {
-      MCLogger.warn(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Abort called after response completion or previous abortion.`);
       return;
     }
+
+    MCLogger.warn(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Aborting MCHttpResponse${error ? ` due to error: ${error.message}` : ""}.`);
+
+    MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Marking response as aborted.`);
 
     this.mAborted = true;
 
     this.clear(true, error);
 
-    MCLogger.error(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Response aborted${error ? ` due to error: ${error.message}` : ""}.`);
-
-    this.mAbortedCallback?.(this, error);
+    if ( this.mAbortedCallback ) {
+      MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Executing aborted callback with error: ${error?.message || "None"}.`);
+      this.mAbortedCallback(this, error);
+    }
   }
 
   private done(): void {
@@ -119,11 +133,15 @@ export class MCHttpResponse implements IMCHttpResponse {
       return;
     }
 
+    MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Marking response as done.`);
+
     this.mDone = true;
     this.clear();
   }
 
   private clear(shouldAborted: boolean = false, error?: Error): void {
+    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Clearing data reader" ${this.mDataReader}, shouldAborted: ${shouldAborted}.`);
+
     if ( this.mDataReader ) {
       this.mDataReader.off('responseReady');
       this.mDataReader.off('newDataReadable');
