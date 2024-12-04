@@ -38,6 +38,8 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     this.id = id;
     this.mDir = dir;
     MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${id}]: MCMedia instance created with dir ${dir}.`);
+
+    this.printDebugInfo();
   }
 
   get metadataReady(): boolean {
@@ -77,8 +79,6 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
           this.mFullyTrimmed = true;
         }
       }
-
-      this.printInfo();
     }
     catch (error) {
       MCLogger.error(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Error during preparation: ${error.message}\nStack: ${error.stack}`);
@@ -521,7 +521,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   }
 
 
-  private printInfo() {
+  private printDebugInfo() {
     setTimeout(() => {
       console.info(`[MCMedia] [media: ${this.id}] readwrite count: ${this.mReadwriteCount}`);
 
@@ -532,7 +532,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
         });
         curNode = curNode.next;
       }
-      this.printInfo();
+      this.printDebugInfo();
     }, 20000);
   }
 }

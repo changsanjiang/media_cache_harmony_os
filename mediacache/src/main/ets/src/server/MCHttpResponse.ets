@@ -37,7 +37,7 @@ export class MCHttpResponse implements IMCHttpResponse {
     this.mDataReader.on('responseReady', (_) => this.dataReceive());
     this.mDataReader.on('newDataReadable', (_) => this.dataReceive());
     this.mDataReader.on('aborted', (_, error) => this.abort(error));
-    this.mDataReader.prepare();
+    return this.mDataReader.prepare();
   }
 
   private async dataReceive(): Promise<void> {

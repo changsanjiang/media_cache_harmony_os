@@ -25,7 +25,7 @@ export class MCAssetReader implements IMCDataReader {
     this.mProxyRequest = proxyRequest;
     this.mDecrypt = decrypt;
 
-    MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] MCAssetReader instance created.`);
+    MCLogger.info(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Instance created  for request: ${JSON.stringify(this.mProxyRequest)}}`);
   }
 
   get responseHeaders(): string | undefined {
@@ -39,13 +39,9 @@ export class MCAssetReader implements IMCDataReader {
   }
 
   async prepare(): Promise<void> {
-    try {
-      MCLogger.info(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Starting preparation.`);
+    MCLogger.info(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Preparing asset reader for request: ${JSON.stringify(this.mProxyRequest)}}`);
 
-      if (this.mDone || this.mAborted) {
-        MCLogger.warn(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Attempted to prepare, but the reader is already done or aborted.`);
-        return;
-      }
+    try {
       this.mAsset = await MCAssetManager.getAssetBy(this.mProxyRequest.requestTarget);
       const media = await this.mAsset.getMediaBy(this.mProxyRequest.requestTarget);
       this.mMediaReader = new MCMediaDataReader(media, this.mClientId, this.mProxyRequest, this.mDecrypt);
@@ -53,62 +49,76 @@ export class MCAssetReader implements IMCDataReader {
       this.mMediaReader.on("newDataReadable", () => this.newDataReadable());
       this.mMediaReader.on("aborted", (_, error) => this.abort(error));
       this.mMediaReader.on("done", () => this.done());
-      MCLogger.info(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Preparing media reader.`);
-      return this.mMediaReader.prepare();
+      this.mMediaReader.prepare();
     }
     catch (error) {
-      MCLogger.error(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Error during media reader preparation: ${error.message}`);
+      MCLogger.error(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Error during asset reader preparation: ${error.message}`);
       this.abort(error);
       throw error as Error;
     }
   }
 
-  private responseReady(responseHeaders: string): void {
-    if ( !this.mAborted && this.mResponseReadyCallback ) {
-      MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Executing responseReady callback with responseHeaders: \n${responseHeaders}`);
-      this.mResponseReadyCallback(this, responseHeaders);
-    }
-  }
-
-  private newDataReadable(): void {
-    if ( !this.mAborted && this.mNewDataReadableCallback ) {
-      MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Executing newDataReadable callback.`);
-      this.mNewDataReadableCallback(this);
-    }
-  }
-
   async readData(): Promise<ArrayBuffer | undefined> {
     try {
-      MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Reading data.`);
+      MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Starting readData.`);
 
-      const buffer = await this.mMediaReader?.readData();
+      if (this.mDone || this.mAborted || !this.mMediaReader) {
+        MCLogger.warn(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Cannot read data. Status - Done: ${this.mDone}, Aborted: ${this.mAborted}, MediaReader: ${this.mMediaReader}.`);
+        return undefined;
+      }
+
+      const buffer = await this.mMediaReader.readData();
       if ( buffer ) {
-        MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Read ${buffer.byteLength} bytes of data.`);
+        MCLogger.info(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Read ${buffer.byteLength} bytes of data.`);
       }
       else {
-        MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] No data available for reading.`);
+        MCLogger.info(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] No data was read, the buffer is empty.`);
       }
       return buffer;
     }
     catch (error) {
-      MCLogger.error(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Error during data read: ${error.message}`);
+      MCLogger.error(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Error during data read: ${error.message}, stack: ${error.stack}`);
       this.abort(error);
       throw error as Error;
     }
   }
 
   async seekToEndOfReadableRange(): Promise<number> {
-    try {
-      MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Seeking to the end of the readable range.`);
+    MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Starting seekToEndOfReadableRange.`);
 
-      const len = await this.mMediaReader?.seekToEndOfReadableRange() ?? 0;
-      MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Seeked to the end, result: ${len} bytes.`);
+    if (this.mDone || this.mAborted || !this.mMediaReader) {
+      MCLogger.warn(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Seek operation aborted. Status - Done: ${this.mDone}, Aborted: ${this.mAborted}, MediaReader: ${this.mMediaReader}.`);
+      return 0;
+    }
+
+    try {
+      const len = await this.mMediaReader.seekToEndOfReadableRange();
+      if (len > 0) {
+        MCLogger.info(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Seeked ${len} bytes to the end of the readable range.`);
+      }
+      else {
+        MCLogger.info(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] No data skipped during seek operation. Likely already at the end of the readable range.`);
+      }
       return len;
     }
     catch (error) {
       MCLogger.error(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Error during seek operation: ${error.message}`);
       this.abort(error);
       throw error as Error;
+    }
+  }
+
+  private responseReady(responseHeaders: string): void {
+    if ( !this.mAborted && !this.mDone && this.mResponseReadyCallback ) {
+      MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Executing responseReady callback with responseHeaders: \n${responseHeaders}`);
+      this.mResponseReadyCallback(this, responseHeaders);
+    }
+  }
+
+  private newDataReadable(): void {
+    if ( !this.mAborted && !this.mDone && this.mNewDataReadableCallback ) {
+      MCLogger.debug(MCLogModule.MCAssetReader, () => `[clientId: ${this.mClientId}] Executing newDataReadable callback.`);
+      this.mNewDataReadableCallback(this);
     }
   }
 

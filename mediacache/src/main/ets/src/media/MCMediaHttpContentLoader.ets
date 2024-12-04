@@ -20,7 +20,7 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
     super();
     this.media = media;
     this.request = request;
-    media.readwriteRetain();
+    media.readwriteRetain('HTTP');
   }
 
   protected async onPrepare(): Promise<void> {
@@ -138,6 +138,6 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
       !this.content.isTemp ? this.content.closeWrite() : this.media.destroyTempContent(this.content);
       this.content = undefined;
     }
-    this.media.readwriteRelease();
+    this.media.readwriteRelease('HTTP');
   }
 }
