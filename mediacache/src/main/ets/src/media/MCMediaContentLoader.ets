@@ -14,7 +14,7 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
   protected mDone = false;
   protected mAborted = false;
   private mContent?: IMCMediaContent = undefined;
-  private mRange?: MCRange = undefined;
+  private mReadRange?: MCRange = undefined;
   private mSerialQueue = new MCSerialQueue();
 
   get isDone(): boolean {
@@ -26,21 +26,11 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
   }
 
   get range(): MCRange | undefined {
-    return this.mRange;
+    return this.mReadRange;
   }
 
   get offset(): number {
     return this.mReadOffset;
-  }
-
-  get readableLength(): number {
-    if ( !this.mContent || !this.mRange || this.mAborted || this.mDone ) {
-      return 0;
-    }
-    const offset = this.mContent.contentOffset;
-    const length = this.mContent.length;
-    const readableLength = Math.min((offset + length), this.mRange.max) - this.mReadOffset;
-    return readableLength;
   }
 
   async prepare(): Promise<void> {
@@ -83,7 +73,7 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
       }
 
       this.mContent = content;
-      this.mRange = range;
+      this.mReadRange = range;
       this.mReadOffset = range.location;
       this.mContent.on('dataWritten', (content: IMCMediaContent, length: number) => this.dataWritten(content, length)); // 实现类通知抽象类可加载数据了;
 
@@ -129,12 +119,12 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
           return undefined;
         }
 
-        if (!this.mContent || !this.mRange) {
+        if (!this.mContent || !this.mReadRange) {
           MCLogger.warn(MCLogModule.MCMediaContentLoader, () => 'No content available for reading.');
           return undefined;
         }
 
-        const readableLength = Math.min(this.mRange.max, (this.mContent.contentOffset + this.mContent.length)) - this.mReadOffset;
+        const readableLength = Math.min(this.mReadRange.max, (this.mContent.contentOffset + this.mContent.length)) - this.mReadOffset;
         const bufferSize = Math.min(4 * 1024 * 1024, readableLength);
         MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Calculated buffer size: ${bufferSize}.`);
         const buffer = new ArrayBuffer(bufferSize);
@@ -171,12 +161,12 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
     return this.mSerialQueue.enqueue(() => {
       try {
         MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Attempting to seek to the end of the readable range.`);
-        if (!this.mContent || !this.mRange) {
+        if (!this.mContent || !this.mReadRange) {
           MCLogger.warn(MCLogModule.MCMediaContentLoader, () => 'No content available for reading.');
           return 0;
         }
 
-        const readableLength = Math.min(this.mRange.max, (this.mContent.contentOffset + this.mContent.length)) - this.mReadOffset;
+        const readableLength = Math.min(this.mReadRange.max, (this.mContent.contentOffset + this.mContent.length)) - this.mReadOffset;
         if ( readableLength > 0 ) {
           MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Seeked to the end of readable range. Total readable length: ${readableLength}.`);
           this.increaseReadOffset(readableLength);
@@ -194,9 +184,9 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
   private increaseReadOffset(length: number) {
     if ( length > 0 ) {
       this.mReadOffset += length;
-      const done = this.mReadOffset === this.mRange!.max;
+      const done = this.mReadOffset === this.mReadRange!.max;
 
-      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Offset increased by ${length}, current offset: ${this.mReadOffset}. Range max: ${this.mRange!.max}.`);
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Offset increased by ${length}, current offset: ${this.mReadOffset}. Range max: ${this.mReadRange!.max}.`);
 
       if ( done ) {
         this.done();
@@ -210,7 +200,7 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
     }
 
     this.mDone = true;
-    MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Loading complete. Final offset: ${this.mReadOffset}, Range max: ${this.mRange!.max}.`);
+    MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Loading complete. Final offset: ${this.mReadOffset}, Range max: ${this.mReadRange!.max}.`);
     this.clear();
 
     if ( this.mDoneCallback ) {
