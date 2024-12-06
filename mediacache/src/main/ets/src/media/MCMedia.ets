@@ -88,7 +88,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   }
 
   fetch(request: IMCDataRequest, signal?: MCAbortSignal): Promise<IMCDataResponse> {
-    return this.probe(request, signal).then(() => this.mTaskQueue.enqueue(() => this.resolveUnsafe(request, signal))).catch((error: Error) => {
+    return this.probe(request, signal).then(() => this.mTaskQueue.enqueue(() => this.resolve(request, signal))).catch((error: Error) => {
       let statusCode = 500;
       if ( error instanceof MCDataResponseError ) {
         statusCode = error.statusCode;
@@ -151,7 +151,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     });
   }
 
-  private resolveUnsafe(proxyRequest: IMCDataRequest, signal?: MCAbortSignal): IMCDataResponse {
+  private resolve(proxyRequest: IMCDataRequest, signal?: MCAbortSignal): IMCDataResponse {
     if ( signal?.aborted === true ) {
       throw signal.reason!
     }

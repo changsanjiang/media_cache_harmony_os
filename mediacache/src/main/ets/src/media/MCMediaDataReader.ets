@@ -9,7 +9,6 @@ import MCLogger from "../utils/MCLogger";
 import { MCLogModule } from "../defines/MCLogModule";
 import { MCDataDecryptHandler } from "../defines/MCDataDecryptHandler";
 import { IMCDataRequest } from "../defines/IMCDataRequest";
-import { MCSerialQueue } from "../../../../../Index";
 import { MCAbortController } from "../utils/MCAbortController";
 
 export class MCMediaDataReader implements IMCDataReader {
