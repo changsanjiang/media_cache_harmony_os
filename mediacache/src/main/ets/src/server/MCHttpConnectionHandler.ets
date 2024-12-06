@@ -25,7 +25,7 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
 
     connection.on('message', async (data: socket.SocketMessageInfo) => {
       MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] New message received.`);
-      this.abortResponseBy(clientId, new Error(`Request cancelled`)); // 取消之前的响应
+      this.abortResponseBy(clientId, new Error(`Request is cancelled`)); // 取消之前的响应
 
       let request: IMCHttpRequest | undefined = undefined;
       try {

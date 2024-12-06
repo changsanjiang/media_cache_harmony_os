@@ -27,8 +27,8 @@ export class MCMediaDataReader implements IMCDataReader {
   private mNewDataReadableCallback?: (reader: IMCDataReader) => void = undefined;
   private mAbortedCallback?: (reader: IMCDataReader, error?: Error | undefined) => void = undefined;
   private mDoneCallback?: (reader: IMCDataReader) => void = undefined;
-  private mSerialQueue = new MCSerialQueue();
   private mFetchAbortController?: MCAbortController = undefined;
+  private mReading = false;
 
   // 传入之前请先对 media 做一次 readwriteRetain, reader 内部会在操作结束后执行对应的 readwriteRelease;
   constructor(media: IMCMedia, clientId: number, proxyRequest: IMCDataRequest, decrypt?: MCDataDecryptHandler) {
@@ -129,7 +129,7 @@ export class MCMediaDataReader implements IMCDataReader {
 
       loader.on("newDataReadable", (_: IMCMediaContentLoader) => {
         MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] New data readable event received for loader.`);
-        if (this.mNewDataReadableCallback) {
+        if (!this.mReading && this.mNewDataReadableCallback) {
           MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Executing newDataReadable callback.`);
           this.mNewDataReadableCallback(this);
         }
@@ -155,63 +155,63 @@ export class MCMediaDataReader implements IMCDataReader {
   }
 
   async readData(): Promise<ArrayBuffer | undefined> {
-    return this.mSerialQueue.enqueue(async () => {
-      MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Starting readData.`);
+    MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Starting readData.`);
 
-      if (this.mDone || this.mAborted || !this.mResponse || !this.mCurrentLoader) {
-        MCLogger.warn(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Cannot read data. Status - Done: ${this.mDone}, Aborted: ${this.mAborted}, Response: ${this.mResponse}, CurrentLoader: ${this.mCurrentLoader}.`);
-        return undefined;
-      }
+    if (this.mDone || this.mAborted || !this.mResponse || !this.mCurrentLoader) {
+      MCLogger.warn(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Cannot read data. Status - Done: ${this.mDone}, Aborted: ${this.mAborted}, Response: ${this.mResponse}, CurrentLoader: ${this.mCurrentLoader}.`);
+      return undefined;
+    }
 
-      const decrypt: MCMediaContentDecryptHandler | undefined = this.mDecrypt ? (offset: number, data: ArrayBuffer, len: number) => {
-        return this.mDecrypt!(this.mProxyRequest, offset, data, len);
-      } : undefined;
+    const decrypt: MCMediaContentDecryptHandler | undefined = this.mDecrypt ? (offset: number, data: ArrayBuffer, len: number) => {
+      return this.mDecrypt!(this.mProxyRequest, offset, data, len);
+    } : undefined;
 
-      try {
-        const buffer = await this.mCurrentLoader.readData(decrypt);
-        if ( buffer ) {
-          MCLogger.info(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Read ${buffer.byteLength} bytes of data.`);
-        }
-        else {
-          MCLogger.info(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] No data was read, the buffer is empty.`);
-        }
-        return buffer;
+    this.mReading = true;
+    try {
+      const buffer = await this.mCurrentLoader.readData(decrypt);
+      if ( buffer ) {
+        MCLogger.info(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Read ${buffer.byteLength} bytes of data.`);
       }
-      catch (error) {
-        MCLogger.error(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Error during data read: ${error.message}, stack: ${error.stack}`);
-        this.abort(error);
-        throw error as Error;
+      else {
+        MCLogger.info(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] No data was read, the buffer is empty.`);
       }
-    });
+      return buffer;
+    }
+    catch (error) {
+      MCLogger.error(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Error during data read: ${error.message}, stack: ${error.stack}`);
+      this.abort(error);
+      throw error as Error;
+    }
+    finally {
+      this.mReading = false;
+    }
   }
 
   // 跳转到当前可读范围的尾部，并返回跳转了的长度(readableLength);
-  seekToEndOfReadableRange(): Promise<number> {
-    return this.mSerialQueue.enqueue(async () => {
-      MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Starting seekToEndOfReadableRange.`);
+  async seekToEndOfReadableRange(): Promise<number> {
+    MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Starting seekToEndOfReadableRange.`);
 
-      if (this.mDone || this.mAborted || !this.mResponse || !this.mCurrentLoader) {
-        MCLogger.warn(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Seek operation aborted. Status - Done: ${this.mDone}, Aborted: ${this.mAborted}, Response: ${this.mResponse}, CurrentLoader: ${this.mCurrentLoader}.`);
-        return 0;
-      }
+    if (this.mDone || this.mAborted || !this.mResponse || !this.mCurrentLoader) {
+      MCLogger.warn(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Seek operation aborted. Status - Done: ${this.mDone}, Aborted: ${this.mAborted}, Response: ${this.mResponse}, CurrentLoader: ${this.mCurrentLoader}.`);
+      return 0;
+    }
 
-      try {
-        const len = await this.mCurrentLoader.seekToEndOfReadableRange();
+    try {
+      const len = await this.mCurrentLoader.seekToEndOfReadableRange();
 
-        if (len > 0) {
-          MCLogger.info(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Seeked ${len} bytes to the end of the readable range.`);
-        }
-        else {
-          MCLogger.info(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] No data skipped during seek operation. Likely already at the end of the readable range.`);
-        }
-        return len;
+      if (len > 0) {
+        MCLogger.info(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Seeked ${len} bytes to the end of the readable range.`);
       }
-      catch (error) {
-        MCLogger.error(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Error during seek operation: ${error.message}, stack: ${error.stack}`);
-        this.abort(error);
-        throw error as Error;
+      else {
+        MCLogger.info(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] No data skipped during seek operation. Likely already at the end of the readable range.`);
       }
-    });
+      return len;
+    }
+    catch (error) {
+      MCLogger.error(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Error during seek operation: ${error.message}, stack: ${error.stack}`);
+      this.abort(error);
+      throw error as Error;
+    }
   }
 
   private done() {
