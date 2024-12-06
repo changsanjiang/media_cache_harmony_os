@@ -42,10 +42,16 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
 
       const response = new MCHttpResponse(clientId, request);
       this.mResponseMap.set(clientId, response);
-      response.on('dataReceive', async (response: IMCHttpResponse, data: string | ArrayBuffer) => {
+      response.on('headersReceive', async (response: IMCHttpResponse, headers: string) => {
+        if ( this.mResponseMap.get(clientId) === response ) {
+          await connection.send({ data: headers });
+          MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Headers sent: \n${headers}`);
+        }
+      });
+      response.on('dataReceive', async (response: IMCHttpResponse, data: ArrayBuffer) => {
         if ( this.mResponseMap.get(clientId) === response ) {
           await connection.send({ data: data });
-          MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Data sent, size: ${(typeof data === 'string') ? data.length : data.byteLength}`);
+          MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Data sent, size: ${data.byteLength}`);
         }
       });
       response.on('aborted', async (response: IMCHttpResponse, _?: Error) => {
@@ -56,7 +62,7 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
           this.closeOrKeepConnection(request!, connection);
         }
       });
-      response.on('done', (response: IMCHttpResponse) => {
+      response.on('dataEnd', (response: IMCHttpResponse) => {
         this.clearResponseEvents(response);
         if ( this.mResponseMap.get(clientId) === response ) {
           this.mResponseMap.delete(clientId);
@@ -128,9 +134,10 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
   }
 
   private clearResponseEvents(response: IMCHttpResponse) {
+    response.off('headersReceive');
     response.off('dataReceive');
+    response.off('dataEnd');
     response.off('aborted');
-    response.off('done');
   }
 
   private clearConnectionEvents(connection: socket.TCPSocketConnection) {
