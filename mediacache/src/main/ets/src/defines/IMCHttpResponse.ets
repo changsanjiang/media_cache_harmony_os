@@ -1,6 +1,4 @@
 export interface IMCHttpResponse {
-  readonly isHeadersSent: boolean;
-
   prepare(): Promise<void>;
 
   abort(error?: Error): Promise<void>;

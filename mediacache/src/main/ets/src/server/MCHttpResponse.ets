@@ -24,10 +24,6 @@ export class MCHttpResponse implements IMCHttpResponse {
     MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${clientId}] Instance created for request: ${JSON.stringify(request)}.`);
   }
 
-  get isHeadersSent(): boolean {
-    return this.mHeadersSent;
-  }
-
   async prepare(): Promise<void> {
     MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Preparing response for request: ${JSON.stringify(this.mRequest)}`);
 
@@ -68,18 +64,18 @@ export class MCHttpResponse implements IMCHttpResponse {
           }
           await this.mHeadersReceiveCallback(this, responseHeaders);
           this.mHeadersSent = true;
-          MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Response headers have been sent successfully: \n${responseHeaders}`);
+          MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Response headers have been sent successfully. Headers=\n${responseHeaders}`);
         }
         // 再发送响应的 body 数据;
         else {
           MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Preparing to send response body data.`);
           const buffer = await reader.readData();
           if ( !buffer || !this.mDataReceiveCallback ) {
-            MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Data cannot be sent: BufferExist=${!!buffer}, CallbackExist=${!!this.mDataReceiveCallback}.`);
+            MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Data cannot be sent: BufferExist=${!!buffer}, CallbackExist=${!!this.mDataReceiveCallback}, Done=${reader.isDone}.`);
             break;
           }
           await this.mDataReceiveCallback(this, buffer);
-          MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Sent data successfully: ${buffer.byteLength} bytes).`);
+          MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Sent data successfully: ${buffer.byteLength} bytes.`);
         }
       }
     }
