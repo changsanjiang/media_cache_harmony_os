@@ -7,19 +7,12 @@ export class MCReadwriteReference<T> implements IMCReadwriteReference<T> {
     return this.mReadwriteCount;
   }
 
-  readwriteRetain(from?: string): T {
-    if (from) {
-      console.log(`[READWRITE] readwriteRetain called from: ${from}.`)
-    }
+  readwriteRetain(): T {
     this.mReadwriteCount += 1;
     return this.getInstance();
   }
 
-  readwriteRelease(from?: string): void {
-    if (from) {
-      console.log(`[READWRITE] readwriteRelease called from: ${from}.`)
-    }
-
+  readwriteRelease(): void {
     if (this.mReadwriteCount <= 0) {
       throw new Error("Release called with zero references.");
     }

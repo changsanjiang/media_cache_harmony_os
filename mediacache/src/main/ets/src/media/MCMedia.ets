@@ -22,6 +22,7 @@ import { MCDownloadRequest } from "../utils/MCDownloadRequest";
 import { IMCDataOkResponse, IMCDataPartialContentResponse, IMCDataResponse } from "../defines/IMCDataResponse";
 import { MCDataResponseError } from "../defines/MCDataResponseError";
 import { MCSerialQueue } from "../../../../../Index";
+import { MCAbortSignal } from "../utils/MCAbortController";
 
 export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   readonly id: string;
@@ -86,8 +87,8 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     }
   }
 
-  fetch(request: IMCDataRequest): Promise<IMCDataResponse> {
-    return this.probe(request).then(() => this.mTaskQueue.enqueue(() => this.resolveUnsafe(request))).catch((error: Error) => {
+  fetch(request: IMCDataRequest, signal?: MCAbortSignal): Promise<IMCDataResponse> {
+    return this.probe(request, signal).then(() => this.mTaskQueue.enqueue(() => this.resolveUnsafe(request, signal))).catch((error: Error) => {
       let statusCode = 500;
       if ( error instanceof MCDataResponseError ) {
         statusCode = error.statusCode;
@@ -100,9 +101,9 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   }
 
   // 探测元数据
-  private async probe(proxyRequest: IMCDataRequest): Promise<void> {
+  private probe(proxyRequest: IMCDataRequest, signal?: MCAbortSignal): Promise<void> {
     if ( this.mMetadata ) {
-      return;
+      return Promise.resolve();
     }
 
     const requestTarget = proxyRequest.requestTarget;
@@ -110,9 +111,13 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     const mediaUrl = MCURL.parseUrl(requestTarget);
     const request = new MCDownload.Request(mediaUrl, headers);
 
-    return MCDownload.probe(request).then(async (response) => {
+    return MCDownload.probe(request, signal).then(async (response) => {
       if ( this.mMetadata ) {
         return;
+      }
+
+      if ( signal?.aborted === true ) {
+        throw signal.reason!
       }
 
       const statusCode = response.statusCode;
@@ -146,7 +151,11 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     });
   }
 
-  private async resolveUnsafe(proxyRequest: IMCDataRequest): Promise<IMCDataResponse> {
+  private resolveUnsafe(proxyRequest: IMCDataRequest, signal?: MCAbortSignal): IMCDataResponse {
+    if ( signal?.aborted === true ) {
+      throw signal.reason!
+    }
+
     const url = MCURL.parseUrl(proxyRequest.requestTarget);
     if (!url) {
       throw new MCDataResponseError(400, "Failed to restore URL from the provided request.");

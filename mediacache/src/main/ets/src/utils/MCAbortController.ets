@@ -14,6 +14,7 @@ export interface MCAbortSignal {
   readonly aborted: boolean
   readonly reason: Error | undefined
   addEventListener(event: 'aborted', callback: () => void): void;
+  removeEventListener(event: 'aborted', callback: () => void): void;
 }
 
 class MCAbortSignal_ implements MCAbortSignal {
@@ -32,6 +33,13 @@ class MCAbortSignal_ implements MCAbortSignal {
   addEventListener(_: "aborted", callback: () => void): void {
     if ( !this.mAborted ) this.mListeners.push(callback);
     else callback();
+  }
+
+  removeEventListener(_: "aborted", callback: () => void): void {
+    const index = this.mListeners.indexOf(callback);
+    if (index >= 0) {
+      this.mListeners.splice(index, 1);
+    }
   }
 
   abort(reason?: Error): void {
