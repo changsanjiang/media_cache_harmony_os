@@ -8,7 +8,6 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
   /** HLS 会有多个媒体文件; */
   private mMedias: Map<string, IMCMedia> = new Map();
   private mDir: string;
-  private mInitPlaylistPromise: Promise<IMCMedia> | undefined;
   private mInitPromises: Map<string, Promise<IMCMedia>> = new Map();
 
   constructor(id: string, dir: string) {
@@ -39,21 +38,12 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
 
     const mediaId = targetInfo.mediaId;
     let media: IMCMedia | undefined = this.mMedias.get(mediaId);
-    if ( media ) {
-      return media.readwriteRetain();
+    if ( !media ) {
+      if ( !this.mInitPromises.has(mediaId) ) {
+        this.mInitPromises.set(mediaId, this.initializeMedia(targetInfo));
+      }
+      media = await this.mInitPromises.get(mediaId)!;
     }
-
-    if ( !targetInfo.isRoot ) {
-      media = new MCMedia(mediaId, this.mDir);
-      this.mMedias.set(mediaId, media);
-      return media.readwriteRetain();
-    }
-
-    // 请求的是 playlist
-    if ( !this.mInitPlaylistPromise ) {
-      this.mInitPlaylistPromise = this.initializePlaylist(targetInfo);
-    }
-    media = await this.mInitPlaylistPromise;
     return media.readwriteRetain();
   }
 
@@ -61,13 +51,27 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
     return this;
   }
 
-  /**
-   * 请求 playlist 时的处理:
-   * 1. 获取代理媒体
-   *    1.1 如果不存在, 则下载并生成代理内容保存在本地
-   * */
-  private async initializePlaylist(targetInfo: MCURL.ProxyTargetInfo): Promise<IMCMedia> {
+  private async initializeMedia(targetInfo: MCURL.ProxyTargetInfo): Promise<IMCMedia> {
+    const mediaId = targetInfo.mediaId;
+    if ( !targetInfo.isRoot ) { // 请求的是 aes key, ts 等媒体;
+      const media = new MCMedia(mediaId, this.mDir);
+      await media.prepare();
+      this.mMedias.set(mediaId, media);
+      return media;
+    }
 
+    /**
+     * 请求 playlist 时的处理:
+     * 1. 获取代理媒体
+     *    1.1 如果不存在, 则下载并生成代理内容保存在本地
+     * */
+    //
+    // // 请求的是 playlist
+    // if ( !this.mInitPlaylistPromise ) {
+    //   this.mInitPlaylistPromise = this.initializePlaylist(targetInfo);
+    // }
+    // media = await this.mInitPlaylistPromise;
+    // return media.readwriteRetain();
     throw new Error(``)
   }
 }
