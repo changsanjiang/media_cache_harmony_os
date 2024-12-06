@@ -1,7 +1,6 @@
 import { MCRange } from "../../utils/MCRange";
 import HLSDefines from "../../defines/HLSDefines";
-import { MCURL, MCUtils } from "../../../../../../Index";
-import { MCAssetType } from '../../defines/MCAssetType';
+import { MCUtils } from "../../../../../../Index";
 import MCAssetUtils from '../MCAssetUtils';
 
 namespace HLSParser {
@@ -117,7 +116,7 @@ namespace HLSParser {
             isChildAsset = false;
           }
         }
-        const proxyPath = MCURL.generateProxyPath(absoluteUrl, MCAssetType.HLS, isChildAsset ? (await MCAssetUtils.generateAssetId(absoluteUrl)) : assetId);
+        const proxyPath = await MCAssetUtils.generateHLSProxyPath(absoluteUrl, isChildAsset, assetId);
         proxyPlaylist = MCUtils.replaceCharactersInRange(proxyPlaylist, [item.uriRange!.location, uri.length], proxyPath);
       });
       return proxyPlaylist;

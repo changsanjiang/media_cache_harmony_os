@@ -4,7 +4,7 @@ import { MCMedia } from "../../media/MCMedia";
 import { MCReadwriteReference } from "../../utils/MCReadwriteReference";
 
 export class FILEAsset extends MCReadwriteReference<FILEAsset> implements IMCAsset {
-  /** 基于文件的资产只有一个媒体; */
+  /** 基于文件的资产只有一个媒体; 所以 FILEAsset 只需要管理这一个 Media 即可; */
   private mMedia: IMCMedia;
   private mDir: string;
 

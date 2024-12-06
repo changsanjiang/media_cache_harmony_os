@@ -39,8 +39,6 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     this.id = id;
     this.mDir = dir;
     MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${id}]: MCMedia instance created with dir ${dir}.`);
-
-    this.printDebugInfo();
   }
 
   get metadataReady(): boolean {
@@ -527,21 +525,5 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       node = node.next;
     }
     return lengthCached * 1.0 / this.mMetadata.totalLength;
-  }
-
-
-  private printDebugInfo() {
-    setTimeout(() => {
-      console.info(`[MCMedia] [media: ${this.id}] readwrite count: ${this.mReadwriteCount}`);
-
-      let curNode = this.mNodeList.head;
-      while (curNode) {
-        curNode.filterContents((_) => true).forEach((c, i) => {
-          console.info(`[MCMedia] [media: ${this.id}] node: ${curNode!.placement}, ${i} content range: (${c.contentOffset}, ${c.length}), readwriteCount: ${c.readwriteCount}`);
-        });
-        curNode = curNode.next;
-      }
-      this.printDebugInfo();
-    }, 20000);
   }
 }
