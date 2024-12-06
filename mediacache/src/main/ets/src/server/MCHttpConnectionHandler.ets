@@ -20,7 +20,7 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
 
   handleConnection(connection: socket.TCPSocketConnection): void {
     const clientId: number = connection.clientId;
-    let isClosed = false; // 连接释放已断开;
+    let isClosed = false; // 连接是否已断开;
     MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] New connection established.`);
 
     connection.on('message', async (data: socket.SocketMessageInfo) => {
