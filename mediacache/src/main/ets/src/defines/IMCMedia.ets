@@ -14,7 +14,7 @@ export interface IMCMedia extends IMCReadwriteReference<IMCMedia> {
   readonly contentType: string | undefined; // mime type;
   readonly totalLength: number;
 
-  readonly isStored: Promise<boolean>;
+  readonly isAssembled: boolean;
   readonly completeness: Promise<number>; // 完成度; [0, 1];
 
   prepare(): Promise<void>;

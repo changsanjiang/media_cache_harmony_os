@@ -74,4 +74,42 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
     // return media.readwriteRetain();
     throw new Error(``)
   }
+
+  private mInitPlaylistPromise: Promise<IMCMedia> | undefined = undefined;
+  private async initializePlaylist(targetInfo: MCURL.ProxyTargetInfo): Promise<IMCMedia> {
+    const mediaId = targetInfo.mediaId;
+    const media = new MCMedia(mediaId, this.mDir);
+    await media.prepare();
+    return media;
+  }
+
+  private async downloadPlaylistContent() {
+
+  }
+
+  /** 获取原始内容;
+   *
+   * 如果本地不存在, 则下载原始的 playlist;
+   * */
+  private async fetchOriginalPlaylistMedia(targetInfo: MCURL.ProxyTargetInfo): Promise<MCMedia> {
+    const mediaId = targetInfo.mediaId;
+    if ( this.mInitPlaylistPromise === undefined ) {
+      this.mInitPlaylistPromise = new Promise<IMCMedia>();
+    }
+    throw new Error(``)
+  }
+
+  private async test(targetInfo: MCURL.ProxyTargetInfo): Promise<void> {
+    const mediaId = targetInfo.mediaId;
+    // wait media downloaded
+
+    const proxyId = `P${mediaId}`;
+    const proxyPrefix = `P${mediaId}}`;
+    const proxyMedia = new MCMedia(proxyId, this.mDir, proxyPrefix);
+    await proxyMedia.prepare();
+    if ( !proxyMedia.isAssembled ) { // 数据不存在时, 开始下载;
+
+    }
+    throw new Error(``)
+  }
 }

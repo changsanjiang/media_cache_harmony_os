@@ -33,11 +33,20 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   private mAssembled = false; // 是否已组合完成, 是否已得到完整内容; 虽然得到了完整内容, 但是文件夹下可能还存在正在读取的冗余数据;
   private mFullyTrimmed = false; // 所有冗余数据都已删除;
   private mTaskQueue = new MCSerialQueue();
+  private mContentFileNamePrefix: string;
 
-  constructor(id: string, dir: string) {
+  /// `id` 和 `contentFileNamePrefix` 中不能包含下划线;
+  constructor(id: string, dir: string, contentFileNamePrefix: string = id) {
+    if (id.includes("_")) {
+      throw new Error(`The media ID '${id}' is invalid. Media IDs cannot contain underscores ('_').`);
+    }
+    if ( contentFileNamePrefix.includes("_") ) {
+      throw new Error(`The content file name prefix '${contentFileNamePrefix}' is invalid. File name prefixes cannot contain underscores ('_').`);
+    }
     super();
     this.id = id;
     this.mDir = dir;
+    this.mContentFileNamePrefix = contentFileNamePrefix;
     MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${id}]: MCMedia instance created with dir ${dir}.`);
   }
 
@@ -50,8 +59,8 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   get totalLength(): number {
     return this.mMetadata?.totalLength ?? 0;
   }
-  get isStored(): Promise<boolean> {
-    return Promise.resolve(this.mAssembled);
+  get isAssembled(): boolean {
+    return this.mAssembled;
   }
   // 完成度: [0, 1];
   get completeness(): Promise<number> {
@@ -61,16 +70,16 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   async prepare(): Promise<void> {
     MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Preparing media`);
     try {
-      this.mContentProvider = new MCMediaContentProvider(this.id, this.mDir, this.id);
+      this.mContentProvider = new MCMediaContentProvider(this.id, this.mDir, this.mContentFileNamePrefix);
       const contents = await this.mContentProvider.prepare();
       contents?.forEach((content) => this.mNodeList.upsertNode(content.contentOffset, content));
       this.mMetadata = await MCDatabase.queryMediaMetadata(this.id);
       if (this.mMetadata) {
         MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Metadata loaded. ContentType: ${this.mMetadata?.contentType}, TotalLength: ${this.mMetadata?.totalLength}, ByteRangeAccessSupported: ${this.mMetadata?.byteRangeAccessSupported}.`);
-        if      (this.mMetadata.totalLength === Number.MAX_SAFE_INTEGER) {
+        if      (this.mMetadata.totalLength === Number.MAX_SAFE_INTEGER) { // 没有下载到任何有用的内容, 删除所有临时文件;
           await this.mContentProvider.removeAllTempContentFiles();
         }
-        else if (this.mMetadata.totalLength !== 0) {
+        else if (this.mMetadata.totalLength !== 0) { // 删除冗余数据;
           await this.restructureContentsUnsafe();
         }
         else {
@@ -361,13 +370,12 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
               curNode = nextNode;
             }
           }
+        }
 
-          if (head && head.longestContent?.length === this.mMetadata.totalLength) {
-            this.mAssembled = true;
-            this.mFullyTrimmed = this.mNodeList.count === 1 && head.numberOfContents === 1;
-            MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Content restructuring completed. Assembled: ${this.mAssembled}, FullyTrimmed: ${this.mFullyTrimmed}.`);
-            break;
-          }
+        if (head && head.longestContent?.length === this.mMetadata.totalLength) {
+          this.mAssembled = true;
+          this.mFullyTrimmed = this.mNodeList.count === 1 && head.numberOfContents === 1;
+          MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Content restructuring completed. Assembled: ${this.mAssembled}, FullyTrimmed: ${this.mFullyTrimmed}.`);
         }
       } catch (error) {
         MCLogger.error(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Error during content restructuring: ${error.message}\nStack: ${error.stack}`);
