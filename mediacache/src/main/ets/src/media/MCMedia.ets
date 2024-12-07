@@ -172,7 +172,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     const totalLength = metadata.totalLength;
     const contentLoaders: IMCMediaContentLoader[] = [];
     if (metadata.byteRangeAccessSupported && metadata.totalLength > 0) {
-      const requestRangeHeader = proxyRequest.headers['range'];
+      const requestRangeHeader = proxyRequest.headers?.['range'];
       const contentRange = requestRangeHeader ? this.parseLoadRange(requestRangeHeader, totalLength) : new MCRange(0, totalLength);
 
       let loadRange = new MCRange(contentRange.location, contentRange.length);
@@ -246,7 +246,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
 
   // http download
 
-  async parseContentRange(request: MCDownloadRequest, responseHeaders: MCDownloadResponseHeaders): Promise<MCRange> {
+  parseContentRange(request: MCDownloadRequest, responseHeaders: MCDownloadResponseHeaders): MCRange {
     try {
       const requestRangeHeader = request.rangeHeader;
       const requestRange = requestRangeHeader ? parseRequestRange(requestRangeHeader) : undefined;

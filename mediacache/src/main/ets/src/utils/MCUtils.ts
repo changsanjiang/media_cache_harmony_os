@@ -52,6 +52,14 @@ namespace MCUtils {
     const after = str.slice(start + length); // 替换后部分
     return before + replacement + after;
   }
+
+  export function mergeArrayBuffers(buffer1: ArrayBuffer, buffer2: ArrayBuffer): ArrayBuffer {
+    const mergedBuffer = new ArrayBuffer(buffer1.byteLength + buffer2.byteLength);
+    const view = new Uint8Array(mergedBuffer);
+    view.set(new Uint8Array(buffer1), 0);
+    view.set(new Uint8Array(buffer2), buffer1.byteLength);
+    return mergedBuffer;
+  }
 }
 
 export default MCUtils;

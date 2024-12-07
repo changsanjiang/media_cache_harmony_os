@@ -1,5 +1,5 @@
 import { IMCMedia } from "../defines/IMCMedia";
-import { IMCMediaContent } from "../defines/IMCMediaContent";
+import { IMCMediaContent, IMCMediaContentWriter } from "../defines/IMCMediaContent";
 import { MCLogModule } from "../defines/MCLogModule";
 import { MCAbortController } from "../utils/MCAbortController";
 import MCDownload from "../utils/MCDownload";
@@ -15,12 +15,12 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
   private request: MCDownloadRequest;
   private abortController?: MCAbortController = undefined;
   private content?: IMCMediaContent = undefined;
+  private writer?: IMCMediaContentWriter = undefined;
 
   constructor(media: IMCMedia, request: MCDownloadRequest) {
     super();
     this.media = media;
     this.request = request;
-    media.readwriteRetain();
   }
 
   protected async onPrepare(): Promise<void> {
@@ -48,11 +48,12 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
   private async onHeadersReceive(headers: MCDownloadResponseHeaders): Promise<void> {
     MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Headers received for URL: ${this.request.url}: ${JSON.stringify(headers)}`);
 
+    if ( this.mAborted ) {
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Loader for ${this.request.url} is aborted, ignoring headers.`);
+      return;
+    }
+
     try {
-      if ( this.mAborted || this.mDone ) {
-        MCLogger.warn(MCLogModule.MCMediaContentLoader, () => `Loader for ${this.request.url} is aborted or done, ignoring headers.`);
-        return;
-      }
       // MCDownloadRequest 请求由 media 创建; 当其中包含范围字段时, 说明服务器必定支持范围请求;
       //
       //
@@ -62,19 +63,29 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
       //
       // 200 或 206 => {start, length};
       // 当 200 请求的响应未指定 content-length 字段时返回 {0, Number.MAX_SAFE_INTEGER}
-      const contentRange = await this.media.parseContentRange(this.request, headers);
+      const contentRange = this.media.parseContentRange(this.request, headers);
       MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Content range parsed for URL: ${this.request.url}. Range: ${JSON.stringify(contentRange)}, Headers: ${JSON.stringify(headers)}}`);
 
       this.content = await this.media.createContentInRange(contentRange); // content readwrite retained;
+      if ( this.mAborted ) {
+        throw new Error(`xxx`);
+      }
+
+      this.writer = this.content.createWriter();
       MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Content created for URL: ${this.request.url} with range: ${JSON.stringify(contentRange)}, isTemp: ${this.content?.isTemp}.`);
 
       if ( !this.content.isTemp ) { // 临时内容需要在下载完成后才能通知父类 contentReady;
-        this.contentReady(this.content, contentRange);
+        this.onContentReady(this.content, contentRange);
       }
     }
     catch (error) {
       MCLogger.error(MCLogModule.MCMediaContentLoader, () => `Error in onHeadersReceive for URL: ${this.request.url} - ${(error as Error).message}`);
-      this.abort(error);
+      if ( !this.mAborted ) {
+        this.abort(error);
+      }
+      else {
+        this.clearContent();
+      }
       throw error as Error;
     }
   }
@@ -82,13 +93,13 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
   private async onDataReceive(data: ArrayBuffer): Promise<void> {
     MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Data received for URL: ${this.request.url}: ${data.byteLength} bytes.`);
 
-    if ( this.mAborted || this.mDone ) {
-      MCLogger.warn(MCLogModule.MCMediaContentLoader, () => `Loader for ${this.request.url} is aborted or done, ignoring data.`);
+    if ( this.mAborted ) {
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Loader for ${this.request.url} is aborted, ignoring data.`);
       return;
     }
 
     try {
-      await this.content!.writeData(data, data.byteLength);
+      await this.writer!.writeData(data, data.byteLength);
       MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Written ${data.byteLength} bytes to content for URL: ${this.request.url}.`);
     }
     catch (error) {
@@ -113,31 +124,47 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
       return;
     }
 
-    await this.media.copyTempContent(this.content); // 临时内容下载完成, 复制到正式目录;
-    MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Temporary content copied for URL: ${this.request.url}.`);
+    try {
+      await this.media.copyTempContent(this.content); // 临时内容下载完成, 复制到正式目录;
+      MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Temporary content copied for URL: ${this.request.url}.`);
 
-    const range = new MCRange(this.content.contentOffset, this.content.length);
-    this.contentReady(this.content, range); // 临时内容下载完成, 通知父类 contentReady;
+      if ( this.mAborted ) {
+        throw new Error(`xxx`);
+      }
+
+      const range = new MCRange(this.content.contentOffset, this.content.length);
+      this.onContentReady(this.content, range); // 临时内容下载完成, 通知父类 contentReady;
+    }
+    catch (error) {
+      if ( !this.mAborted ) {
+        this.abort(error);
+      }
+      else {
+        this.clearContent();
+      }
+      throw error as Error;
+    }
   }
 
   protected onClearBefore(): void {
-    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Executing custom operations before clearing.`);
-
     if (this.abortController) {
-      MCLogger.warn(MCLogModule.MCMediaContentLoader, () => 'Aborting download.');
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => 'Aborting download.');
       this.abortController.abort();
       this.abortController = undefined;
     }
   }
 
   protected onClearAfter(): void {
-    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Executing custom operations after clearing.`);
+    this.clearContent();
+  }
 
+  private clearContent() {
     if ( this.content ) {
       MCLogger.debug(MCLogModule.MCMediaContentLoader, () => 'Closing content writer.');
-      !this.content.isTemp ? this.content.closeWrite() : this.media.destroyTempContent(this.content);
+      this.writer?.close();
+      this.writer = undefined;
+      if ( this.content.isTemp ) this.media.destroyTempContent(this.content);
       this.content = undefined;
     }
-    this.media.readwriteRelease();
   }
 }

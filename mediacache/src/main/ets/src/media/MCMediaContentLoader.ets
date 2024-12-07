@@ -1,5 +1,5 @@
 import { IMCMediaContentLoader, MCMediaContentDecryptHandler } from "../defines/IMCMediaContentLoader";
-import { IMCMediaContent } from "../defines/IMCMediaContent";
+import { IMCMediaContent, IMCMediaContentReader } from "../defines/IMCMediaContent";
 import { MCRange } from "../utils/MCRange";
 import { MCLogModule } from "../defines/MCLogModule";
 import MCLogger from "../utils/MCLogger";
@@ -8,11 +8,12 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
   private mNewDataReadableCallback?: (loader: IMCMediaContentLoader) => void = undefined;
   private mAbortedCallback?: (loader: IMCMediaContentLoader, error?: Error) => void = undefined;
   private mDoneCallback?: (loader: IMCMediaContentLoader) => void = undefined;
-  private mReadOffset = 0;
   protected mDone = false;
   protected mAborted = false;
   private mContent?: IMCMediaContent = undefined;
+  private mReader?: IMCMediaContentReader = undefined;
   private mReadRange?: MCRange = undefined; // 需要加载的数据的范围(或者说是需要读取的数据的范围, 当这个范围的数据读取完毕后, loader的状态会变成 done);
+  private mReadOffset = 0;
   private mReading = false;
 
   constructor() {
@@ -53,7 +54,7 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
   ///
   /// 实现类通知抽象类已准备好 content;
   /// 调用前请对 content 做一次 readwriteRetain 操作, 防止被提前 release; 之后不需要外部调用 release, 抽象类会在读取操作结束后进行清理操作;
-  protected async contentReady(content: IMCMediaContent, range: MCRange): Promise<void> {
+  protected onContentReady(content: IMCMediaContent, range: MCRange): void {
     try {
       MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Content ready event received. Checking conditions.`);
 
@@ -67,9 +68,10 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
       }
 
       this.mContent = content;
+      this.mReader = content.createReader();
       this.mReadRange = range;
       this.mReadOffset = range.location;
-      this.mContent.on('dataWritten', (_: IMCMediaContent) => this.newDataReadable()); // 实现类通知抽象类可加载数据了;
+      this.mContent.on('dataWritten', (_: IMCMediaContent) => this.onNewDataReadable()); // 实现类通知抽象类可加载数据了;
 
       const readableLength = Math.min(this.mReadRange.max, (this.mContent.contentOffset + this.mContent.length)) - this.mReadOffset;
 
@@ -77,7 +79,7 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
       MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Content is ready. Content readable range: (${content.contentOffset}, ${content.length}), Read range: (${range.location}, ${range.length}), Read offset: ${this.mReadOffset}, Readable length: ${readableLength}.`);
 
       if      ( readableLength > 0 ) {
-        this.newDataReadable();
+        this.onNewDataReadable();
       }
       else if ( range.length === 0 ) {
         this.done();
@@ -91,20 +93,22 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
   }
 
   // 有新的数据写入了， 通知外部可以读取数据了;
-  private newDataReadable(): void {
-    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `New data readable.`);
+  private onNewDataReadable(): void {
+    setTimeout(() => {
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `New data readable.`);
 
-    if ( !this.mReading && !this.mDone && !this.mAborted && this.mNewDataReadableCallback ) {
-      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Executing dataLoaded callback.`);
-      this.mNewDataReadableCallback(this);
-    }
+      if ( !this.mReading && !this.mDone && !this.mAborted && this.mNewDataReadableCallback ) {
+        MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Executing dataLoaded callback.`);
+        this.mNewDataReadableCallback(this);
+      }
+    });
   }
 
   async readData(decrypt?: MCMediaContentDecryptHandler): Promise<ArrayBuffer | undefined> {
     MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Attempting to read data.`);
 
     if (this.mReading) {
-      throw new Error(`Read operation already in progress. Concurrent reads are not allowed.`);
+      throw new Error(`Read operation already in progress. Concurrent operations are not allowed.`);
     }
 
     this.mReading = true;
@@ -119,7 +123,7 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
         return undefined;
       }
 
-      if (!this.mContent || !this.mReadRange) {
+      if (!this.mContent || !this.mReader || !this.mReadRange) {
         MCLogger.warn(MCLogModule.MCMediaContentLoader, () => 'No content available for reading.');
         return undefined;
       }
@@ -135,7 +139,11 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
       const buffer = new ArrayBuffer(bufferSize);
 
       // 执行读取操作
-      const len = await this.mContent.readData(this.mReadOffset, buffer, bufferSize);
+      const len = await this.mReader.readData(this.mReadOffset, buffer, bufferSize);
+      if ( this.mAborted ) {
+        throw new Error(`xxx`);
+      }
+
       if ( len > 0 ) {
         MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Successfully read ${len} bytes at offset ${this.mReadOffset}.`);
 
@@ -144,6 +152,9 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
           // 解密后的数据长度不能发生改变;
           if (decryptedLength !== len) {
             throw new Error(`Decryption failed: expected ${len} bytes, but got ${decryptedLength} bytes.`);
+          }
+          if ( this.mAborted ) {
+            throw new Error(`xxx`);
           }
           MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Successfully decrypted ${decryptedLength} bytes.`);
         }
@@ -157,7 +168,12 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
     }
     catch (error) {
       MCLogger.error(MCLogModule.MCMediaContentLoader, () => `Error reading data: ${(error as Error).message}`);
-      this.abort(error);
+      if ( !this.mAborted ) {
+        this.abort(error);
+      }
+      else {
+        this.clear();
+      }
       throw error as Error;
     }
     finally {
@@ -166,6 +182,10 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
   }
 
   async seekToEndOfReadableRange(): Promise<number> {
+    if (this.mReading) {
+      throw new Error(`Read operation already in progress. Concurrent operations are not allowed.`);
+    }
+
     try {
       MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Attempting to seek to the end of the readable range.`);
       if (!this.mContent || !this.mReadRange) {
@@ -247,9 +267,9 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
     if ( this.mContent ) {
       MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Clearing content.`);
       this.mContent.off('dataWritten');
-      this.mContent.readwriteRelease();
-      await this.mContent.closeRead();
+      this.mReader?.close();
       this.mContent = undefined;
+      this.mReader = undefined;
       MCLogger.debug(MCLogModule.MCMediaContentLoader, () => 'Cleared content.');
     }
     this.onClearAfter();

@@ -1,4 +1,5 @@
 import { IMCAsset } from "../../defines/IMCAsset";
+import { IMCDataRequest } from "../../defines/IMCDataRequest";
 import { IMCMedia } from "../../defines/IMCMedia";
 import { MCMedia } from "../../media/MCMedia";
 import { MCReadwriteReference } from "../../utils/MCReadwriteReference";
@@ -75,41 +76,44 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
     throw new Error(``)
   }
 
-  private mInitPlaylistPromise: Promise<IMCMedia> | undefined = undefined;
-  private async initializePlaylist(targetInfo: MCURL.ProxyTargetInfo): Promise<IMCMedia> {
-    const mediaId = targetInfo.mediaId;
-    const media = new MCMedia(mediaId, this.mDir);
-    await media.prepare();
-    return media;
-  }
-
-  private async downloadPlaylistContent() {
-
-  }
-
-  /** 获取原始内容;
-   *
-   * 如果本地不存在, 则下载原始的 playlist;
-   * */
-  private async fetchOriginalPlaylistMedia(targetInfo: MCURL.ProxyTargetInfo): Promise<MCMedia> {
-    const mediaId = targetInfo.mediaId;
-    if ( this.mInitPlaylistPromise === undefined ) {
-      this.mInitPlaylistPromise = new Promise<IMCMedia>();
-    }
-    throw new Error(``)
-  }
-
-  private async test(targetInfo: MCURL.ProxyTargetInfo): Promise<void> {
-    const mediaId = targetInfo.mediaId;
-    // wait media downloaded
-
-    const proxyId = `P${mediaId}`;
-    const proxyPrefix = `P${mediaId}}`;
-    const proxyMedia = new MCMedia(proxyId, this.mDir, proxyPrefix);
-    await proxyMedia.prepare();
-    if ( !proxyMedia.isAssembled ) { // 数据不存在时, 开始下载;
-
-    }
-    throw new Error(``)
-  }
+  // private mInitPlaylistPromise: Promise<IMCMedia> | undefined = undefined;
+  // private async initializePlaylist(requestTarget: string, targetInfo: MCURL.ProxyTargetInfo): Promise<IMCMedia> {
+  //   const mediaId = targetInfo.mediaId;
+  //   const media = new MCMedia(mediaId, this.mDir);
+  //   await media.prepare();
+  //   if ( !media.isAssembled ) {
+  //     // 加载 playlist 的全部内容
+  //     const request: IMCDataRequest = {
+  //       requestTarget: requestTarget
+  //     };
+  //     media.fetch(request)
+  //   }
+  //   return media;
+  // }
+  //
+  // /** 获取原始内容;
+  //  *
+  //  * 如果本地不存在, 则下载原始的 playlist;
+  //  * */
+  // private async fetchOriginalPlaylistMedia(targetInfo: MCURL.ProxyTargetInfo): Promise<MCMedia> {
+  //   const mediaId = targetInfo.mediaId;
+  //   if ( this.mInitPlaylistPromise === undefined ) {
+  //     this.mInitPlaylistPromise = new Promise<IMCMedia>();
+  //   }
+  //   throw new Error(``)
+  // }
+  //
+  // private async test(targetInfo: MCURL.ProxyTargetInfo): Promise<void> {
+  //   const mediaId = targetInfo.mediaId;
+  //   // wait media downloaded
+  //
+  //   const proxyId = `${mediaId}.proxy`;
+  //   const proxyPrefix = `P${mediaId}}.proxy`;
+  //   const proxyMedia = new MCMedia(proxyId, this.mDir, proxyPrefix);
+  //   await proxyMedia.prepare();
+  //   if ( !proxyMedia.isAssembled ) { // 数据不存在时, 开始下载;
+  //
+  //   }
+  //   throw new Error(``)
+  // }
 }

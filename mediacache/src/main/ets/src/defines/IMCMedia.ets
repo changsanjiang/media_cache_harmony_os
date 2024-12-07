@@ -26,7 +26,7 @@ export interface IMCMedia extends IMCReadwriteReference<IMCMedia> {
   //
   // 200 或 206 => {start, length};
   // 当 200 请求的响应未指定 content-length 字段时返回 {0, Number.MAX_SAFE_INTEGER}
-  parseContentRange(request: MCDownloadRequest, responseHeaders: MCDownloadResponseHeaders): Promise<MCRange>;
+  parseContentRange(request: MCDownloadRequest, responseHeaders: MCDownloadResponseHeaders): MCRange;
   // 当范围是 {0, Number.MAX_SAFE_INTEGER} 返回临时 content; 下载完成后通过 copyTempContent 保存到正式目录;
   createContentInRange(range: MCRange): Promise<IMCMediaContent>;
   // 当范围是 {0, Number.MAX_SAFE_INTEGER} 需要创建临时 content; 下载完成后通过 copyTempContent 保存到正式目录;
