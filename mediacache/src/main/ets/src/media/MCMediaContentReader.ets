@@ -33,12 +33,13 @@ export class MCMediaContentReader implements IMCMediaContentReader {
 
     MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${mediaId}, offset: ${contentOffset}] Attempting to read data at position ${position} with length ${length}.`);
 
-    if (this.mReading) {
-      throw new Error(`Read operation already in progress. Concurrent operations are not allowed.`);
-    }
-
-    this.mReading = true;
     try {
+      if (this.mReading) {
+        throw new Error(`Read operation already in progress. Concurrent operations are not allowed.`);
+      }
+
+      this.mReading = true;
+
       if (buffer.byteLength === 0) {
         throw new Error("Buffer cannot be empty.");
       }

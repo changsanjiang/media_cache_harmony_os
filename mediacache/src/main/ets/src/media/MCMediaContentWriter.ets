@@ -45,12 +45,13 @@ export class MCMediaContentWriter implements IMCMediaContentWriter {
 
     MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${mediaId}, offset: ${contentOffset}] Attempting to write ${length} bytes of data to file: ${filePath}.`);
 
-    if (this.mWriting) {
-      throw new Error(`Write operation already in progress. Concurrent operations are not allowed.`);
-    }
-
-    this.mWriting = true;
     try {
+      if (this.mWriting) {
+        throw new Error(`Write operation already in progress. Concurrent operations are not allowed.`);
+      }
+
+      this.mWriting = true;
+
       if (data.byteLength < length) {
         throw new Error("Data length mismatch: provided data is smaller than expected length.");
       }

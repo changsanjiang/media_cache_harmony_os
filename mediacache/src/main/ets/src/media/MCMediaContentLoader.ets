@@ -106,13 +106,13 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
 
   async readData(decrypt?: MCMediaContentDecryptHandler): Promise<ArrayBuffer | undefined> {
     MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Attempting to read data.`);
-
-    if (this.mReading) {
-      throw new Error(`Read operation already in progress. Concurrent operations are not allowed.`);
-    }
-
-    this.mReading = true;
     try {
+      if (this.mReading) {
+        throw new Error(`Read operation already in progress. Concurrent operations are not allowed.`);
+      }
+
+      this.mReading = true;
+
       if (this.mAborted) {
         MCLogger.warn(MCLogModule.MCMediaContentLoader, () => 'Read aborted due to loader being aborted.');
         return undefined;
@@ -182,12 +182,13 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
   }
 
   async seekToEndOfReadableRange(): Promise<number> {
-    if (this.mReading) {
-      throw new Error(`Read operation already in progress. Concurrent operations are not allowed.`);
-    }
+    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Attempting to seek to the end of the readable range.`);
 
     try {
-      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Attempting to seek to the end of the readable range.`);
+      if (this.mReading) {
+        throw new Error(`Read operation already in progress. Concurrent operations are not allowed.`);
+      }
+
       if (!this.mContent || !this.mReadRange) {
         MCLogger.warn(MCLogModule.MCMediaContentLoader, () => 'No content available for reading.');
         return 0;
