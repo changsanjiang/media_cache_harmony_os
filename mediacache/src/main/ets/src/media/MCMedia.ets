@@ -254,8 +254,12 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     }
   }
 
-  // http download
-
+  // 解析内容范围
+  // 如果是 206 请求, response 必须指定 content-range 字段;
+  // 如果是 200 请求: 依赖于 content-length 字段, 有些服务器可能不返回这个字段;
+  //
+  // 200 或 206 => {start, length};
+  // 当 200 请求的响应未指定 content-length 字段时返回 {0, Number.MAX_SAFE_INTEGER}
   parseContentRange(request: MCDownloadRequest, responseHeaders: MCDownloadResponseHeaders): MCRange {
     try {
       const requestRangeHeader = request.rangeHeader;
@@ -287,11 +291,11 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       throw error as Error;
     }
   }
-
+  // 当范围是 {0, Number.MAX_SAFE_INTEGER} 返回临时 content; 下载完成后通过 copyTempContent 保存到正式目录;
   createContentInRange(range: MCRange): Promise<IMCMediaContent> {
     return this.createContentAt(range.location, range.length === Number.MAX_SAFE_INTEGER);
   }
-
+  // 当范围是 {0, Number.MAX_SAFE_INTEGER} 需要创建临时 content; 下载完成后通过 copyTempContent 保存到正式目录;
   createContentAt(offset: number, isTemp: boolean): Promise<IMCMediaContent> {
     return this.mTaskQueue.enqueue(() => {
       const content = this.mContentProvider!.createContent(offset, isTemp);
@@ -309,7 +313,6 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       }
     });
   }
-
   copyTempContent(content: IMCMediaContent): Promise<void> {
     return this.mTaskQueue.enqueue(async () => {
       if ( content.isTemp ) {
@@ -327,6 +330,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     });
   }
 
+  // 生成代理内容;
   applyProxy(requestUrl: string, currentUrl: string, contentData: ArrayBuffer): Promise<ArrayBuffer> {
     return this.mProxyHandler!(requestUrl, currentUrl, contentData);
   }

@@ -1,5 +1,4 @@
 import { MCMediaContentLoader } from "./MCMediaContentLoader";
-import { IMCMedia } from "../defines/IMCMedia";
 import { IMCMediaContent, IMCMediaContentWriter } from "../defines/IMCMediaContent";
 import { MCLogModule } from "../defines/MCLogModule";
 import { MCAbortController } from "../utils/MCAbortController";
@@ -10,17 +9,18 @@ import MCLogger from "../utils/MCLogger";
 import { MCRange } from "../utils/MCRange";
 import { BusinessError } from "@kit.BasicServicesKit";
 import { MCUtils } from "../../../../../Index";
+import { MCMedia } from "./MCMedia";
 
 /** 下载全部数据, 通过proxyHandler生成代理内容后写入到content中; */
 export class MCMediaProxyContentLoader extends MCMediaContentLoader {
-  private media: IMCMedia;
+  private media: MCMedia;
   private request: MCDownloadRequest;
   private abortController?: MCAbortController = undefined;
   private content?: IMCMediaContent = undefined;
   private writer?: IMCMediaContentWriter = undefined;
   private mBuffer?: ArrayBuffer = undefined;
 
-  constructor(media: IMCMedia, request: MCDownloadRequest) {
+  constructor(media: MCMedia, request: MCDownloadRequest) {
     if ( request.rangeHeader ) {
       throw new Error(`xxx`); // 目前仅处理200请求, request 的 Header 中不能包含 Range;
     }

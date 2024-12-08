@@ -1,9 +1,5 @@
-import { IMCMediaContent } from "./IMCMediaContent";
 import { IMCReadwriteReference } from "./IMCReadwriteReference";
-import { MCDownloadResponseHeaders } from "../utils/MCDownloadResponseHeaders";
 import { IMCDataRequest } from "./IMCDataRequest";
-import { MCRange } from "../utils/MCRange";
-import { MCDownloadRequest } from "../utils/MCDownloadRequest";
 import { IMCDataResponse } from "./IMCDataResponse";
 import { MCAbortSignal } from "../utils/MCAbortController";
 
@@ -19,21 +15,4 @@ export interface IMCMedia extends IMCReadwriteReference<IMCMedia> {
 
   prepare(): Promise<void>;
   fetch(request: IMCDataRequest, signal?: MCAbortSignal): Promise<IMCDataResponse>; // 调用之前需要确保 media readwrite retained;
-
-  // 解析内容范围
-  // 如果是 206 请求, response 必须指定 content-range 字段;
-  // 如果是 200 请求: 依赖于 content-length 字段, 有些服务器可能不返回这个字段;
-  //
-  // 200 或 206 => {start, length};
-  // 当 200 请求的响应未指定 content-length 字段时返回 {0, Number.MAX_SAFE_INTEGER}
-  parseContentRange(request: MCDownloadRequest, responseHeaders: MCDownloadResponseHeaders): MCRange;
-  // 当范围是 {0, Number.MAX_SAFE_INTEGER} 返回临时 content; 下载完成后通过 copyTempContent 保存到正式目录;
-  createContentInRange(range: MCRange): Promise<IMCMediaContent>;
-  // 当范围是 {0, Number.MAX_SAFE_INTEGER} 需要创建临时 content; 下载完成后通过 copyTempContent 保存到正式目录;
-  createContentAt(offset: number, isTemp: boolean): Promise<IMCMediaContent>; // content readwrite is retained, should release after;
-  destroyTempContent(content: IMCMediaContent): Promise<void>;
-  copyTempContent(content: IMCMediaContent): Promise<void>;
-
-  // 生成代理内容;
-  applyProxy(requestUrl: string, currentUrl: string, contentData: ArrayBuffer): Promise<ArrayBuffer>;
 }

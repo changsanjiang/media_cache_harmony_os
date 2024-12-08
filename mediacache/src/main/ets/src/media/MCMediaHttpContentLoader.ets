@@ -1,4 +1,3 @@
-import { IMCMedia } from "../defines/IMCMedia";
 import { IMCMediaContent, IMCMediaContentWriter } from "../defines/IMCMediaContent";
 import { MCLogModule } from "../defines/MCLogModule";
 import { MCAbortController } from "../utils/MCAbortController";
@@ -9,15 +8,16 @@ import MCLogger from "../utils/MCLogger";
 import { MCRange } from "../utils/MCRange";
 import { MCMediaContentLoader } from "./MCMediaContentLoader";
 import { BusinessError } from "@kit.BasicServicesKit";
+import { MCMedia } from "./MCMedia";
 
 export class MCMediaHttpContentLoader extends MCMediaContentLoader {
-  private media: IMCMedia;
+  private media: MCMedia;
   private request: MCDownloadRequest;
   private abortController?: MCAbortController = undefined;
   private content?: IMCMediaContent = undefined;
   private writer?: IMCMediaContentWriter = undefined;
 
-  constructor(media: IMCMedia, request: MCDownloadRequest) {
+  constructor(media: MCMedia, request: MCDownloadRequest) {
     super();
     this.media = media;
     this.request = request;
