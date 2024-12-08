@@ -96,12 +96,12 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
 
   fetch(request: IMCDataRequest, signal?: MCAbortSignal): Promise<IMCDataResponse> {
     return this.probe(request, signal).then(() => this.mTaskQueue.enqueue(() => this.resolve(request, signal))).catch((error: Error) => {
-      let statusCode = 500;
-      if ( error instanceof MCDataResponseError ) {
-        statusCode = error.statusCode;
+      if ( !(error instanceof MCDataResponseError) ) {
+        return Promise.reject(error);
       }
+
       const response: IMCDataResponse = {
-        statusCode: statusCode
+        statusCode: error.statusCode
       };
       return response;
     });

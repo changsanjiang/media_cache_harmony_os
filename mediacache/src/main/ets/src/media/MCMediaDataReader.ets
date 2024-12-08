@@ -27,6 +27,7 @@ export class MCMediaDataReader implements IMCDataReader {
   private mAbortedCallback?: (reader: IMCDataReader, error?: Error | undefined) => void = undefined;
   private mDoneCallback?: (reader: IMCDataReader) => void = undefined;
   private mFetchAbortController?: MCAbortController = undefined;
+  private mFetching = false;
   private mReading = false;
 
   // 传入之前请先对 media 做一次 readwriteRetain, reader 内部会在操作结束后执行对应的 readwriteRelease;
@@ -57,10 +58,9 @@ export class MCMediaDataReader implements IMCDataReader {
         return;
       }
 
+      this.mFetching = true;
       this.mFetchAbortController = new MCAbortController();
       this.mResponse = await this.mMedia.fetch(this.mProxyRequest, this.mFetchAbortController.signal);
-      this.mFetchAbortController = undefined;
-
       switch (this.mResponse.statusCode) {
         case 200:
           this.mLoaders = (this.mResponse as IMCDataOkResponse).contentLoaders;
@@ -69,6 +69,8 @@ export class MCMediaDataReader implements IMCDataReader {
           this.mLoaders = (this.mResponse as IMCDataPartialContentResponse).contentLoaders;
           break;
       }
+      this.mFetchAbortController = undefined; // clear if fetch success
+      this.mFetching = false;
 
       this.mResponseHeaders = this.generateResponseHeaders(this.mResponse);
       MCLogger.info(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Fetched data with response headers: \n${this.mResponseHeaders}`);
@@ -87,7 +89,13 @@ export class MCMediaDataReader implements IMCDataReader {
     }
     catch (error) {
       MCLogger.error(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Failed to prepare media: ${error.message}, stack: ${error.stack}`);
-      this.abort(error);
+      this.mFetching = false;
+      if ( !this.mAborted ) {
+        this.abort(error);
+      }
+      else {
+        this.clear(error);
+      }
       throw error as Error;
     }
   }
@@ -245,7 +253,7 @@ export class MCMediaDataReader implements IMCDataReader {
       this.mFetchAbortController = undefined;
     }
 
-    this.clear(error);
+    if ( !this.mFetching ) this.clear(error);
 
     if ( this.mAbortedCallback ) {
       MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Executing aborted callback with error: ${error?.message || "None"}.`);
