@@ -113,7 +113,7 @@ export class MCMediaDataReader implements IMCDataReader {
           throw new Error(`Current loader is not done yet.`);
         }
         MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Clearing completed loader.`);
-        this.clearLoader(this.mCurrentLoader);
+        this.clearLoaderEvents(this.mCurrentLoader);
       }
 
       const loader = loaders.shift();
@@ -245,26 +245,7 @@ export class MCMediaDataReader implements IMCDataReader {
       this.mFetchAbortController = undefined;
     }
 
-    const loader = this.mCurrentLoader;
-    if ( loader ) {
-      MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Aborting active loader.`);
-      loader.abort(error);
-      this.clearLoader(loader);
-      this.mCurrentLoader = undefined;
-      MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Active loader cleared.`);
-    }
-
-    if ( this.mLoaders && this.mLoaders.length > 0 ) {
-      MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Aborting remaining loaders. size: ${this.mLoaders!.length}.`);
-      this.mLoaders.forEach((loader) => {
-        this.clearLoader(loader);
-        loader.abort(error);
-      });
-      this.mLoaders = undefined;
-      MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Remaining loaders cleared.`);
-    }
-
-    this.mMedia.readwriteRelease();
+    this.clear(error);
 
     if ( this.mAbortedCallback ) {
       MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Executing aborted callback with error: ${error?.message || "None"}.`);
@@ -272,7 +253,30 @@ export class MCMediaDataReader implements IMCDataReader {
     }
   }
 
-  private clearLoader(loader: IMCMediaContentLoader) {
+  private clear(error?: Error | undefined) {
+    const loader = this.mCurrentLoader;
+    if ( loader ) {
+      MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Aborting active loader.`);
+      loader.abort(error);
+      this.clearLoaderEvents(loader);
+      this.mCurrentLoader = undefined;
+      MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Active loader cleared.`);
+    }
+
+    if ( this.mLoaders && this.mLoaders.length > 0 ) {
+      MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Aborting remaining loaders. size: ${this.mLoaders!.length}.`);
+      this.mLoaders.forEach((loader) => {
+        this.clearLoaderEvents(loader);
+        loader.abort(error);
+      });
+      this.mLoaders = undefined;
+      MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Remaining loaders cleared.`);
+    }
+
+    this.mMedia.readwriteRelease();
+  }
+
+  private clearLoaderEvents(loader: IMCMediaContentLoader) {
     MCLogger.debug(MCLogModule.MCMediaDataReader, () => `[clientId: ${this.mClientId}] Clearing loader event listeners.`);
 
     loader.off('newDataReadable');
