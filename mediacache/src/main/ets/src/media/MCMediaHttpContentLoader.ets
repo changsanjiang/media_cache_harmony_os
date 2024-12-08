@@ -41,7 +41,12 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
       this.complete(res);
     }).catch((error: Error) => {
       MCLogger.error(MCLogModule.MCMediaContentLoader, () => `Error during download for URL: ${this.request.url} - ${(error as Error).message ?? ((error as BusinessError).code)}`);
-      this.abort(error);
+      if ( !this.mAborted ) {
+        this.abort(error);
+      }
+      else {
+        this.clearContent();
+      }
     });
   }
 
@@ -104,7 +109,12 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
     }
     catch (error) {
       MCLogger.error(MCLogModule.MCMediaContentLoader, () => `Error in onDataReceive for URL: ${this.request.url} - ${(error as Error).message}`);
-      this.abort(error);
+      if ( !this.mAborted ) {
+        this.abort(error);
+      }
+      else {
+        this.clearContent();
+      }
       throw error as Error;
     }
   }

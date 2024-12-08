@@ -233,7 +233,7 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
     this.clear();
 
     setTimeout(() => {
-      if ( this.mDoneCallback ) {
+      if ( !this.mAborted && this.mDoneCallback ) {
         MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Executing done callback.`);
         this.mDoneCallback(this);
       }
@@ -253,10 +253,12 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
 
     MCLogger.warn(MCLogModule.MCMediaContentLoader, () => `Loader marked as aborted. Final error state: ${error?.message || "None"}.`);
 
-    if (this.mAbortedCallback) {
-      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Executing aborted callback with error: ${error?.message || "None"}.`);
-      this.mAbortedCallback(this, error);
-    }
+    setTimeout(() => {
+      if (this.mAbortedCallback) {
+        MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Executing aborted callback with error: ${error?.message || "None"}.`);
+        this.mAbortedCallback(this, error);
+      }
+    });
   }
 
   // 清理操作执行之前, 子类可以做一些自定义操作;

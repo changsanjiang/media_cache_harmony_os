@@ -1,6 +1,6 @@
 import { MCMediaContentLoader } from "./MCMediaContentLoader";
 import { IMCMedia } from "../defines/IMCMedia";
-import { IMCMediaContent } from "../defines/IMCMediaContent";
+import { IMCMediaContent, IMCMediaContentWriter } from "../defines/IMCMediaContent";
 import { MCLogModule } from "../defines/MCLogModule";
 import { MCAbortController } from "../utils/MCAbortController";
 import MCDownload from "../utils/MCDownload";
@@ -17,11 +17,10 @@ export class MCMediaProxyContentLoader extends MCMediaContentLoader {
   private request: MCDownloadRequest;
   private abortController?: MCAbortController = undefined;
   private content?: IMCMediaContent = undefined;
-
+  private writer?: IMCMediaContentWriter = undefined;
   private mBuffer?: ArrayBuffer = undefined;
-  private mProxyContentHandler: (contentData: ArrayBuffer) => ArrayBuffer | Promise<ArrayBuffer>;
 
-  constructor(media: IMCMedia, request: MCDownloadRequest, proxyContentHandler: (contentData: ArrayBuffer) => ArrayBuffer | Promise<ArrayBuffer>) {
+  constructor(media: IMCMedia, request: MCDownloadRequest) {
     if ( request.rangeHeader ) {
       throw new Error(`xxx`); // 目前仅处理200请求, request 的 Header 中不能包含 Range;
     }
@@ -29,7 +28,6 @@ export class MCMediaProxyContentLoader extends MCMediaContentLoader {
     super();
     this.media = media;
     this.request = request;
-    this.mProxyContentHandler = proxyContentHandler;
   }
 
   protected async onPrepare(): Promise<void> {
@@ -50,14 +48,19 @@ export class MCMediaProxyContentLoader extends MCMediaContentLoader {
       this.complete(res);
     }).catch((error: Error) => {
       MCLogger.error(MCLogModule.MCMediaContentLoader, () => `Error during download for URL: ${this.request.url} - ${(error as Error).message ?? ((error as BusinessError).code)}`);
-      this.abort(error);
+      if ( !this.mAborted ) {
+        this.abort(error);
+      }
+      else {
+        this.clearContent();
+      }
     });
   }
 
   private async onHeadersReceive(headers: MCDownloadResponseHeaders): Promise<void> {
     MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Headers received for URL: ${this.request.url}: ${JSON.stringify(headers)}`);
 
-    if ( this.mAborted || this.mDone ) {
+    if ( this.mAborted ) {
       MCLogger.warn(MCLogModule.MCMediaContentLoader, () => `Loader for ${this.request.url} is aborted or done, ignoring headers.`);
       return;
     }
@@ -66,7 +69,7 @@ export class MCMediaProxyContentLoader extends MCMediaContentLoader {
   private async onDataReceive(data: ArrayBuffer): Promise<void> {
     MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Data received for URL: ${this.request.url}: ${data.byteLength} bytes.`);
 
-    if ( this.mAborted || this.mDone ) {
+    if ( this.mAborted ) {
       MCLogger.warn(MCLogModule.MCMediaContentLoader, () => `Loader for ${this.request.url} is aborted or done, ignoring data.`);
       return;
     }
@@ -94,14 +97,45 @@ export class MCMediaProxyContentLoader extends MCMediaContentLoader {
       return;
     }
 
-    this.content = await this.media.createContentAt(0, true);
-    const data = this.mBuffer ? await this.mProxyContentHandler(this.mBuffer) : undefined;
-    if ( data ) await this.content.writeData(data, data.byteLength);
-    await this.media.copyTempContent(this.content); // 临时内容下载完成, 复制到正式目录;
-    MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Temporary content copied for URL: ${this.request.url}.`);
+    try {
+      this.content = await this.media.createContentAt(0, true);
+      if ( this.mAborted ) {
+        throw new Error(`The contet loader has been aborted.`);
+      }
 
-    const range = new MCRange(this.content.contentOffset, this.content.length);
-    this.onContentReady(this.content, range); // 临时内容下载完成, 通知父类 contentReady;
+      // apply proxy;
+      const data = this.mBuffer ? await this.media.applyProxy(res.requestUrl, res.currentUrl, this.mBuffer) : undefined;
+      if ( this.mAborted ) {
+        throw new Error(`xxx`);
+      }
+
+      // write buffer to content;
+      this.writer = this.content.createWriter();
+      if ( data ) await this.writer.writeData(data, data.byteLength);
+      if ( this.mAborted ) {
+        throw new Error(`xxx`);
+      }
+
+      // copy temp content;
+      await this.media.copyTempContent(this.content); // 临时内容下载完成, 复制到正式目录;
+      if ( this.mAborted ) {
+        throw new Error(`xxx`);
+      }
+      MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Temporary content copied for URL: ${this.request.url}.`);
+
+      // content ready to read
+      const range = new MCRange(this.content.contentOffset, this.content.length);
+      this.onContentReady(this.content, range); // 临时内容下载完成, 通知父类 contentReady;
+    }
+    catch (error) {
+      if ( !this.mAborted ) {
+        this.abort(error);
+      }
+      else {
+        this.clearContent();
+      }
+      throw error as Error;
+    }
   }
 
   protected onClearBefore(): void {
@@ -115,11 +149,15 @@ export class MCMediaProxyContentLoader extends MCMediaContentLoader {
   }
 
   protected onClearAfter(): void {
-    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Executing custom operations after clearing.`);
+    this.clearContent();
+  }
 
+  private clearContent() {
     if ( this.content ) {
       MCLogger.debug(MCLogModule.MCMediaContentLoader, () => 'Closing content writer.');
-      !this.content.isTemp ? this.content.closeWrite() : this.media.destroyTempContent(this.content);
+      this.writer?.close();
+      this.writer = undefined;
+      if ( this.content.isTemp ) this.media.destroyTempContent(this.content);
       this.content = undefined;
     }
   }

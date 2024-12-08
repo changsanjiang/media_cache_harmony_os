@@ -11,7 +11,7 @@ import { IMCReadwriteReference } from "./IMCReadwriteReference";
 export interface IMCAsset extends IMCReadwriteReference<IMCAsset> {
   readonly id: string;
 
-  readonly isStored: Promise<boolean>;
+  readonly isStored: boolean;
   readonly completeness: Promise<number>; // 完成度; [0, 1];
 
   prepare(): Promise<void>;

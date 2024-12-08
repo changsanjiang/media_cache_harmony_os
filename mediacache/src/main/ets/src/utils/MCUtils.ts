@@ -1,5 +1,5 @@
 import { cryptoFramework } from '@kit.CryptoArchitectureKit';
-import { buffer } from '@kit.ArkTS';
+import { buffer, util } from '@kit.ArkTS';
 
 namespace MCUtils {
   export function objectToRecord<T>(obj: Object): Record<string, T> {
@@ -59,6 +59,15 @@ namespace MCUtils {
     view.set(new Uint8Array(buffer1), 0);
     view.set(new Uint8Array(buffer2), buffer1.byteLength);
     return mergedBuffer;
+  }
+
+  export function bufferToString(buffer: ArrayBuffer): string {
+    let decoder = util.TextDecoder.create('utf-8');
+    return decoder.decodeToString(new Uint8Array(buffer));
+  }
+
+  export function stringToBuffer(string: string): ArrayBuffer {
+    return buffer.from(string, 'utf-8').buffer;
   }
 }
 

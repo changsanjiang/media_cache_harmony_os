@@ -23,6 +23,7 @@ import { IMCDataOkResponse, IMCDataPartialContentResponse, IMCDataResponse } fro
 import { MCDataResponseError } from "../defines/MCDataResponseError";
 import { MCSerialQueue } from "../../../../../Index";
 import { MCAbortSignal } from "../utils/MCAbortController";
+import { MCMediaProxyContentLoader } from "./MCMediaProxyContentLoader";
 
 export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   readonly id: string;
@@ -33,20 +34,19 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   private mAssembled = false; // 是否已组合完成, 是否已得到完整内容; 虽然得到了完整内容, 但是文件夹下可能还存在正在读取的冗余数据;
   private mFullyTrimmed = false; // 所有冗余数据都已删除;
   private mTaskQueue = new MCSerialQueue();
-  private mContentFileNamePrefix: string;
+  private mProxyHandler?: (requestUrl: string, currentUrl: string, data: ArrayBuffer) => Promise<ArrayBuffer> = undefined; // 代理内容;
 
-  /// `id` 和 `contentFileNamePrefix` 中不能包含下划线;
-  constructor(id: string, dir: string, contentFileNamePrefix: string = id) {
+  /// `id` 中不能包含下划线;
+  ///
+  /// proxy: 内容需要代理时设置;
+  constructor(id: string, dir: string, proxy?: (requestUrl: string, currentUrl: string, data: ArrayBuffer) => Promise<ArrayBuffer>) {
     if (id.includes("_")) {
       throw new Error(`The media ID '${id}' is invalid. Media IDs cannot contain underscores ('_').`);
-    }
-    if ( contentFileNamePrefix.includes("_") ) {
-      throw new Error(`The content file name prefix '${contentFileNamePrefix}' is invalid. File name prefixes cannot contain underscores ('_').`);
     }
     super();
     this.id = id;
     this.mDir = dir;
-    this.mContentFileNamePrefix = contentFileNamePrefix;
+    this.mProxyHandler = proxy;
     MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${id}]: MCMedia instance created with dir ${dir}.`);
   }
 
@@ -70,7 +70,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   async prepare(): Promise<void> {
     MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Preparing media`);
     try {
-      this.mContentProvider = new MCMediaContentProvider(this.id, this.mDir, this.mContentFileNamePrefix);
+      this.mContentProvider = new MCMediaContentProvider(this.id, this.mDir, this.id);
       const contents = await this.mContentProvider.prepare();
       contents?.forEach((content) => this.mNodeList.upsertNode(content.contentOffset, content));
       this.mMetadata = await MCDatabase.queryMediaMetadata(this.id);
@@ -128,8 +128,12 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       }
 
       const statusCode = response.statusCode;
-      if ( statusCode != 200 && statusCode != 206 ) {
+      if ( statusCode !== 200 && statusCode !== 206 ) {
         throw new MCDataResponseError(statusCode, 'xxx');
+      }
+
+      if ( this.mProxyHandler && statusCode !== 200 ) {
+        throw new MCDataResponseError(400, 'xxx'); // 内容代理仅支持200请求;
       }
 
       // 探测服务器支持的情况
@@ -144,7 +148,8 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       const contentType = contentTypeHeader || 'application/octet-stream';
       const byteRangeAccessSupported = statusCode === 206 || acceptRangesHeader === 'bytes';
 
-      const contentLength = contentLengthHeader ? parseInt(contentLengthHeader, 10) : Number.MAX_SAFE_INTEGER;
+      /// 当内容需要代理时, 最终的数据长度只有在生成代理内容后才能确定, 这里需要暂时设置为 Number.MAX_SAFE_INTEGER;
+      const contentLength = !this.mProxyHandler && contentLengthHeader ? parseInt(contentLengthHeader, 10) : Number.MAX_SAFE_INTEGER;
       const contentRange = contentRangeHeader ? parseResponseContentRange(contentRangeHeader) : undefined;
       const totalLength = contentRange ? contentRange.size : contentLength;
 
@@ -195,7 +200,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
             leftRequest.setHeader('range', toRequestRangeHeader(toRequestRange(leftRange)));
             contentLoaders.push(new MCMediaHttpContentLoader(this, leftRequest));
           }
-          contentLoaders.push(new MCMediaFileContentLoader(content.readwriteRetain(), intersection));
+          contentLoaders.push(new MCMediaFileContentLoader(content, intersection));
           loadRange = new MCRange(intersection.max, loadRange.max - intersection.max);
         }
         if ( loadRange.length === 0 || readableRange.location > loadRange.max ) {
@@ -231,7 +236,12 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       return response;
     }
     else {
-      contentLoaders.push(new MCMediaHttpContentLoader(this, new MCDownloadRequest(url, proxyRequest.headers)));
+      if ( !this.mProxyHandler ) {
+        contentLoaders.push(new MCMediaHttpContentLoader(this, new MCDownloadRequest(url, proxyRequest.headers)));
+      }
+      else {
+        contentLoaders.push(new MCMediaProxyContentLoader(this, new MCDownloadRequest(url, proxyRequest.headers)));
+      }
 
       const response: IMCDataOkResponse = {
         statusCode: 200,
@@ -286,16 +296,14 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     return this.mTaskQueue.enqueue(() => {
       const content = this.mContentProvider!.createContent(offset, isTemp);
       this.mNodeList.upsertNode(offset, content);
-      return content.readwriteRetain();
+      return content;
     });
   }
 
   destroyTempContent(content: IMCMediaContent): Promise<void> {
     return this.mTaskQueue.enqueue(async () => {
       if ( content.isTemp ) {
-        if ( !(await content.destroy()) ) {
-          throw new Error(`xxx`);
-        }
+        await content.destroy();
         const node = this.mNodeList.getNodeBy(content.contentOffset);
         node?.removeContent(content);
       }
@@ -317,6 +325,10 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
         MCDatabase.saveMediaMetadata(this.id, metadata);
       }
     });
+  }
+
+  applyProxy(requestUrl: string, currentUrl: string, contentData: ArrayBuffer): Promise<ArrayBuffer> {
+    return this.mProxyHandler!(requestUrl, currentUrl, contentData);
   }
 
   protected getInstance(): MCMedia {
@@ -393,11 +405,6 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       const longestContent = node.longestContent!;
       const redundantContents = node.filterContents((content) => content !== longestContent);
       for (let redundant of redundantContents) {
-
-        if ( (redundant.readwriteCount) !== 0 ) {
-          MCLogger.warn(MCLogModule.MCMedia, () => `xxx`);
-        }
-
         await redundant.destroy();
         node.removeContent(redundant);
         MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Destroyed redundant content at offset: ${redundant.contentOffset}.`);
@@ -407,17 +414,17 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
 
   // 合并数据; 被合并后返回 true;
   // writer.contentOffset <= reader.contentOffset;
-  private async mergeDataUnsafe(writer: IMCMediaContent, reader: IMCMediaContent): Promise<boolean> {
-    MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Attempting to merge data between writer at offset ${writer.contentOffset} and reader at offset ${reader.contentOffset}.`);
-    if ( writer.contentOffset > reader.contentOffset ) {
+  private async mergeDataUnsafe(writerContent: IMCMediaContent, readerContent: IMCMediaContent): Promise<boolean> {
+    MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Attempting to merge data between writer at offset ${writerContent.contentOffset} and reader at offset ${readerContent.contentOffset}.`);
+    if ( writerContent.contentOffset > readerContent.contentOffset ) {
       // writer的内容偏移量 必须在 reader 的前面, 这样才能在存在交集时合并数据;
-      const errorMsg = `Invalid offsets: writer offset (${writer.contentOffset}) must be less than or equal to reader offset (${reader.contentOffset}).`;
+      const errorMsg = `Invalid offsets: writer offset (${writerContent.contentOffset}) must be less than or equal to reader offset (${readerContent.contentOffset}).`;
       MCLogger.error(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: ${errorMsg}`);
       throw new Error(errorMsg);
     }
 
-    const curRange = new MCRange(writer.contentOffset, writer.length);
-    const nextRange = new MCRange(reader.contentOffset, reader.length);
+    const curRange = new MCRange(writerContent.contentOffset, writerContent.length);
+    const nextRange = new MCRange(readerContent.contentOffset, readerContent.length);
     // 如果 writer 中包含 reader 的所有数据, return YES;
     if (curRange.contains(nextRange)) {
       MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Writer range fully contains reader range. Skipping merge.`);
@@ -432,28 +439,24 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       // 读取 read 中未相交的部分;
       const readRange = new MCRange(curRange.max, nextRange.max - curRange.max);
       let position = readRange.location;
-      writer.readwriteRetain();
-      reader.readwriteRetain();
+      let writer = writerContent.createWriter();
+      let reader = readerContent.createReader();
       try {
         while (position < readRange.max) {
           const len = await reader.readData(position, buffer, buffer.byteLength);
           if (len === 0) break;
           position += await writer.writeData(buffer, len);
         }
-        writer.readwriteRelease();
-        reader.readwriteRelease();
-        await writer.closeWrite();
-        await reader.closeRead();
+        await reader.close();
+        await writer.close();
 
         MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Merge completed. Data from reader successfully written to writer.`);
         return true;
       }
       catch (error) {
         MCLogger.error(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Error during merge: ${error.message}\nStack: ${error.stack}`);
-        writer.readwriteRelease();
-        reader.readwriteRelease();
-        reader.closeRead();
-        writer.closeWrite();
+        reader.close();
+        writer.close();
         throw error as Error;
       }
     }
