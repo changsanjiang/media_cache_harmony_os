@@ -35,7 +35,7 @@ namespace MCDownload {
   }
 
   export interface Options {
-    headersReceive: (headers: MCDownloadResponseHeaders) => void | Promise<void>;
+    headersReceive: (headers: MCDownloadResponseHeaders) => void;
     dataReceive: (data: ArrayBuffer) => void | Promise<void>;
     dataEnd?: () => void;
     signal?: MCAbortSignal;

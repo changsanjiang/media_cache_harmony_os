@@ -12,6 +12,7 @@ export class MCMediaContent implements IMCMediaContent {
   private mReaders?: Map<number, MCMediaContentReader> = undefined;
   private mWriter?: MCMediaContentWriter = undefined;
   private mDataWrittenCallback?: (content: IMCMediaContent) => void = undefined;
+  private mWriteCloseCallback?: (content: IMCMediaContent) => void = undefined;
   private mTemp = false; // 是否是临时内容
   private mReadPromiseLink?: Promise<void> = undefined;
   private mWritePromise?: Promise<void> = undefined;
@@ -86,7 +87,7 @@ export class MCMediaContent implements IMCMediaContent {
       throw new Error("Content has been destroyed, cannot create writer.");
     }
 
-    if ( this.mWriter ) {
+    if ( this.mWriter && !this.mWriter.isClosed ) {
       throw new Error("Only one writer can be created."); // 只允许创建一个writer写入数据, 不能创建多个writer写入数据;
     }
 
@@ -103,6 +104,9 @@ export class MCMediaContent implements IMCMediaContent {
       writer.on('closed', (writer: MCMediaContentWriter) => {
         this.mWriter = undefined;
         this.mWritePromise = undefined;
+        if ( this.mWriteCloseCallback ) {
+          this.mWriteCloseCallback(this);
+        }
         writer.off('closed');
         resolve();
       });
@@ -123,12 +127,26 @@ export class MCMediaContent implements IMCMediaContent {
     return waits.length > 0 ? Promise.all(waits).then(() => this.deleteFile()) : this.deleteFile();
   }
 
-  on(_: "dataWritten", callback: (content: IMCMediaContent) => void): void {
-    this.mDataWrittenCallback = callback;
+  on(event: "dataWritten" | "writeClose", callback: (content: IMCMediaContent) => void): void {
+    switch (event) {
+      case "dataWritten":
+        this.mDataWrittenCallback = callback;
+        break;
+      case "writeClose":
+        this.mWriteCloseCallback = callback;
+        break;
+    }
   }
 
-  off(_: "dataWritten"): void {
-    this.mDataWrittenCallback = undefined;
+  off(event: "dataWritten" | "writeClose"): void {
+    switch (event) {
+      case "dataWritten":
+        this.mDataWrittenCallback = undefined;
+        break;
+      case "writeClose":
+        this.mWriteCloseCallback = undefined;
+        break;
+    }
   }
 
   private onDataWritten(): void {

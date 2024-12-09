@@ -46,7 +46,7 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
       }
       media = await this.mInitPromises.get(mediaId)!;
     }
-    return media.readwriteRetain();
+    return media;
   }
 
   protected getInstance(): HLSAsset {

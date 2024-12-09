@@ -16,6 +16,10 @@ export class MCMediaContentWriter implements IMCMediaContentWriter {
     this.mContent = content;
   }
 
+  get isClosed(): boolean {
+    return this.mClosed;
+  }
+
   on(event: 'dataWritten' | 'closed', callback: Function): void {
     switch (event) {
       case 'dataWritten':

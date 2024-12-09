@@ -9,7 +9,6 @@ namespace MCAssetManager {
   const mMap: Map<string, IMCAsset> = new Map();
   const mInitPromises: Map<string, Promise<IMCAsset>> = new Map();
 
-  // asset readwrite retained, should release after;
   export async function getAssetBy(requestTarget: string): Promise<IMCAsset> {
     const targetInfo = MCURL.parse(requestTarget);
     const assetType = targetInfo.assetType;
@@ -23,7 +22,7 @@ namespace MCAssetManager {
 
       asset = await mInitPromises.get(assetId);
     }
-    return asset!.readwriteRetain();
+    return asset!;
   }
 
   async function initializeAsset(assetId: string, assetType: MCAssetType): Promise<IMCAsset> {

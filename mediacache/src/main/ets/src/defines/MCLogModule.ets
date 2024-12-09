@@ -7,6 +7,5 @@ export enum MCLogModule {
   MCMediaContent = 'MCMediaContent',
   MCMediaContentLoader = 'MCMediaContentLoader',
   MCMediaDataFetcher = 'MCMediaDataFetcher',
-  MCMediaDataReader = 'MCMediaDataReader',
-  MCAssetReader = 'MCAssetReader',
+  MCAssetDataFetcher = 'MCAssetDataFetcher',
 }

@@ -17,6 +17,10 @@ export class MCMediaContentReader implements IMCMediaContentReader {
     this.mContent = content;
   }
 
+  get isClosed(): boolean {
+    return this.mClosed;
+  }
+
   on(_: 'closed', callback: (reader: MCMediaContentReader) => void): void {
     this.mClosedCallback = callback;
   }
