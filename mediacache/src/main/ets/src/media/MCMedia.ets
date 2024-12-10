@@ -67,7 +67,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   }
 
   async prepare(): Promise<void> {
-    MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Preparing media`);
+    MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Starting prepare.`);
     try {
       this.mContentProvider = new MCMediaContentProvider(this.id, this.mDir, this.id);
       const contents = await this.mContentProvider.prepare();
@@ -181,41 +181,41 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     const contentLoaders: IMCMediaContentLoader[] = [];
     if (metadata.byteRangeAccessSupported && metadata.totalLength > 0) {
       const requestRangeHeader = proxyRequest.headers?.['range'];
-      const contentRange = requestRangeHeader ? this.parseLoadRange(requestRangeHeader, totalLength) : new MCRange(0, totalLength);
+      const contentRange = requestRangeHeader ? this.generateContentRange(requestRangeHeader, totalLength) : new MCRange(0, totalLength);
 
-      let loadRange = new MCRange(contentRange.location, contentRange.length);
-      let curNode: IMCMediaContentNode | undefined = this.mNodeList.findClosestLeftNode(loadRange.location) ?? this.mNodeList.head;
+      let readRange = new MCRange(contentRange.location, contentRange.length);
+      let curNode: IMCMediaContentNode | undefined = this.mNodeList.findClosestLeftNode(readRange.location) ?? this.mNodeList.head;
 
-      MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Load range parsed as: ${JSON.stringify(loadRange)}`);
+      MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Read range parsed as: ${JSON.stringify(readRange)}`);
 
       while (curNode) {
         // 获取当前长度最长的内容
         const content = curNode.longestContent!; // 每个节点中都包含至少一个内容;
         // 可读取的范围
         const readableRange = new MCRange(content.contentOffset, content.length);
-        const intersection = loadRange.intersection(readableRange);
+        const intersection = readRange.intersection(readableRange);
         // 如果存在交集
         if ( intersection ) {
           // 获取左侧未下载的部分
-          if ( intersection.location > loadRange.location ) {
-            const leftRange = new MCRange(loadRange.location, intersection.location - loadRange.location);
+          if ( intersection.location > readRange.location ) {
+            const leftRange = new MCRange(readRange.location, intersection.location - readRange.location);
             const leftRequest = new MCDownloadRequest(url, proxyRequest.headers);
             leftRequest.setHeader('range', toRequestRangeHeader(toRequestRange(leftRange)));
             contentLoaders.push(new MCMediaHttpContentLoader(this, leftRequest));
           }
           contentLoaders.push(new MCMediaFileContentLoader(content, intersection));
-          loadRange = new MCRange(intersection.max, loadRange.max - intersection.max);
+          readRange = new MCRange(intersection.max, readRange.max - intersection.max);
         }
-        if ( loadRange.length === 0 || readableRange.location > loadRange.max ) {
+        if ( readRange.length === 0 || readableRange.location > readRange.max ) {
           break;
         }
         curNode = curNode.next;
       }
 
       // 剩余未下载的部分;
-      if (loadRange.length !== 0) {
+      if (readRange.length !== 0) {
         const request = new MCDownloadRequest(url, proxyRequest.headers);
-        request.setHeader('range', toRequestRangeHeader(toRequestRange(loadRange)));
+        request.setHeader('range', toRequestRangeHeader(toRequestRange(readRange)));
         contentLoaders.push(new MCMediaHttpContentLoader(this,request));
       }
 
@@ -484,7 +484,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     return false;
   }
 
-  private parseLoadRange(requestRangeHeader: string, totalLength: number): MCRange {
+  private generateContentRange(requestRangeHeader: string, totalLength: number): MCRange {
     if (!requestRangeHeader) {
       throw new Error("Missing range header in the request.");
     }
