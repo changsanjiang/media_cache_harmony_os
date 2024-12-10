@@ -9,6 +9,7 @@ import { IMCHttpOkResponseHeaders,
   IMCHttpPartialContentResponseHeaders,
   IMCHttpResponseHeaders } from "../defines/IMCHttpResponseHeaders";
 import { buffer, util } from "@kit.ArkTS";
+import { MCURL } from "../../../../../Index";
 
 export class MCHttpResponse implements IMCHttpResponse {
   private mClientId: number;
@@ -25,11 +26,11 @@ export class MCHttpResponse implements IMCHttpResponse {
   constructor(clientId: number, request: IMCHttpRequest) {
     this.mClientId = clientId;
     this.mRequest = request;
-    MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${clientId}] Instance created for request: ${JSON.stringify(request)}.`);
+    MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${clientId}] Instance created for URL: ${MCURL.parseUrl(request.requestTarget)}, request: ${JSON.stringify(request)}.`);
   }
 
   async prepare(): Promise<void> {
-    MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Preparing response for request: ${JSON.stringify(this.mRequest)}`);
+    MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Preparing response.`);
     try {
       const asset = await MCAssetManager.getAssetBy(this.mRequest.requestTarget);
       this.mFetcher = new MCAssetDataFetcher(this.mClientId, asset, {
@@ -59,7 +60,7 @@ export class MCHttpResponse implements IMCHttpResponse {
       MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Preparing to send response headers.`);
       const rawStr = this.generateResponseHeaders(responseHeaders);
       await this.mHeadersReceiveCallback?.(this, rawStr);
-      MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Response headers have been sent successfully. Headers are below: \n${responseHeaders}`);
+      MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Response headers have been sent successfully. Headers are below: \n${rawStr}`);
     }
     catch (error) {
       this.onError(error);
@@ -96,7 +97,7 @@ export class MCHttpResponse implements IMCHttpResponse {
         dataView.set(chunkFooter, chunkHeader.byteLength + data.byteLength);
         await this.mDataReceiveCallback?.(this, chunkedData);
       }
-      MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Sent ${this.mChunked ? 'chunked' : ''} data successfully: ${data.byteLength} bytes.`);
+      MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Sent ${this.mChunked ? 'chunked ' : ''}data successfully: ${data.byteLength} bytes.`);
     }
     catch (error) {
       this.onError(error);
