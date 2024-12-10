@@ -136,7 +136,7 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
         const content = MCUtils.bufferToString(data);
         // variantStreamSelectionHandler?: HLSDefines.VariantStreamSelectionHandler, renditionSelectionHandler?: HLSDefines.RenditionSelectionHandler
         const proxyContent = await HLSParser.proxy(this.id, content, requestUrl, currentUrl);
-        if ( mediaId === this.id ) this.initializePlaylist(proxyContent);
+        if ( mediaId === this.id ) await this.initializePlaylist(proxyContent);
         return MCUtils.stringToBuffer(proxyContent);
       }
     }
@@ -148,7 +148,20 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
   }
 
   private async calculateCompleteness(): Promise<number> {
+    if ( this.mPlaylist ) {
+      if ( this.mPlaylist.allItems?.length === 0 ) {
+        return 1;
+      }
 
+      if ( this.mPlaylist.segments ) {
+        // calculate segments progress
+        const promises = this.mPlaylist.segments.map((item) => this.getMediaBy(item.uri!).then((media) => media.completeness));
+        return Promise.all(promises).then((progresses) => ((progresses.reduce((prev, cur) => prev + cur, 0)) / this.mPlaylist!.segments!.length));
+      }
+      else {
+        return this.mVariantStreamAsset!.completeness;
+      }
+    }
     return 0;
   }
 
