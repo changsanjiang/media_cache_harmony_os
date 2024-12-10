@@ -23,6 +23,7 @@ import { IMCDataOkResponse, IMCDataPartialContentResponse, IMCDataResponse } fro
 import { MCDataResponseError } from "../defines/MCDataResponseError";
 import { MCAbortSignal } from "../utils/MCAbortController";
 import { MCMediaProxyContentLoader } from "./MCMediaProxyContentLoader";
+import MCUtils from "../utils/MCUtils";
 
 export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   readonly id: string;
@@ -106,6 +107,37 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     });
   }
 
+  async readAllData(): Promise<ArrayBuffer | undefined> {
+    if ( this.mAssembled ) {
+      if ( this.mRestructurePromise ) {
+        await this.mRestructurePromise;
+      }
+
+      let buffer: ArrayBuffer | undefined = undefined;
+      let node = this.mNodeList.head;
+      let offset = 0;
+      while (node) {
+        const content = node.longestContent;
+        if ( content ) {
+          const contentOffset = content.contentOffset;
+          const contentLength = content.length;
+          const readLen = (contentOffset + contentLength) - offset;
+          if ( readLen > 0 ) {
+            const reader = content.createReader();
+            const data = new ArrayBuffer(readLen);
+            await reader.readData(offset, data, readLen);
+            buffer = buffer ? MCUtils.mergeArrayBuffers(buffer, data) : data;
+            await reader.close();
+            offset += readLen;
+          }
+        }
+        node = node.next;
+      }
+      return buffer;
+    }
+    return undefined;
+  }
+
   // 探测元数据
   private probe(proxyRequest: IMCDataRequest, signal?: MCAbortSignal): Promise<void> {
     if ( this.mMetadata ) {
@@ -145,10 +177,11 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       const contentLengthHeader: string | undefined = headers['content-length'];
 
       const contentType = contentTypeHeader || 'application/octet-stream';
-      const byteRangeAccessSupported = statusCode === 206 || acceptRangesHeader === 'bytes';
+      const byteRangeAccessSupported = this.mProxyHandler ? false : statusCode === 206 || acceptRangesHeader === 'bytes';
 
-      /// 当内容需要代理时, 最终的数据长度只有在生成代理内容后才能确定, 这里需要暂时设置为 Number.MAX_SAFE_INTEGER;
-      const contentLength = !this.mProxyHandler && contentLengthHeader ? parseInt(contentLengthHeader, 10) : Number.MAX_SAFE_INTEGER;
+      /// - 情况1: 当内容需要代理时, 最终的数据长度只有在生成代理内容后才能确定, 这里需要暂时设置为 Number.MAX_SAFE_INTEGER;
+      /// - 情况2: 有些服务器不会返回 contentLengthHeader, 这里需要暂时设置 Number.MAX_SAFE_INTEGER;
+      const contentLength = this.mProxyHandler ? Number.MAX_SAFE_INTEGER : (contentLengthHeader ? parseInt(contentLengthHeader, 10) : Number.MAX_SAFE_INTEGER);
       const contentRange = contentRangeHeader ? parseResponseContentRange(contentRangeHeader) : undefined;
       const totalLength = contentRange ? contentRange.size : contentLength;
 
@@ -219,11 +252,24 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
         contentLoaders.push(new MCMediaHttpContentLoader(this,request));
       }
 
-      const response: IMCDataPartialContentResponse = {
-        statusCode: 206,
+      // 206
+      if ( requestRangeHeader ) {
+        const response: IMCDataPartialContentResponse = {
+          statusCode: 206,
+          contentType: contentType,
+          contentRange: contentRange,
+          totalLength: totalLength,
+          contentLoaders: contentLoaders
+        };
+        return response;
+      }
+
+      // 200
+      const response: IMCDataOkResponse = {
+        statusCode: 200,
         contentType: contentType,
-        contentRange: contentRange,
-        totalLength: totalLength,
+        contentLength: totalLength,
+        byteRangeAccessSupported: true,
         contentLoaders: contentLoaders
       };
       return response;

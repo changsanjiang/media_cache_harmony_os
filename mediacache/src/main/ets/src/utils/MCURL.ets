@@ -26,7 +26,7 @@ namespace MCURL {
     readonly url: string;
     readonly assetType: MCAssetType;
     readonly assetId: string;
-    readonly isRoot: boolean; // 是否是根文件;
+    readonly isRoot: boolean; // 是否是根文件; 根文件的媒体id和资产id一致;
     readonly mediaId: string;
   }
 

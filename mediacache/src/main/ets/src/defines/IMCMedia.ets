@@ -15,4 +15,8 @@ export interface IMCMedia extends IMCReadwriteReference<IMCMedia> {
 
   prepare(): Promise<void>;
   fetch(request: IMCDataRequest, signal?: MCAbortSignal): Promise<IMCDataResponse>; // 调用之前需要确保 media readwrite retained;
+
+  // 如果数据组合完成, 通过该方法可以获取媒体所有数据;
+  // 请谨慎使用, 该方法仅适合获取小文件的所有数据;
+  readAllData(): Promise<ArrayBuffer | undefined>;
 }

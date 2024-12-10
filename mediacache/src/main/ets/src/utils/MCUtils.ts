@@ -50,7 +50,8 @@ namespace MCUtils {
     // 截取字符串并拼接替换内容
     const before = str.slice(0, start); // 替换前部分
     const after = str.slice(start + length); // 替换后部分
-    return before + replacement + after;
+    const final = before + replacement + after
+    return final;
   }
 
   export function mergeArrayBuffers(buffer1: ArrayBuffer, buffer2: ArrayBuffer): ArrayBuffer {

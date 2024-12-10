@@ -66,19 +66,23 @@ namespace HLSParser {
       let selectedVideoRendition: HLSDefines.RenditionItem | undefined;
       let selectedSubtitlesRendition: HLSDefines.RenditionItem | undefined;
 
-      if ( variantStreams && renditionGroups ) {
+      if ( variantStreams ) {
         selectedVariantStream = selectVariantStream(originalUrl, currentUrl, variantStreams, variantStreamSelectionHandler);
 
-        const audioGroupID = selectedVariantStream.audioGroupID;
-        const videoGroupID = selectedVariantStream.videoGroupID;
-        const subtitlesGroupID = selectedVariantStream.subtitlesGroupID;
+        if ( renditionGroups ) {
+          const audioGroupID = selectedVariantStream.audioGroupID;
+          const videoGroupID = selectedVariantStream.videoGroupID;
+          const subtitlesGroupID = selectedVariantStream.subtitlesGroupID;
 
-        if ( audioGroupID ) selectedAudioRendition = selectRendition(originalUrl, currentUrl, renditionGroups, audioGroupID, HLSDefines.RenditionType.AUDIO, renditionSelectionHandler);
-        if ( videoGroupID ) selectedVideoRendition = selectRendition(originalUrl, currentUrl, renditionGroups, videoGroupID, HLSDefines.RenditionType.VIDEO, renditionSelectionHandler);
-        if ( subtitlesGroupID ) selectedSubtitlesRendition = selectRendition(originalUrl, currentUrl, renditionGroups, subtitlesGroupID, HLSDefines.RenditionType.SUBTITLES, renditionSelectionHandler);
+          if ( audioGroupID ) selectedAudioRendition = selectRendition(originalUrl, currentUrl, renditionGroups, audioGroupID, HLSDefines.RenditionType.AUDIO, renditionSelectionHandler);
+          if ( videoGroupID ) selectedVideoRendition = selectRendition(originalUrl, currentUrl, renditionGroups, videoGroupID, HLSDefines.RenditionType.VIDEO, renditionSelectionHandler);
+          if ( subtitlesGroupID ) selectedSubtitlesRendition = selectRendition(originalUrl, currentUrl, renditionGroups, subtitlesGroupID, HLSDefines.RenditionType.SUBTITLES, renditionSelectionHandler);
+        }
       }
 
-      parsedItems.reverse().forEach(async (item) => {
+      const items = parsedItems.reverse();
+      let item = items.shift();
+      while (item) {
         let shouldRemove = false;
         switch (item.itemType) {
           case HLSDefines.ItemType.VARIANT_STREAM:
@@ -98,27 +102,29 @@ namespace HLSParser {
         // remove
         if ( shouldRemove ) {
           proxyPlaylist = MCUtils.replaceCharactersInRange(proxyPlaylist, [item.contentRange.location, item.contentRange.length], "");
-          return; // return;
         }
-
-        // replace URI with proxy uri
-        const uri = item.uri;
-        if ( !uri ) return;
-
-        const absoluteUrl = HLSDefines.getAbsoluteUrl(uri, currentUrl);
-        let isChildAsset = false;
-        if      ( item.itemType == HLSDefines.ItemType.VARIANT_STREAM ) {
-          isChildAsset = true;
-        }
-        else if ( item.itemType === HLSDefines.ItemType.RENDITION ) {
-          const renditionType = (item as HLSDefines.RenditionItem).renditionType;
-          if ( renditionType === HLSDefines.RenditionType.AUDIO || renditionType === HLSDefines.RenditionType.VIDEO ) {
-            isChildAsset = false;
+        else {
+          // replace URI with proxy uri
+          const uri = item.uri;
+          if ( uri ) {
+            const absoluteUrl = HLSDefines.getAbsoluteUrl(uri, currentUrl);
+            let isChildAsset = false;
+            if      ( item.itemType == HLSDefines.ItemType.VARIANT_STREAM ) {
+              isChildAsset = true;
+            }
+            else if ( item.itemType === HLSDefines.ItemType.RENDITION ) {
+              const renditionType = (item as HLSDefines.RenditionItem).renditionType;
+              if ( renditionType === HLSDefines.RenditionType.AUDIO || renditionType === HLSDefines.RenditionType.VIDEO ) {
+                isChildAsset = false;
+              }
+            }
+            const proxyPath = await MCAssetUtils.generateHLSProxyPath(absoluteUrl, isChildAsset, assetId);
+            proxyPlaylist = MCUtils.replaceCharactersInRange(proxyPlaylist, [item.uriRange!.location, uri.length], proxyPath);
           }
         }
-        const proxyPath = await MCAssetUtils.generateHLSProxyPath(absoluteUrl, isChildAsset, assetId);
-        proxyPlaylist = MCUtils.replaceCharactersInRange(proxyPlaylist, [item.uriRange!.location, uri.length], proxyPath);
-      });
+
+        item = items.shift();
+      }
       return proxyPlaylist;
     }
     catch (error) {

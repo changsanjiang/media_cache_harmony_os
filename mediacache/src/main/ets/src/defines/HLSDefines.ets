@@ -83,9 +83,6 @@ namespace HLSDefines {
   }
 
   export interface Playlist {
-    readonly numberOfAllItems: number;
-    readonly numberOfSegments: number;
-
     readonly allItems?: Item[];
     readonly keys?: KeyItem[];
     readonly initializations?: InitializationItem[];

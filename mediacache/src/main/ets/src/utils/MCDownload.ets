@@ -35,8 +35,8 @@ namespace MCDownload {
   }
 
   export interface Options {
-    headersReceive: (headers: MCDownloadResponseHeaders) => void;
-    dataReceive: (data: ArrayBuffer) => void | Promise<void>;
+    headersReceive?: (headers: MCDownloadResponseHeaders) => void;
+    dataReceive?: (data: ArrayBuffer) => void | Promise<void>;
     dataEnd?: () => void;
     signal?: MCAbortSignal;
   }
@@ -46,6 +46,7 @@ namespace MCDownload {
     readonly requestUrl: string;
     readonly currentUrl: string;
     readonly headers: MCDownloadResponseHeaders;
+    readonly body?: ArrayBuffer;
   }
 
   export let requestHandler: ((request: Request) => void) | undefined = undefined;
@@ -82,7 +83,8 @@ namespace MCDownload {
       statusCode: rcpResponse.statusCode,
       requestUrl: requestUrl,
       currentUrl: rcpResponse.effectiveUrl?.toString() ?? requestUrl,
-      headers: rcpResponse.headers as Record<string, string>
+      headers: rcpResponse.headers as Record<string, string>,
+      body: rcpResponse.body,
     };
   }
 }
