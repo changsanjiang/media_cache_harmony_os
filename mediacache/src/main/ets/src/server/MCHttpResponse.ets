@@ -5,6 +5,10 @@ import { MCLogModule } from "../defines/MCLogModule";
 import { MCAssetDataFetcher } from "../asset/MCAssetDataFetcher";
 import { IMCDataFetcher } from "../defines/IMCDataFetcher";
 import MCAssetManager from "../asset/MCAssetManager";
+import { IMCHttpOkResponseHeaders,
+  IMCHttpPartialContentResponseHeaders,
+  IMCHttpResponseHeaders } from "../defines/IMCHttpResponseHeaders";
+import { buffer, util } from "@kit.ArkTS";
 
 export class MCHttpResponse implements IMCHttpResponse {
   private mClientId: number;
@@ -14,6 +18,7 @@ export class MCHttpResponse implements IMCHttpResponse {
   private mDataReceiveCallback?: (response: IMCHttpResponse, data: ArrayBuffer) => void | Promise<void> = undefined;
   private mAbortedCallback?: (response: IMCHttpResponse, error?: Error) => void | Promise<void> = undefined;
   private mDataEndCallback?: (response: IMCHttpResponse) => void | Promise<void> = undefined;
+  private mChunked = false;
   private mAborted = false;
   private mDataEnd = false;
 
@@ -31,8 +36,8 @@ export class MCHttpResponse implements IMCHttpResponse {
         requestTarget: this.mRequest.requestTarget,
         headers: this.mRequest.headers
       });
-      this.mFetcher.on('responseReceive', async (_, responseHeaders: string) => this.onResponseReceive(responseHeaders));
-      this.mFetcher.on('dataReceive', (_, offset, data: ArrayBuffer) => this.onDataReceive(offset, data));
+      this.mFetcher.on('responseReceive', async (_, responseHeaders: IMCHttpResponseHeaders) => this.onResponseReceive(responseHeaders));
+      this.mFetcher.on('dataReceive', (_, offset, data) => this.onDataReceive(offset, data));
       this.mFetcher.on('dataEnd', (_) => this.onDataEnd());
       this.mFetcher.on('aborted', (_, error) => this.onError(error));
       this.mFetcher.prepare();
@@ -44,15 +49,17 @@ export class MCHttpResponse implements IMCHttpResponse {
     }
   }
 
-  private async onResponseReceive(responseHeaders: string): Promise<void> {
+  private async onResponseReceive(responseHeaders: IMCHttpResponseHeaders): Promise<void> {
     if ( this.mAborted ) {
       return;
     }
 
     try {
-      MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Preparing to send response headers.`);
-      await this.mHeadersReceiveCallback?.(this, responseHeaders);
-      MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Response headers have been sent successfully. Headers is below: \n${responseHeaders}`);
+      this.mChunked = responseHeaders.statusCode === 200 && (responseHeaders as IMCHttpOkResponseHeaders).chunked === true;
+      MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Preparing to send response headers.`);
+      const rawStr = this.generateResponseHeaders(responseHeaders);
+      await this.mHeadersReceiveCallback?.(this, rawStr);
+      MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Response headers have been sent successfully. Headers are below: \n${responseHeaders}`);
     }
     catch (error) {
       this.onError(error);
@@ -65,9 +72,31 @@ export class MCHttpResponse implements IMCHttpResponse {
       return;
     }
     try {
-      MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Preparing to send response body data.`);
-      await this.mDataReceiveCallback?.(this, data);
-      MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Sent data successfully: ${data.byteLength} bytes.`);
+      MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Preparing to send response body data.`);
+
+      if ( !this.mChunked ) {
+        await this.mDataReceiveCallback?.(this, data);
+      }
+      else {
+        // 拼接 chunk 数据：头部 + 数据 + 尾部
+        //
+        // 处理 chunked 编码的数据
+        const uint8Array = new Uint8Array(data);
+        // 获取块的大小（十六进制格式）
+        const chunkSizeHex = uint8Array.byteLength.toString(16);
+        // 编码块头部和尾部
+        const encoder = new util.TextEncoder('utf-8');
+        const chunkHeader = encoder.encodeInto(chunkSizeHex + '\r\n'); // 块大小
+        const chunkFooter = encoder.encodeInto('\r\n'); // 块结束标记
+        // 拼接 buffer: 头部 + 数据 + 尾部
+        const chunkedData = new ArrayBuffer(chunkHeader.byteLength + data.byteLength + chunkFooter.byteLength);
+        const dataView = new Uint8Array(chunkedData);
+        dataView.set(chunkHeader, 0);
+        dataView.set(new Uint8Array(data), chunkHeader.byteLength);
+        dataView.set(chunkFooter, chunkHeader.byteLength + data.byteLength);
+        await this.mDataReceiveCallback?.(this, chunkedData);
+      }
+      MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Sent ${this.mChunked ? 'chunked' : ''} data successfully: ${data.byteLength} bytes.`);
     }
     catch (error) {
       this.onError(error);
@@ -75,10 +104,22 @@ export class MCHttpResponse implements IMCHttpResponse {
     }
   }
 
-  private onDataEnd(): void {
+  private async onDataEnd(): Promise<void> {
     if ( this.mAborted || this.mDataEnd ) {
-      MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Done ignored: Aborted=${this.mAborted}, Done=${this.mDataEnd}.`);
+      MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Done ignored: Aborted=${this.mAborted}, Done=${this.mDataEnd}.`);
       return;
+    }
+
+    if (this.mChunked) {
+      try {
+        // 发送 chunked 数据的结束块
+        await this.mDataReceiveCallback?.(this, buffer.from('0\r\n\r\n', 'utf-8').buffer);
+        MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Sent chunked data end block.`);
+      } catch (error) {
+        MCLogger.error(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Failed to send chunked data end block: ${error}`);
+        this.onError(error);
+        return;
+      }
     }
 
     MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Marking response as done.`);
@@ -103,7 +144,7 @@ export class MCHttpResponse implements IMCHttpResponse {
 
   async abort(error?: Error | undefined): Promise<void> {
     if ( this.mAborted || this.mDataEnd ) {
-      MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Abort ignored: Aborted=${this.mAborted}, Done=${this.mDataEnd}.`);
+      MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Abort ignored: Aborted=${this.mAborted}, Done=${this.mDataEnd}.`);
       return;
     }
 
@@ -127,6 +168,70 @@ export class MCHttpResponse implements IMCHttpResponse {
       this.mFetcher.off('aborted');
       try { await this.mFetcher.abort(error); } catch (_) { }
       this.mFetcher = undefined;
+    }
+  }
+
+  private generateResponseHeaders(responseHeaders: IMCHttpResponseHeaders): string {
+    // https://datatracker.ietf.org/doc/html/rfc9110#name-example-message-exchange
+    //
+    // HTTP/1.1 200 OK
+    // Accept-Ranges: bytes
+    // Content-Length: 51
+    // Content-Type: text/plain
+    //
+    // Hello World! My content includes a trailing CRLF.
+    //
+
+    // https://datatracker.ietf.org/doc/html/rfc9110#name-single-part
+    //
+    // HTTP/1.1 206 Partial Content
+    // Content-Range: bytes 21010-47021/47022
+    // Content-Length: 26012
+    // Content-Type: image/gif
+    //
+    // ... 26012 bytes of partial image data ...
+    //
+
+    // HTTP/1.1 400 Bad Request
+    //
+
+    // HTTP/1.1 500 Internal Server Error
+    //
+
+    const currentDate = new Date().toUTCString();
+    switch (responseHeaders.statusCode) {
+      case 200: {
+        const okResponse = responseHeaders as IMCHttpOkResponseHeaders;
+        return (
+          `HTTP/1.1 200 OK\r\n` +
+            `Content-Type: ${okResponse.contentType}\r\n` +
+            (okResponse.chunked === true ? `Transfer-Encoding: chunked\r\n` : '') +
+            (okResponse.contentLength ? `Content-Length: ${okResponse.contentLength}\r\n` : '')  +
+            (okResponse.byteRangeAccessSupported === true ? `Accept-Ranges: bytes\r\n` : '') +
+            `Date: ${currentDate}\r\n` +
+            `\r\n`
+        )
+      }
+      case 206: {
+        const partialResponse = responseHeaders as IMCHttpPartialContentResponseHeaders;
+        return (
+          `HTTP/1.1 206 Partial Content\r\n` +
+            `Content-Range: bytes ${partialResponse.contentRange.location}-${partialResponse.contentRange.max - 1}/${partialResponse.totalLength}\r\n` +
+            `Content-Type: ${partialResponse.contentType}\r\n` +
+            `Content-Length: ${partialResponse.contentRange.length}\r\n` +
+            `Accept-Ranges: bytes\r\n` +
+            `Date: ${currentDate}\r\n` +
+            `\r\n`
+        );
+      }
+      case 400:
+        return `HTTP/1.1 400 Bad Request\r\nDate: ${currentDate}\r\n\r\n`;
+      default: {
+        if ( responseHeaders.statusCode !== 500 ) {
+          MCLogger.warn(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Unsupported response with status code: ${responseHeaders.statusCode}`);
+        }
+        return `HTTP/1.1 500 Internal Server Error\r\nDate: ${currentDate}\r\n\r\n`;
+      }
     }
   }
 

@@ -6,13 +6,16 @@ import { MCAbortController } from "../utils/MCAbortController";
 import MCLogger from "../utils/MCLogger";
 import { IMCDataFetcher } from "../defines/IMCDataFetcher";
 import { IMCMedia } from "../defines/IMCMedia";
+import { IMCHttpOkResponseHeaders,
+  IMCHttpPartialContentResponseHeaders,
+  IMCHttpResponseHeaders } from "../defines/IMCHttpResponseHeaders";
 
 export class MCMediaDataFetcher implements IMCDataFetcher {
   private mMedia: IMCMedia;
   private mClientId: number;
   private mRequest: IMCDataRequest;
 
-  private mResponseReceiveCallback?: (fetcher: IMCDataFetcher, responseHeaders: string) => void | Promise<void> = undefined;
+  private mResponseReceiveCallback?: (fetcher: IMCDataFetcher, responseHeaders: IMCHttpResponseHeaders) => void | Promise<void> = undefined;
   private mDataReceiveCallback?: (fetcher: IMCDataFetcher, offset: number, data: ArrayBuffer) => void | Promise<void> = undefined;
   private mDataEndCallback?: (fetcher: IMCDataFetcher) => void = undefined;
   private mAbortedCallback?: (fetcher: IMCDataFetcher, error?: Error) => void = undefined;
@@ -22,7 +25,6 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
 
   private mFetchAbortController?: MCAbortController = undefined;
   private mResponse?: IMCDataResponse = undefined;
-  private mResponseHeaders?: string = undefined;
   private mLoaders?: IMCMediaContentLoader[] = undefined;
   private mCurrentLoader?: IMCMediaContentLoader = undefined;
 
@@ -75,10 +77,10 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
       return;
     }
 
-    this.mResponseHeaders = this.generateResponseHeaders(response);
+    const responseHeaders = this.generateResponseHeaders(response);
     if (this.mResponseReceiveCallback) {
       MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Invoking responseReceive callback.`);
-      await this.mResponseReceiveCallback(this, this.mResponseHeaders);
+      await this.mResponseReceiveCallback(this, responseHeaders);
     }
 
     if ( this.mAborted ) {
@@ -237,65 +239,34 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
     loader.off('aborted');
   }
 
-  private generateResponseHeaders(dataResponse: IMCDataResponse): string {
-    // https://datatracker.ietf.org/doc/html/rfc9110#name-example-message-exchange
-    //
-    // HTTP/1.1 200 OK
-    // Accept-Ranges: bytes
-    // Content-Length: 51
-    // Content-Type: text/plain
-    //
-    // Hello World! My content includes a trailing CRLF.
-    //
-
-    // https://datatracker.ietf.org/doc/html/rfc9110#name-single-part
-    //
-    // HTTP/1.1 206 Partial Content
-    // Content-Range: bytes 21010-47021/47022
-    // Content-Length: 26012
-    // Content-Type: image/gif
-    //
-    // ... 26012 bytes of partial image data ...
-    //
-
-    // HTTP/1.1 400 Bad Request
-    //
-
-    // HTTP/1.1 500 Internal Server Error
-    //
-
-    const currentDate = new Date().toUTCString();
+  private generateResponseHeaders(dataResponse: IMCDataResponse): IMCHttpResponseHeaders {
     switch (dataResponse.statusCode) {
       case 200: {
         const okResponse = dataResponse as IMCDataOkResponse;
-        return (
-          `HTTP/1.1 200 OK\r\n` +
-            `Content-Type: ${okResponse.contentType}\r\n` +
-            (okResponse.contentLength ? `Content-Length: ${okResponse.contentLength}\r\n` : '')  +
-            (okResponse.byteRangeAccessSupported ? `Accept-Ranges: bytes\r\n` : '') +
-            `Date: ${currentDate}\r\n` +
-            `\r\n`
-        )
+        const responseHeaders: IMCHttpOkResponseHeaders = {
+          statusCode: 200,
+          contentType: okResponse.contentType,
+          chunked: okResponse.chunked,
+          contentLength: okResponse.contentLength,
+          byteRangeAccessSupported: okResponse.byteRangeAccessSupported,
+        }
+        return responseHeaders;
       }
       case 206: {
         const partialResponse = dataResponse as IMCDataPartialContentResponse;
-        return (
-          `HTTP/1.1 206 Partial Content\r\n` +
-            `Content-Range: bytes ${partialResponse.contentRange.location}-${partialResponse.contentRange.max - 1}/${partialResponse.totalLength}\r\n` +
-            `Content-Type: ${partialResponse.contentType}\r\n` +
-            `Content-Length: ${partialResponse.contentRange.length}\r\n` +
-            `Accept-Ranges: bytes\r\n` +
-            `Date: ${currentDate}\r\n` +
-            `\r\n`
-        );
+        const responseHeaders: IMCHttpPartialContentResponseHeaders = {
+          statusCode: 206,
+          contentType: partialResponse.contentType,
+          contentRange: partialResponse.contentRange,
+          totalLength: partialResponse.totalLength,
+        };
+        return responseHeaders;
       }
-      case 400:
-        return `HTTP/1.1 400 Bad Request\r\nDate: ${currentDate}\r\n\r\n`;
       default: {
-        if ( dataResponse.statusCode !== 500 ) {
-          MCLogger.warn(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Unsupported response with status code: ${dataResponse.statusCode}`);
+        const responseHeaders: IMCHttpResponseHeaders = {
+          statusCode: dataResponse.statusCode,
         }
-        return `HTTP/1.1 500 Internal Server Error\r\nDate: ${currentDate}\r\n\r\n`;
+        return responseHeaders;
       }
     }
   }
@@ -303,7 +274,7 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
   on(event: "responseReceive" | "dataReceive" | "dataEnd" | "aborted", callback: Function): void {
     switch (event) {
       case 'responseReceive':
-        this.mResponseReceiveCallback = callback as (fetcher: IMCDataFetcher, responseHeaders: string) => void | Promise<void>;
+        this.mResponseReceiveCallback = callback as (fetcher: IMCDataFetcher, responseHeaders: IMCHttpResponseHeaders) => void | Promise<void>;
         break;
       case 'dataReceive':
         this.mDataReceiveCallback = callback as (fetcher: IMCDataFetcher, offset: number, data: ArrayBuffer) => void | Promise<void>;

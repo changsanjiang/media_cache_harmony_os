@@ -15,7 +15,7 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
   private mResponseMap: Map<number, MCHttpResponse> = new Map();
 
   constructor() {
-    MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => ` New HttpConnectionHandler instance created.`);
+    MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `Instance created.`);
   }
 
   handleConnection(connection: socket.TCPSocketConnection): void {
@@ -25,11 +25,14 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
 
     connection.on('message', async (data: socket.SocketMessageInfo) => {
       MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] New message received.`);
-      this.abortResponseBy(clientId, new Error(`Request is cancelled`)); // 取消之前的响应
 
+      this.abortResponseBy(clientId, new Error(`Request is cancelled.`)); // 取消之前的响应
+
+      MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Starting to parse incoming request.`);
       let request: IMCHttpRequest | undefined = undefined;
       try {
         request = this.parseHttpRequest(clientId, data)
+        MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Parsed request: ${JSON.stringify(request)}`);
       }
       catch (error) {
         MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Error while parsing request: ${(error as Error).message}. Closing connection.`);
@@ -38,6 +41,8 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
       }
 
       if ( !request ) {
+        MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] No valid request parsed. Connection will be closed.`);
+        connection.close();
         return;
       }
 
@@ -45,19 +50,25 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
       let isHeadersSent = false; // headers 是否已发送;
       this.mResponseMap.set(clientId, response);
       response.on('headersReceive', async (response: IMCHttpResponse, headers: string) => {
+        MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Headers received.`);
+
         if ( this.mResponseMap.get(clientId) === response && !isClosed ) {
           await connection.send({ data: headers });
           isHeadersSent = true;
-          MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Headers sent: \n${headers}`);
+          MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Headers sent: \n${headers}`);
         }
       });
       response.on('dataReceive', async (response: IMCHttpResponse, data: ArrayBuffer) => {
+        MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Data received.`);
+
         if ( this.mResponseMap.get(clientId) === response && !isClosed ) {
           await connection.send({ data: data });
-          MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Data sent, size: ${data.byteLength}`);
+          MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Data sent, size: ${data.byteLength}`);
         }
       });
       response.on('aborted', async (response: IMCHttpResponse, _?: Error) => {
+        MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Response aborted.`);
+
         this.clearResponseEvents(response);
         if ( this.mResponseMap.get(clientId) === response ) {
           this.mResponseMap.delete(clientId);
@@ -67,6 +78,8 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
         }
       });
       response.on('dataEnd', (response: IMCHttpResponse) => {
+        MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Data end reached.`);
+
         this.clearResponseEvents(response);
         if ( this.mResponseMap.get(clientId) === response ) {
           this.mResponseMap.delete(clientId);
@@ -79,6 +92,8 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
     });
 
     connection.on('error', (e: Error) => {
+      MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Connection error: ${e.message}.`);
+
       isClosed = true;
       this.clearConnectionEvents(connection);
       this.cancelTimeoutBy(connection.clientId);
@@ -91,6 +106,8 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
     });
 
     connection.on('close', () => {
+      MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Connection closed.`);
+
       isClosed = true;
       this.clearConnectionEvents(connection);
       this.cancelTimeoutBy(connection.clientId);
@@ -105,14 +122,17 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
   private mTimeoutIdMap: Map<number, number> = new Map(); // key: clientId, value: timeoutId;
 
   private closeOrKeepConnection(request: IMCHttpRequest, connection: socket.TCPSocketConnection) {
-    if ( request.headers[`connection`] === `keep-alive` ) {
+    if ( request.headers[`connection`].toLowerCase() === `keep-alive` ) {
       const keepAliveHeader = request.headers[`keep-alive:`];
       const keepAlive: IMCHttpKeepAlive = keepAliveHeader ? parseKeepAlive(keepAliveHeader, 10, -1) : { timeout: 10, max: -1 };
       //  max param will be ignored;
       const shouldKeepAlive = keepAlive.timeout > 0;
 
       if ( shouldKeepAlive ) {
+        MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Keeping connection alive, closing after ${keepAlive.timeout}s.`);
+
         const timeoutID = setTimeout(() => {
+          MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Timeout reached, closing connection after ${keepAlive.timeout}s.`);
           this.mTimeoutIdMap.delete(connection.clientId);
           connection.close();
         }, keepAlive.timeout * 1000);
@@ -120,6 +140,7 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
       }
     }
     else {
+      MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Closing connection immediately.`);
       connection.close();
     }
   }
@@ -127,6 +148,8 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
   private cancelTimeoutBy(clientId: number) {
     const timeoutId = this.mTimeoutIdMap.get(clientId);
     if ( timeoutId ) {
+      MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Cancelling timeout.`);
+
       this.mTimeoutIdMap.delete(timeoutId);
       clearTimeout(timeoutId);
     }
@@ -135,6 +158,8 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
   private abortResponseBy(clientId: number, error?: Error) {
     const response = this.mResponseMap.get(clientId);
     if ( response ) {
+      MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Aborting response.`);
+
       this.clearResponseEvents(response);
       this.mResponseMap.delete(clientId);
       response.abort(error);

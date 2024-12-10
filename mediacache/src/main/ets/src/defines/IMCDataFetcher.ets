@@ -1,8 +1,10 @@
+import { IMCHttpResponseHeaders } from "./IMCHttpResponseHeaders";
+
 export interface IMCDataFetcher {
   prepare(): Promise<void>
   abort(error?: Error): Promise<void>;
 
-  on(event: 'responseReceive', callback: (fetcher: IMCDataFetcher, responseHeaders: string) => void | Promise<void>): void;
+  on(event: 'responseReceive', callback: (fetcher: IMCDataFetcher, responseHeaders: IMCHttpResponseHeaders) => void | Promise<void>): void;
   off(event: 'responseReceive'): void;
 
   on(event: 'dataReceive', callback: (fetcher: IMCDataFetcher, offset: number, data: ArrayBuffer) => void | Promise<void>): void;

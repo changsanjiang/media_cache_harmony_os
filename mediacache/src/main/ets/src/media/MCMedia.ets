@@ -279,7 +279,6 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
         statusCode: 200,
         contentType: contentType,
         contentLength: 0,
-        byteRangeAccessSupported: false,
         contentLoaders: contentLoaders
       };
       return response;
@@ -292,10 +291,12 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
         contentLoaders.push(new MCMediaProxyContentLoader(this, new MCDownloadRequest(url, proxyRequest.headers)));
       }
 
+      const contentLength = metadata.totalLength !== Number.MAX_SAFE_INTEGER ? metadata.totalLength : undefined;
       const response: IMCDataOkResponse = {
         statusCode: 200,
         contentType: contentType,
-        contentLength: metadata.totalLength !== Number.MAX_SAFE_INTEGER ? metadata.totalLength : undefined,
+        contentLength: contentLength,
+        chunked: contentLength === undefined,
         byteRangeAccessSupported: metadata.byteRangeAccessSupported,
         contentLoaders: contentLoaders
       }

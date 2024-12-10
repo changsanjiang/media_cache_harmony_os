@@ -1,6 +1,7 @@
 import { IMCAsset } from "../defines/IMCAsset";
 import { IMCDataFetcher } from "../defines/IMCDataFetcher";
 import { IMCDataRequest } from "../defines/IMCDataRequest";
+import { IMCHttpResponseHeaders } from "../defines/IMCHttpResponseHeaders";
 import { MCDataDecryptHandler } from "../defines/MCDataDecryptHandler";
 import { MCLogModule } from "../defines/MCLogModule";
 import { MCMediaDataFetcher } from "../media/MCMediaDataFetcher";
@@ -12,7 +13,7 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
   private mAsset: IMCAsset;
   private mDecrypt?: MCDataDecryptHandler;
 
-  private mResponseReceiveCallback?: (fetcher: IMCDataFetcher, responseHeaders: string) => void | Promise<void> = undefined;
+  private mResponseReceiveCallback?: (fetcher: IMCDataFetcher, responseHeaders: IMCHttpResponseHeaders) => void | Promise<void> = undefined;
   private mDataReceiveCallback?: (fetcher: IMCDataFetcher, offset: number, data: ArrayBuffer) => void | Promise<void> = undefined;
   private mDataEndCallback?: (fetcher: IMCDataFetcher) => void = undefined;
   private mAbortedCallback?: (fetcher: IMCDataFetcher, error?: Error) => void = undefined;
@@ -55,7 +56,7 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
     }
   }
 
-  private async onResponseReceive(responseHeaders: string): Promise<void> {
+  private async onResponseReceive(responseHeaders: IMCHttpResponseHeaders): Promise<void> {
     if ( this.mAborted ) {
       return;
     }
@@ -148,7 +149,7 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
   on(event: "responseReceive" | "dataReceive" | "dataEnd" | "aborted", callback: Function): void {
     switch (event) {
       case 'responseReceive':
-        this.mResponseReceiveCallback = callback as (fetcher: IMCDataFetcher, responseHeaders: string) => void | Promise<void>;
+        this.mResponseReceiveCallback = callback as (fetcher: IMCDataFetcher, responseHeaders: IMCHttpResponseHeaders) => void | Promise<void>;
         break;
       case 'dataReceive':
         this.mDataReceiveCallback = callback as (fetcher: IMCDataFetcher, offset: number, data: ArrayBuffer) => void | Promise<void>;

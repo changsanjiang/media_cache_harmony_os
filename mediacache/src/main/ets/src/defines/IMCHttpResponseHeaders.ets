@@ -1,23 +1,20 @@
 import { MCRange } from "../utils/MCRange";
-import { IMCMediaContentLoader } from "./IMCMediaContentLoader";
 
-export interface IMCDataResponse {
+export interface IMCHttpResponseHeaders {
   readonly statusCode: number;
 }
 
-export interface IMCDataOkResponse extends IMCDataResponse {
+export interface IMCHttpOkResponseHeaders extends IMCHttpResponseHeaders {
   readonly statusCode: 200;
   readonly contentType: string;    // mime type;
-  readonly contentLength?: number;  // file data total length;
   readonly chunked?: boolean; // Transfer-Encoding;
+  readonly contentLength?: number;  // file data total length;
   readonly byteRangeAccessSupported?: boolean;
-  readonly contentLoaders: IMCMediaContentLoader[];
 }
 
-export interface IMCDataPartialContentResponse extends IMCDataResponse {
+export interface IMCHttpPartialContentResponseHeaders extends IMCHttpResponseHeaders {
   readonly statusCode: 206;
   readonly contentType: string;    // mime type;
   readonly contentRange: MCRange;
   readonly totalLength: number;    // file data total length;
-  readonly contentLoaders: IMCMediaContentLoader[];
 }

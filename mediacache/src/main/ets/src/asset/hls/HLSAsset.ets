@@ -7,7 +7,6 @@ import { MCReadwriteReference } from "../../utils/MCReadwriteReference";
 import MCURL from "../../utils/MCURL";
 import MCAssetManager from "../MCAssetManager";
 import HLSParser from "./HLSParser";
-import { media } from "@kit.MediaKit";
 
 export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset {
   /** HLS 会有多个媒体文件; */
