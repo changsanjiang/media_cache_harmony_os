@@ -7,6 +7,7 @@ import { MCReadwriteReference } from "../../utils/MCReadwriteReference";
 import MCURL from "../../utils/MCURL";
 import MCAssetManager from "../MCAssetManager";
 import HLSParser from "./HLSParser";
+import { media } from "@kit.MediaKit";
 
 export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset {
   /** HLS 会有多个媒体文件; */
@@ -123,21 +124,26 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
   }
 
   private async initializeMedia(mediaId: string, isRoot: boolean): Promise<IMCMedia> {
-    let proxyHandler: ((requestUrl: string, currentUrl: string, data: ArrayBuffer) => Promise<ArrayBuffer>) | undefined = undefined;
-    if ( isRoot ) { // 代理所有的根文件(playlist);
-      proxyHandler = async (requestUrl, currentUrl, data) => {
-        const content = MCUtils.bufferToString(data);
-        // variantStreamSelectionHandler?: HLSDefines.VariantStreamSelectionHandler, renditionSelectionHandler?: HLSDefines.RenditionSelectionHandler
-        const proxyContent = await HLSParser.proxy(this.id, content, requestUrl, currentUrl);
-        if ( mediaId === this.id ) await this.initializePlaylist(proxyContent);
-        return MCUtils.stringToBuffer(proxyContent);
+    try {
+      let proxyHandler: ((requestUrl: string, currentUrl: string, data: ArrayBuffer) => Promise<ArrayBuffer>) | undefined = undefined;
+      if ( isRoot ) { // 代理所有的根文件(playlist);
+        proxyHandler = async (requestUrl, currentUrl, data) => {
+          const content = MCUtils.bufferToString(data);
+          // variantStreamSelectionHandler?: HLSDefines.VariantStreamSelectionHandler, renditionSelectionHandler?: HLSDefines.RenditionSelectionHandler
+          const proxyContent = await HLSParser.proxy(this.id, content, requestUrl, currentUrl);
+          if ( mediaId === this.id ) await this.initializePlaylist(proxyContent);
+          return MCUtils.stringToBuffer(proxyContent);
+        }
       }
-    }
 
-    const media = new MCMedia(mediaId, this.mDir, proxyHandler);
-    await media.prepare();
-    this.mMedias.set(mediaId, media);
-    return media;
+      const media = new MCMedia(mediaId, this.mDir, proxyHandler);
+      await media.prepare();
+      this.mMedias.set(mediaId, media);
+      return media;
+    }
+    finally {
+      this.mInitPromises.delete(mediaId);
+    }
   }
 
   private async calculateCompleteness(): Promise<number> {
