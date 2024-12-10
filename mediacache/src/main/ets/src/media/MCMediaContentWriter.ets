@@ -88,7 +88,7 @@ export class MCMediaContentWriter implements IMCMediaContentWriter {
     }
     catch (error) {
       this.mWriting = false;
-      MCLogger.error(MCLogModule.MCMediaContent, () => `[media: ${mediaId}, offset: ${contentOffset}] Error during write: ${error.message}, stack: ${error.stack}.`);
+      MCLogger.error(MCLogModule.MCMediaContent, () => `[media: ${mediaId}, offset: ${contentOffset}] Error during write: ${error.message}, Stack trace: ${error.stack}.`);
       if    ( !this.mClosed ) {
         this.close();
       }

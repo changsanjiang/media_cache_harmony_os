@@ -82,7 +82,7 @@ export class MCMediaContentReader implements IMCMediaContentReader {
     }
     catch (error) {
       this.mReading = false;
-      MCLogger.error(MCLogModule.MCMediaContent, () => `[media: ${mediaId}, offset: ${contentOffset}] Error during read: ${error.message}, stack: ${error.stack}.`);
+      MCLogger.error(MCLogModule.MCMediaContent, () => `[media: ${mediaId}, offset: ${contentOffset}] Error during read: ${error.message}, Stack trace: ${error.stack}.`);
       if      ( !this.mClosed ) {
         this.close();
       }

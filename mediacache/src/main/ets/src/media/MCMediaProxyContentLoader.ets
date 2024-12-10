@@ -100,20 +100,39 @@ export class MCMediaProxyContentLoader extends MCMediaContentLoader {
   }
 
   protected async onClear(): Promise<void> { // 父类在清理资源时调用;
-    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[Proxy] Starting onClear. AbortController: ${this.mAbortController}, Content: ${this.mContent}, ContentWriter: ${this.mWriter}.`);
+    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[Proxy] Starting onClear for request: ${this.mRequest.url}. AbortController: ${this.mAbortController}, Content: ${this.mContent}, ContentWriter: ${this.mWriter}.`);
 
-    if (this.mAbortController) {
+    if ( this.mAbortController ) {
       MCLogger.debug(MCLogModule.MCMediaContentLoader, () => '[Proxy] Aborting download.');
       this.mAbortController.abort();
       this.mAbortController = undefined;
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => '[Proxy] Download aborted.');
     }
 
-    if ( this.mContent ) {
-      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => '[Proxy] Closing content writer.');
-      try { await this.mWriter?.close(); } catch (_) { }
-      this.mWriter = undefined;
-      if ( this.mContent.isTemp ) try { await this.mMedia.destroyTempContent(this.mContent); } catch (_) { }
+    const content = this.mContent;
+    const writer = this.mWriter;
+
+    if ( content ) {
       this.mContent = undefined;
+      this.mWriter = undefined;
+
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => '[Proxy] Closing content writer.');
+      try {
+        await writer?.close();
+        MCLogger.debug(MCLogModule.MCMediaContentLoader, () => '[Proxy] Content writer closed successfully.');
+      }
+      catch (error) {
+        MCLogger.warn(MCLogModule.MCMediaContentLoader, () => `[Proxy] Error closing writer for request: ${this.mRequest.url} - ${(error as Error).message}`);
+      }
+
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => '[Proxy] Destroying temporary content.');
+      try {
+        await this.mMedia.destroyTempContent(content);
+        MCLogger.debug(MCLogModule.MCMediaContentLoader, () => '[Proxy] Temporary content destroyed successfully.');
+      }
+      catch (error) {
+        MCLogger.warn(MCLogModule.MCMediaContentLoader, () => `[Proxy] Error destroying temporary content for request: ${this.mRequest.url} - ${(error as Error).message}`);
+      }
     }
   }
 }

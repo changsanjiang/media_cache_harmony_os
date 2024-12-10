@@ -151,20 +151,41 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
   }
 
   protected async onClear(): Promise<void> { // 父类清理资源时调用
-    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[Http] Starting onClear. AbortController: ${this.mAbortController}, Content: ${this.mContent}, ContentWriter: ${this.mWriter}.`);
+    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[Http] Starting onClear for request: ${this.mRequest.url}. AbortController: ${this.mAbortController}, Content: ${this.mContent}, ContentWriter: ${this.mWriter}.`);
 
     if ( this.mAbortController ) {
       MCLogger.debug(MCLogModule.MCMediaContentLoader, () => '[Http] Aborting download.');
       this.mAbortController.abort();
       this.mAbortController = undefined;
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => '[Http] Download aborted.');
     }
 
-    if ( this.mContent ) {
-      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => '[Http] Closing content writer.');
-      try { await this.mWriter?.close(); } catch (_) { }
-      this.mWriter = undefined;
-      if ( this.mContent.isTemp ) try { await this.mMedia.destroyTempContent(this.mContent); } catch (_) { }
+    const content = this.mContent;
+    const writer = this.mWriter;
+
+    if ( content ) {
       this.mContent = undefined;
+      this.mWriter = undefined;
+
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => '[Http] Closing content writer.');
+      try {
+        await writer?.close();
+        MCLogger.debug(MCLogModule.MCMediaContentLoader, () => '[Http] Content writer closed successfully.');
+      }
+      catch (error) {
+        MCLogger.warn(MCLogModule.MCMediaContentLoader, () => `[Http] Error closing writer for request: ${this.mRequest.url} - ${(error as Error).message}`);
+      }
+
+      if (content.isTemp) {
+        MCLogger.debug(MCLogModule.MCMediaContentLoader, () => '[Http] Destroying temporary content.');
+        try {
+          await this.mMedia.destroyTempContent(content);
+          MCLogger.debug(MCLogModule.MCMediaContentLoader, () => '[Http] Temporary content destroyed successfully.');
+        }
+        catch (error) {
+          MCLogger.warn(MCLogModule.MCMediaContentLoader, () => `[Http] Error destroying temporary content for request: ${this.mRequest.url} - ${(error as Error).message}`);
+        }
+      }
     }
   }
 }
