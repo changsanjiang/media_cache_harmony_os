@@ -39,7 +39,7 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
       signal: this.mAbortController.signal,
     }).then((res) => {
       MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Download completed for URL: ${this.mRequest.url}, Response headers: ${JSON.stringify(res.headers)}`);
-      this.onDownloaded(res);
+      this.onComplete(res);
     }).catch((error: Error) => {
       MCLogger.error(MCLogModule.MCMediaContentLoader, () => `Error during download for URL: ${this.mRequest.url} - ${(error as Error).message ?? ((error as BusinessError).code)}`);
       if ( this.mAbortController ) this.mAbortController = undefined;
@@ -118,7 +118,7 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
     this.mAbortController = undefined;
   }
 
-  private async onDownloaded(res: MCDownload.Response): Promise<void> { // 下载完成后调用
+  private async onComplete(res: MCDownload.Response): Promise<void> { // 下载完成后调用
     if ( this.isAborted || !this.mContent || !this.mContent.isTemp ) {
       MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Download for URL: ${this.mRequest.url} is aborted or content is not temporary, skipping completion.`);
       return;
