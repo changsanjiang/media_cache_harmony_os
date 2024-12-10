@@ -38,6 +38,7 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
     try {
       const media = await this.mAsset.getMediaBy(this.mRequest.requestTarget);
       if ( this.mAborted ) {
+        MCLogger.debug(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Cannot prepare as the fetcher has been aborted.`);
         return;
       }
       this.mMediaDataFetcher = new MCMediaDataFetcher(this.mClientId, media, this.mRequest);
@@ -159,6 +160,7 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
         this.mAbortedCallback = callback as (fetcher: IMCDataFetcher, error?: Error) => void;
         break;
     }
+    MCLogger.debug(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Event listener for '${event}' registered.`);
   }
 
   off(event: "responseReceive" | "dataReceive" | "dataEnd" | "aborted"): void {
@@ -176,5 +178,6 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
         this.mAbortedCallback = undefined;
         break;
     }
+    MCLogger.debug(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Event listener for '${event}' unregistered.`);
   }
 }

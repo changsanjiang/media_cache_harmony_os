@@ -35,6 +35,8 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
   }
 
   async prepare(): Promise<void> {
+    MCLogger.info(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Starting prepare for request: ${JSON.stringify(this.mRequest)}}`);
+
     if (this.mAborted) {
       MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Cannot prepare as the fetcher has been aborted.`);
       return;
@@ -42,36 +44,45 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
 
     this.mFetchAbortController = new MCAbortController();
     this.mMedia.fetch(this.mRequest, this.mFetchAbortController.signal).then((response) => {
+      MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Fetch completed successfully.`);
       this.mFetchAbortController = undefined;
       this.onResponse(response);
     }).catch((error: Error) => {
+      MCLogger.error(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Fetch failed. Error: ${error.message}`);
       if ( this.mFetchAbortController ) this.mFetchAbortController = undefined;
       this.onError(error);
     });
   }
 
   private async onResponse(response: IMCDataResponse): Promise<void> {
+    MCLogger.info(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Received response with status code: ${response.statusCode}`);
+
     this.mResponse = response;
     switch (response.statusCode) {
       case 200:
         this.mLoaders = (response as IMCDataOkResponse).contentLoaders;
+        MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Response status 200. Loaders initialized with count: ${this.mLoaders?.length}.`);
         break;
       case 206:
         this.mLoaders = (response as IMCDataPartialContentResponse).contentLoaders;
+        MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Response status 206. Loaders initialized with count: ${this.mLoaders?.length}.`);
         break;
     }
 
     if ( this.mAborted ) {
+      MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Fetcher aborted before processing the response.`);
       this.clear();
       return;
     }
 
     this.mResponseHeaders = this.generateResponseHeaders(response);
     if (this.mResponseReceiveCallback) {
+      MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Invoking responseReceive callback.`);
       await this.mResponseReceiveCallback(this, this.mResponseHeaders);
     }
 
     if ( this.mAborted ) {
+      MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Fetcher aborted after responseReceive callback.`);
       return;
     }
 
@@ -79,15 +90,16 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
       this.prepareNextLoader();
     }
     else {
+      MCLogger.info(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] No loaders available. Marking fetcher as done.`);
       this.done();
     }
   }
 
   private prepareNextLoader(): void {
-    MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Attempting to prepare next loader.`);
+    MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Preparing next loader.`);
 
     if (this.mAborted) {
-      MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Attempted to prepare next loader, but the reader is either aborted or completed.`);
+      MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Cannot prepare next loader as fetcher is aborted.`);
       return;
     }
 
@@ -95,7 +107,7 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
       let loaders = this.mLoaders;
 
       if (!loaders) {
-        throw new Error(`No loaders available to prepare.`);
+        throw new Error(`Loaders array is not initialized.`);
       }
 
       // 清理旧的 loader
@@ -107,22 +119,24 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
       // 获取下一个loader
       const nextLoader = loaders.shift();
       if (!nextLoader) {
-        MCLogger.info(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] All loaders completed.`);
+        MCLogger.info(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] All loaders processed.`);
         this.done();
         return;
       }
 
       // 监听数据加载
       this.mCurrentLoader = nextLoader;
-      MCLogger.info(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Preparing next loader.`);
+      MCLogger.info(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Next loader prepared. Remaining loaders count: ${this.mLoaders!.length}`);
       nextLoader.on("dataLoad", async (_: IMCMediaContentLoader, offset: number, data: ArrayBuffer) => {
         if ( this.mAborted || !this.mDataReceiveCallback ) {
+          MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Skipping dataLoad event as fetcher is aborted or callback is undefined.`);
           return;
         }
         try {
           await this.mDataReceiveCallback(this, offset, data);
         }
         catch (error) {
+          MCLogger.error(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Error in dataReceive callback: ${error.message}`);
           this.onError(error);
           throw error as Error;
         }
@@ -132,8 +146,8 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
       nextLoader.prepare();
     }
     catch (error) {
-      MCLogger.error(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Failed to prepare next loader. Error: ${error.message}, stack: ${error.stack}`);
-      this.abort(error);
+      MCLogger.error(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Error preparing next loader. ${error.message}`);
+      this.onError(error);
       throw error as Error;
     }
   }
@@ -152,7 +166,7 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
       return;
     }
 
-    MCLogger.info(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Marking reader as done.`);
+    MCLogger.info(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Marking fetcher as done.`);
 
     this.mDataEnd = true;
 
@@ -171,7 +185,7 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
 
     MCLogger.warn(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Aborting MCMediaDataReader${error ? ` due to error: ${error.message}` : ""}.`);
 
-    MCLogger.info(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Marking reader as aborted. response: ${this.mResponse}, currentLoader: ${this.mCurrentLoader}, loaders.length: ${this.mLoaders?.length}`);
+    MCLogger.info(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Marking fetcher as aborted. response: ${this.mResponse}, currentLoader: ${this.mCurrentLoader}, loaders.length: ${this.mLoaders?.length}`);
 
     this.mAborted = true;
 
@@ -301,6 +315,7 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
         this.mAbortedCallback = callback as (fetcher: IMCDataFetcher, error?: Error) => void;
         break;
     }
+    MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Event listener for '${event}' registered.`);
   }
 
   off(event: "responseReceive" | "dataReceive" | "dataEnd" | "aborted"): void {
@@ -318,5 +333,6 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
         this.mAbortedCallback = undefined;
         break;
     }
+    MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Event listener for '${event}' unregistered.`);
   }
 }
