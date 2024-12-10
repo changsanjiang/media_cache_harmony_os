@@ -17,10 +17,6 @@ export class FILEAsset extends MCReadwriteReference<FILEAsset> implements IMCAss
 
   readonly id: string;
 
-  get isStored(): boolean {
-    return this.mMedia.isAssembled;
-  };
-
   get completeness(): Promise<number> {
     return this.mMedia.completeness;
   }

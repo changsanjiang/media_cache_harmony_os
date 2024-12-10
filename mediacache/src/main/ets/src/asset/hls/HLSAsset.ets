@@ -67,13 +67,6 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
 
   readonly id: string;
 
-  get isStored(): boolean {
-    if ( this.mPlaylist ) {
-
-    }
-    return false;
-  };
-
   get completeness(): Promise<number> {
     return this.calculateCompleteness();
   }
