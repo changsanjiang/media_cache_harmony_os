@@ -171,7 +171,7 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
 
     MCLogger.warn(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Aborting MCMediaDataReader${error ? ` due to error: ${error.message}` : ""}.`);
 
-    MCLogger.info(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Marking reader as aborted.`);
+    MCLogger.info(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Marking reader as aborted. response: ${this.mResponse}, currentLoader: ${this.mCurrentLoader}, loaders.length: ${this.mLoaders?.length}`);
 
     this.mAborted = true;
 
@@ -193,11 +193,13 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
   }
 
   private async clear(error?: Error): Promise<void> {
+    MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Starting clear with error: ${error?.message || "None"}. response: ${this.mResponse}, currentLoader: ${this.mCurrentLoader}, loaders.length: ${this.mLoaders?.length}`);
+
     const loader = this.mCurrentLoader;
     if ( loader ) {
       MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Aborting active loader.`);
-      try { await loader.abort(error); } catch (_) { }
       this.offLoaderEvents(loader);
+      try { await loader.abort(error); } catch (_) { }
       this.mCurrentLoader = undefined;
       MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Active loader cleared.`);
     }

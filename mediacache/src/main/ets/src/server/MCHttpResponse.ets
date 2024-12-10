@@ -107,7 +107,7 @@ export class MCHttpResponse implements IMCHttpResponse {
       return;
     }
 
-    MCLogger.warn(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Aborting MCHttpResponse${error ? ` due to error: ${error.message}` : ''}.`);
+    MCLogger.warn(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Aborting MCHttpResponse${error ? ` due to error: ${error.message}` : ''}`);
 
     this.mAborted = true;
 

@@ -146,6 +146,8 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
   }
 
   protected async onClear(): Promise<void> {
+    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Starting MCMediaHttpContentLoader.onClear. abortController: ${this.mAbortController}, content: ${this.mContent}, contentWriter: ${this.mWriter}.`);
+
     if ( this.mAbortController ) {
       MCLogger.debug(MCLogModule.MCMediaContentLoader, () => 'Aborting download.');
       this.mAbortController.abort();

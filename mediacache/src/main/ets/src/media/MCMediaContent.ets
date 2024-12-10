@@ -12,7 +12,6 @@ export class MCMediaContent implements IMCMediaContent {
   private mReaders?: Map<number, MCMediaContentReader> = undefined;
   private mWriter?: MCMediaContentWriter = undefined;
   private mDataWrittenCallback?: (content: IMCMediaContent) => void = undefined;
-  private mWriteCloseCallback?: (content: IMCMediaContent) => void = undefined;
   private mTemp = false; // 是否是临时内容
   private mReadPromiseLink?: Promise<void> = undefined;
   private mWritePromise?: Promise<void> = undefined;
@@ -66,10 +65,12 @@ export class MCMediaContent implements IMCMediaContent {
     const reader = new MCMediaContentReader(id, this);
     this.mNextReaderId += 1;
     this.mReaders.set(id, reader);
-    MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${this.mediaId}, offset: ${this.contentOffset}] Created reader ${id} for content.`);
+    MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${this.mediaId}, offset: ${this.contentOffset}] Reader created ${id} for content.`);
 
     const promise = new Promise<void>((resolve) => {
       reader.on('closed', (reader) => {
+        MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${this.mediaId}, offset: ${this.contentOffset}] Reader closed ${id} for content.`);
+
         this.mReaders?.delete(id);
         if ( this.mReaders?.size === 0 ) {
           this.mReadPromiseLink = undefined;
@@ -102,11 +103,10 @@ export class MCMediaContent implements IMCMediaContent {
 
     this.mWritePromise = new Promise<void>((resolve) => {
       writer.on('closed', (writer: MCMediaContentWriter) => {
+        MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${this.mediaId}, offset: ${this.contentOffset}] Writer closed for content.`);
+
         this.mWriter = undefined;
         this.mWritePromise = undefined;
-        if ( this.mWriteCloseCallback ) {
-          this.mWriteCloseCallback(this);
-        }
         writer.off('closed');
         resolve();
       });
@@ -127,26 +127,12 @@ export class MCMediaContent implements IMCMediaContent {
     return waits.length > 0 ? Promise.all(waits).then(() => this.deleteFile()) : this.deleteFile();
   }
 
-  on(event: "dataWritten" | "writeClose", callback: (content: IMCMediaContent) => void): void {
-    switch (event) {
-      case "dataWritten":
-        this.mDataWrittenCallback = callback;
-        break;
-      case "writeClose":
-        this.mWriteCloseCallback = callback;
-        break;
-    }
+  on(_: "dataWritten", callback: (content: IMCMediaContent) => void): void {
+    this.mDataWrittenCallback = callback;
   }
 
-  off(event: "dataWritten" | "writeClose"): void {
-    switch (event) {
-      case "dataWritten":
-        this.mDataWrittenCallback = undefined;
-        break;
-      case "writeClose":
-        this.mWriteCloseCallback = undefined;
-        break;
-    }
+  off(_: "dataWritten"): void {
+    this.mDataWrittenCallback = undefined;
   }
 
   private onDataWritten(): void {

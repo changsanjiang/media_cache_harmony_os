@@ -11,11 +11,6 @@ export interface IMCMediaContent {
   // 有新的数据被写入后的回调;
   on(event: 'dataWritten', callback: (content: IMCMediaContent) => void): void;
   off(event: 'dataWritten'): void;
-
-  // TODO() next ... media 关注写入关闭的回调...
-  // 写入关闭后的回调;
-  on(event: 'writeClose', callback: (content: IMCMediaContent) => void): void;
-  off(event: 'writeClose'): void;
 }
 
 export interface IMCMediaContentReader {

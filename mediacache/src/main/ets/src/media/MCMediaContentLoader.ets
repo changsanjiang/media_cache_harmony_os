@@ -86,6 +86,7 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
       // 是否读取结束
       if (this._mReadOffset == this._mReadRange.max) {
         this._mDataEnd = true;
+        await this.clear();
         if ( this._mDataEndCallback ) {
           this._mDataEndCallback(this);
         }
@@ -123,6 +124,8 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
   }
 
   private async clear(): Promise<void> {
+    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Starting clear. content: ${this._mContent}, contentReader: ${this._mContentReader}}.`);
+
     if ( this._mContent ) {
       this._mContent.off('dataWritten');
       this._mContent = undefined;
