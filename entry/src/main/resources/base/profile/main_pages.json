@@ -1,6 +1,7 @@
 {
   "src": [
     "pages/Index",
-    "pages/VideoPlayer"
+    "pages/VideoPlayer",
+    "pages/AVPlayerDemo"
   ]
 }
