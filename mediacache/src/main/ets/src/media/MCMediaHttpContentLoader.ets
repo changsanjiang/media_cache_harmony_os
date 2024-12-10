@@ -123,8 +123,12 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
   }
 
   private async onComplete(res: MCDownload.Response): Promise<void> { // 下载完成后调用
-    if ( this.isAborted || !this.mContent || !this.mContent.isTemp ) {
-      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[Http] Download for URL: ${this.mRequest.url} is aborted or content is not temporary, skipping completion.`);
+    if ( this.isAborted ) {
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[Http] Download for URL: ${this.mRequest.url} is aborted, skipping completion.`);
+      return;
+    }
+
+    if ( !this.mContent || !this.mContent.isTemp ) {
       return;
     }
 
