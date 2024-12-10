@@ -162,13 +162,22 @@ export class MCHttpResponse implements IMCHttpResponse {
   }
 
   private async clear(error?: Error): Promise<void> {
-    if ( this.mFetcher ) {
-      this.mFetcher.off('responseReceive');
-      this.mFetcher.off('dataReceive');
-      this.mFetcher.off('dataEnd');
-      this.mFetcher.off('aborted');
-      try { await this.mFetcher.abort(error); } catch (_) { }
+    const fetcher = this.mFetcher;
+    if ( fetcher ) {
+      MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Clearing fetcher. Error: ${error?.message || 'none'}.`);
       this.mFetcher = undefined;
+      fetcher.off('responseReceive');
+      fetcher.off('dataReceive');
+      fetcher.off('dataEnd');
+      fetcher.off('aborted');
+
+      try {
+        MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Aborting fetcher.`);
+        await fetcher.abort(error);
+        MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Fetcher aborted successfully.`);
+      } catch (abortError) {
+        MCLogger.warn(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Failed to abort fetcher for request: ${this.mRequest}. Error: ${(abortError as Error)?.message || 'unknown'}`);
+      }
     }
   }
 

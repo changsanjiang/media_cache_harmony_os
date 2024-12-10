@@ -212,22 +212,24 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
     MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Starting clear with error: ${error?.message || "None"}. response: ${this.mResponse}, currentLoader: ${this.mCurrentLoader}, loaders.length: ${this.mLoaders?.length}`);
 
     const loader = this.mCurrentLoader;
+    const loaders = this.mLoaders;
+
     if ( loader ) {
+      this.mCurrentLoader = undefined;
       MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Aborting active loader.`);
       this.offLoaderEvents(loader);
       try { await loader.abort(error); } catch (_) { }
-      this.mCurrentLoader = undefined;
       MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Active loader cleared.`);
     }
 
-    if ( this.mLoaders ) {
+    if ( loaders ) {
+      this.mLoaders = undefined;
       MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Aborting remaining loaders. size: ${this.mLoaders!.length}.`);
-      this.mLoaders.forEach(async (loader) => {
+      loaders.forEach(async (loader) => {
         this.offLoaderEvents(loader);
         try { await loader.abort(error); } catch (_) { }
       });
       MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Remaining loaders cleared.`);
-      this.mLoaders = undefined;
     }
   }
 

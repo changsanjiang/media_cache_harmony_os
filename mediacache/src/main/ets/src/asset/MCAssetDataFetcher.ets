@@ -136,13 +136,22 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
   }
 
   private async clear(error?: Error): Promise<void> {
-    if ( this.mMediaDataFetcher ) {
-      this.mMediaDataFetcher.off('responseReceive');
-      this.mMediaDataFetcher.off('dataReceive');
-      this.mMediaDataFetcher.off('dataEnd');
-      this.mMediaDataFetcher.off('aborted');
-      try { await this.mMediaDataFetcher.abort(error); } catch (_) { }
+    const fetcher = this.mMediaDataFetcher;
+    if ( fetcher ) {
+      MCLogger.info(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Clearing fetcher. Error: ${error?.message || 'none'}.`);
       this.mMediaDataFetcher = undefined;
+      fetcher.off('responseReceive');
+      fetcher.off('dataReceive');
+      fetcher.off('dataEnd');
+      fetcher.off('aborted');
+
+      try {
+        MCLogger.debug(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Aborting fetcher.`);
+        await fetcher.abort(error);
+        MCLogger.info(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Fetcher aborted successfully.`);
+      } catch (abortError) {
+        MCLogger.warn(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Failed to abort fetcher for request: ${this.mRequest}. Error: ${(abortError as Error)?.message || 'unknown'}`);
+      }
     }
   }
 
