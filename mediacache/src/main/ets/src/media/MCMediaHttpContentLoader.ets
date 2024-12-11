@@ -9,6 +9,7 @@ import { MCRange } from "../utils/MCRange";
 import { BusinessError } from "@kit.BasicServicesKit";
 import { MCMedia } from "./MCMedia";
 import { MCMediaContentLoader } from "./MCMediaContentLoader";
+import MCConfigs from "../utils/MCConfigs";
 
 export class MCMediaHttpContentLoader extends MCMediaContentLoader {
   private mMedia: MCMedia;
@@ -100,16 +101,33 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
   private async onDataReceive(data: ArrayBuffer): Promise<void> { // 接收到下载的数据
     await this.mHeadersReceivePromise!;
 
-    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[Http] Data received for URL: ${this.mRequest.url}: ${data.byteLength} bytes.`);
+    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[Http] Data received for URL: ${this.mRequest.url}. Bytes: ${data.byteLength}.`);
 
     if ( this.isAborted ) {
-      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[Http] Loader for ${this.mRequest.url} is aborted, ignoring data.`);
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[Http] Loader for URL: ${this.mRequest.url} is aborted. Ignoring data.`);
+      return;
+    }
+
+    if ( !this.mContent || !this.mWriter ) {
+      MCLogger.warn(MCLogModule.MCMediaContentLoader, () => `[Http] Content or writer is undefined for URL: ${this.mRequest.url}.`);
       return;
     }
 
     try {
-      await this.mWriter!.writeData(data, data.byteLength);
-      MCLogger.info(MCLogModule.MCMediaContentLoader, () => `[Http] Written ${data.byteLength} bytes to content for URL: ${this.mRequest.url}.`);
+      const offset = this.mContent.contentOffset + this.mContent.length;
+      if ( MCConfigs.dataEncryptHandler ) {
+        MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[Http] Encrypting data for URL: ${this.mRequest.url}. Offset: ${offset}, Bytes: ${data.byteLength}.`);
+        await MCConfigs.dataEncryptHandler(this.mRequest, offset, data);
+        MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[Http] Data encryption completed for URL: ${this.mRequest.url}. Offset: ${offset}, Bytes: ${data.byteLength}.`);
+      }
+
+      if ( this.isAborted ) {
+        MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[Http] Loader aborted after encrypting data for URL: ${this.mRequest.url}.`);
+        return;
+      }
+
+      await this.mWriter.writeData(data, data.byteLength);
+      MCLogger.info(MCLogModule.MCMediaContentLoader, () => `[Http] Written ${data.byteLength} bytes to content for URL: ${this.mRequest.url}. Offset: ${offset}.`);
     }
     catch (error) {
       MCLogger.error(MCLogModule.MCMediaContentLoader, () => `[Http] Error writing data for URL: ${this.mRequest.url} - ${(error as Error).message}`);

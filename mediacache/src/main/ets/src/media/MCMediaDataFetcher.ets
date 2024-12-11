@@ -9,6 +9,7 @@ import { IMCMedia } from "../defines/IMCMedia";
 import { IMCHttpOkResponseHeaders,
   IMCHttpPartialContentResponseHeaders,
   IMCHttpResponseHeaders } from "../defines/IMCHttpResponseHeaders";
+import MCConfigs from "../utils/MCConfigs";
 
 export class MCMediaDataFetcher implements IMCDataFetcher {
   private mMedia: IMCMedia;
@@ -138,8 +139,30 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
           MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Skipping dataLoad event as fetcher is aborted or callback is undefined.`);
           return;
         }
+
+        MCLogger.info(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Handling dataLoad event. Offset: ${offset}, Bytes: ${data.byteLength}.`);
+
         try {
+          // 校验数据一致性
+          if ( MCConfigs.dataValidator ) {
+            MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Validating data. Offset: ${offset}, Bytes: ${data.byteLength}.`);
+            const result = await MCConfigs.dataValidator(this.mRequest, offset, data);
+            if ( !result ) {
+              throw new Error(`Data validation failed at offset ${offset}. Data size: ${data.byteLength} bytes.`);
+            }
+
+            MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Data validation passed. Offset: ${offset}, Bytes: ${data.byteLength}.`);
+          }
+
+          // 数据解密
+          if ( MCConfigs.dataDecryptHandler ) {
+            MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Decrypting data. Offset: ${offset}, Bytes: ${data.byteLength}.`);
+            await MCConfigs.dataDecryptHandler(this.mRequest, offset, data);
+            MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Data decryption completed. Offset: ${offset}, Bytes: ${data.byteLength}.`);
+          }
+
           await this.mDataReceiveCallback(this, offset, data);
+          MCLogger.info(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Data successfully processed by receive callback. Offset: ${offset}, Bytes: ${data.byteLength}.`);
         }
         catch (error) {
           MCLogger.error(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Error in dataReceive callback: ${error.message}`);

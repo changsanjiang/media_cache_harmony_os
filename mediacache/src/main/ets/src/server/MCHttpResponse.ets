@@ -10,6 +10,7 @@ import { IMCHttpOkResponseHeaders,
   IMCHttpResponseHeaders } from "../defines/IMCHttpResponseHeaders";
 import { buffer, util } from "@kit.ArkTS";
 import { MCURL } from "../../../../../Index";
+import MCConfigs from "../utils/MCConfigs";
 
 export class MCHttpResponse implements IMCHttpResponse {
   private mClientId: number;
@@ -79,6 +80,8 @@ export class MCHttpResponse implements IMCHttpResponse {
         await this.mDataReceiveCallback?.(this, data);
       }
       else {
+        MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Processing chunked data. Offset: ${offset}, Bytes: ${data.byteLength}.`);
+
         // 拼接 chunk 数据：头部 + 数据 + 尾部
         //
         // 处理 chunked 编码的数据
@@ -97,7 +100,7 @@ export class MCHttpResponse implements IMCHttpResponse {
         dataView.set(chunkFooter, chunkHeader.byteLength + data.byteLength);
         await this.mDataReceiveCallback?.(this, chunkedData);
       }
-      MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Sent ${this.mChunked ? 'chunked ' : ''}data successfully: ${data.byteLength} bytes.`);
+      MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Sent ${this.mChunked ? 'chunked ' : ''}data successfully. Offset: ${offset}, Bytes: ${data.byteLength}.`);
     }
     catch (error) {
       this.onError(error);
