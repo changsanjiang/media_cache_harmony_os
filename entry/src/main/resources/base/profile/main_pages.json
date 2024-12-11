@@ -2,6 +2,7 @@
   "src": [
     "pages/Index",
     "pages/VideoPlayer",
-    "pages/AVPlayerDemo"
+    "pages/TestAVPlayer",
+    "pages/TestIJKPlayer"
   ]
 }

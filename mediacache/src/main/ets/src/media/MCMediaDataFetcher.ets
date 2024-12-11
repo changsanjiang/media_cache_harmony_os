@@ -36,6 +36,10 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
     media.readwriteRetain();
   }
 
+  get isAborted(): boolean {
+    return this.mAborted;
+  }
+
   async prepare(): Promise<void> {
     MCLogger.info(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Starting prepare for request: ${JSON.stringify(this.mRequest)}}`);
 
@@ -185,7 +189,7 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
       return;
     }
 
-    MCLogger.warn(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Aborting MCMediaDataReader${error ? ` due to error: ${error.message}` : ""}.`);
+    MCLogger.warn(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Aborting fetcher${error ? ` due to error: ${error.message}` : ""}.`);
 
     MCLogger.info(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Marking fetcher as aborted. response: ${this.mResponse}, currentLoader: ${this.mCurrentLoader}, loaders.length: ${this.mLoaders?.length}`);
 

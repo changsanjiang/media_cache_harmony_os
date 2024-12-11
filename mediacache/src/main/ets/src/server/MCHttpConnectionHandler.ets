@@ -3,6 +3,7 @@ import { IMCHttpKeepAlive, parseKeepAlive } from "../defines/IMCHttpKeepAlive";
 import { IMCHttpRequest } from "../defines/IMCHttpRequest";
 import { IMCHttpResponse } from "../defines/IMCHttpResponse";
 import { MCLogModule } from "../defines/MCLogModule";
+import MCConfigs from "../utils/MCConfigs";
 import MCLogger from "../utils/MCLogger";
 import { parseRequest } from "./MCHttpRequest";
 import { MCHttpResponse } from "./MCHttpResponse";
@@ -22,7 +23,6 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
     const clientId: number = connection.clientId;
     let isClosed = false; // 连接是否已断开;
     MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] New connection established.`);
-
     connection.on('message', async (data: socket.SocketMessageInfo) => {
       MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] New message received.`);
 
@@ -36,7 +36,7 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
       }
       catch (error) {
         MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Error while parsing request: ${(error as Error).message}. Closing connection.`);
-        await connection.send({ data: "HTTP/1.1 400 Bad Request\r\n\r\n" });
+        try { await this.sendWithTimeout(connection, "HTTP/1.1 400 Bad Request\r\n\r\n"); } catch (_) { }
         connection.close();
       }
 
@@ -49,21 +49,39 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
       const response = new MCHttpResponse(clientId, request);
       let isHeadersSent = false; // headers 是否已发送;
       this.mResponseMap.set(clientId, response);
-      response.on('headersReceive', async (response: IMCHttpResponse, headers: string) => {
-        MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Headers received.`);
 
-        if ( this.mResponseMap.get(clientId) === response && !isClosed ) {
-          await connection.send({ data: headers });
-          isHeadersSent = true;
-          MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Headers sent: \n${headers}`);
+      response.on('headersReceive', async (response: IMCHttpResponse, headers: string) => {
+        const isActive = this.mResponseMap.get(clientId) === response && !isClosed;
+        MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Headers received. isActive: ${isActive}.`);
+        if ( isActive ) {
+          try {
+            await this.sendWithTimeout(connection, headers);
+            isHeadersSent = true;
+            MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Headers sent: \n${headers}`);
+          }
+          catch (error) {
+            MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Error sending Headers: ${error.message}`);
+            isClosed = true;
+            this.closeConnection(connection, 'Send headers failed');
+            return;
+          }
         }
       });
-      response.on('dataReceive', async (response: IMCHttpResponse, data: ArrayBuffer) => {
-        MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Data received.`);
 
-        if ( this.mResponseMap.get(clientId) === response && !isClosed ) {
-          await connection.send({ data: data });
-          MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Data sent, size: ${data.byteLength}`);
+      response.on('dataReceive', async (response: IMCHttpResponse, data: ArrayBuffer) => {
+        const isActive = this.mResponseMap.get(clientId) === response && !isClosed;
+        MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Data received. isActive: ${isActive}.`);
+        if ( isActive ) {
+          try {
+            await this.sendWithTimeout(connection, data);
+            MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Data sent, size: ${data.byteLength}`);
+          }
+          catch (error) {
+            MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Error sending data: ${error.message}`);
+            isClosed = true;
+            this.closeConnection(connection, 'Send data failed');
+            return;
+          }
         }
       });
       response.on('aborted', async (response: IMCHttpResponse, _?: Error) => {
@@ -92,7 +110,7 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
     });
 
     connection.on('error', (e: Error) => {
-      MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Connection error: ${e.message}.`);
+      MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Connection error callback: ${e.message}.`);
 
       isClosed = true;
       this.clearConnectionEvents(connection);
@@ -106,7 +124,7 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
     });
 
     connection.on('close', () => {
-      MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Connection closed.`);
+      MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Connection closed callback.`);
 
       isClosed = true;
       this.clearConnectionEvents(connection);
@@ -116,6 +134,28 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
         this.mResponseMap.delete(clientId);
         response.abort(new Error("Connection closed unexpectedly."));
       }
+    });
+  }
+
+  // 发送数据超时控制
+  private async sendWithTimeout(connection: socket.TCPSocketConnection, data: string | ArrayBuffer, timeoutMs: number = MCConfigs.socketDataSendTimeoutInterval): Promise<void> {
+    if ( timeoutMs === 0 ) {
+      return connection.send({ data: data });
+    }
+
+    return new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        this.closeConnection(connection, 'Send data timed out');
+        reject(new Error('Send data timed out.'));
+      }, timeoutMs);
+
+      connection.send({ data }).then(() => {
+        clearTimeout(timeoutId);
+        resolve();
+      }).catch((err: Error) => {
+        clearTimeout(timeoutId);
+        reject(err);
+      });
     });
   }
 
@@ -134,24 +174,32 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
         const timeoutID = setTimeout(() => {
           MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Timeout reached, closing connection after ${keepAlive.timeout}s.`);
           this.mTimeoutIdMap.delete(connection.clientId);
-          connection.close();
+          this.closeConnection(connection, 'timeout');
         }, keepAlive.timeout * 1000);
         this.mTimeoutIdMap.set(connection.clientId, timeoutID);
       }
     }
     else {
-      MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Closing connection immediately.`);
-      connection.close();
+      this.closeConnection(connection, 'immediately');
+    }
+  }
+
+  private async closeConnection(connection: socket.TCPSocketConnection, reason: string): Promise<void> {
+    try {
+      MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Closing connection with reason: ${reason}.`);
+      await connection.close();
+      MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Connection closed successfully.`);
+    } catch (err) {
+      MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Error closing connection: ${(err as Error).message}`);
     }
   }
 
   private cancelTimeoutBy(clientId: number) {
     const timeoutId = this.mTimeoutIdMap.get(clientId);
-    if ( timeoutId ) {
-      MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Cancelling timeout.`);
-
-      this.mTimeoutIdMap.delete(timeoutId);
+    if ( timeoutId !== undefined ) {
       clearTimeout(timeoutId);
+      this.mTimeoutIdMap.delete(timeoutId);
+      MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Timeout cancelled.`);
     }
   }
 

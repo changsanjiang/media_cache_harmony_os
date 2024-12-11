@@ -604,4 +604,11 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     }
     return lengthCached * 1.0 / this.mMetadata.totalLength;
   }
+
+  // private printDebugInfo() {
+  //   setTimeout(() => {
+  //     console.log(`AAAA: media.readwriteCount=${this.readwriteCount}`);
+  //     this.printDebugInfo();
+  //   }, 10000);
+  // }
 }

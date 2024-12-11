@@ -1,6 +1,8 @@
 import { IMCHttpResponseHeaders } from "./IMCHttpResponseHeaders";
 
 export interface IMCDataFetcher {
+  readonly isAborted: boolean;
+
   prepare(): Promise<void>
   abort(error?: Error): Promise<void>;
 

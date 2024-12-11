@@ -6,7 +6,8 @@
   "author": "",
   "license": "",
   "dependencies": {
-    "@sj/mediacache": 'file: ../mediacache'
+    "@sj/mediacache": 'file: ../mediacache',
+    "@ohos/ijkplayer": '^2.0.5',
   }
 }
 

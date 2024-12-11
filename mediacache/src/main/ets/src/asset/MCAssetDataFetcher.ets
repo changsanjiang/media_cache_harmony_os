@@ -34,6 +34,10 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
     MCLogger.info(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Instance created  for request: ${JSON.stringify(this.mRequest)}}`);
   }
 
+  get isAborted(): boolean {
+    return this.mAborted;
+  }
+
   async prepare(): Promise<void> {
     MCLogger.info(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Preparing asset reader for request: ${JSON.stringify(this.mRequest)}}`);
     try {
@@ -124,6 +128,10 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
       return;
     }
 
+    MCLogger.warn(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Aborting fetcher${error ? ` due to error: ${error.message}` : ""}.`);
+
+    MCLogger.info(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Marking fetcher as aborted.`);
+
     this.mAborted = true;
 
     await this.clear(error);
@@ -131,6 +139,7 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
     this.mAsset.readwriteRelease();
 
     if ( this.mAbortedCallback ) {
+      MCLogger.debug(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Executing aborted callback with error: ${error?.message || "None"}.`);
       this.mAbortedCallback(this, error);
     }
   }
@@ -145,12 +154,14 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
       fetcher.off('dataEnd');
       fetcher.off('aborted');
 
-      try {
-        MCLogger.debug(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Aborting fetcher.`);
-        await fetcher.abort(error);
-        MCLogger.info(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Fetcher aborted successfully.`);
-      } catch (abortError) {
-        MCLogger.warn(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Failed to abort fetcher for request: ${this.mRequest}. Error: ${(abortError as Error)?.message || 'unknown'}`);
+      if ( !fetcher.isAborted ) {
+        try {
+          MCLogger.debug(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Aborting fetcher.`);
+          await fetcher.abort(error);
+          MCLogger.info(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Fetcher aborted successfully.`);
+        } catch (abortError) {
+          MCLogger.warn(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Failed to abort fetcher for request: ${this.mRequest}. Error: ${(abortError as Error)?.message || 'unknown'}`);
+        }
       }
     }
   }

@@ -36,12 +36,15 @@ export class MCMediaContentNodeList {
     this.mNodes.set(curNodeKey, curNode);
 
     // 如果链表为空，直接设置头尾节点
-    if (!this.mHead || !this.mTail) {
+    if (!this.mHead) {
       this.mHead = curNode;
       this.mTail = curNode;
       this.mMiddle = curNode;
       return;
     }
+
+    // 中间节点在 List 为偶数个节点时, 它的位置处于中间靠后的位置, 当有奇数个节点时, 就正好处于中间位置;
+    // 例如 [1, 2] 两个节点, 中间节点会被设置为 2; [1, 2, 3] 三个节点时, 中间节点会被设置为 2; [1, 2, 3, 4] 四个节点时, 会被设置为 3;
 
     // Restructure nodes in the linked list to insert the new node;
     //
@@ -85,7 +88,7 @@ export class MCMediaContentNodeList {
 
       // 如果节点总数为奇数，中间节点需要向前移动
       if (this.mNodes.size % 2 !== 0) {
-        this.mMiddle = this.mMiddle!.prev ?? this.mMiddle;
+        this.mMiddle = this.mMiddle!.prev;
       }
     }
     else {
@@ -98,8 +101,12 @@ export class MCMediaContentNodeList {
 
       // 如果节点总数为偶数，中间节点需要向后移动
       if (this.mNodes.size % 2 === 0) {
-        this.mMiddle = this.mMiddle!.next ?? this.mMiddle;
+        this.mMiddle = this.mMiddle!.next;
       }
+    }
+
+    if ( this.mHead && this.mMiddle === undefined ) {
+      throw new Error(`Inconsistent state detected: 'mHead' is not null, but 'mMiddle' is undefined. This indicates an unexpected behavior in the node management logic.`)
     }
   }
 
@@ -161,13 +168,10 @@ export class MCMediaContentNodeList {
     else {
       if ( this.mNodes.size % 2 !== 0 ) this.mMiddle = this.mMiddle?.prev;
     }
-  }
 
-  detachAllNodes(): void {
-    this.mNodes.clear();
-    this.mHead = undefined;
-    this.mMiddle = undefined;
-    this.mTail = undefined;
+    if ( this.mHead && this.mMiddle === undefined ) {
+      throw new Error(`Inconsistent state detected: 'mHead' is not null, but 'mMiddle' is undefined. This indicates an unexpected behavior in the node management logic.`)
+    }
   }
 
   enumerateNodesUsingBlock(block: (node: IMCMediaContentNode, stop: IMCStopFlag) => void): void {
@@ -210,16 +214,16 @@ export class MCMediaContentNodeList {
     return cur;
   }
 
-  printNodes() {
-    console.log('===========');
-    console.log(`nodes=${this.mNodes.size}`)
-    console.log(`head.placement=${this.mHead?.placement}`)
-    console.log(`middle.placement=${this.mMiddle?.placement}`)
-    console.log(`tail.placement=${this.mTail?.placement}`)
-    let cur = this.mHead;
-    while (cur) {
-      console.log(`placement=${cur.placement}`);
-      cur = cur.next;
-    }
-  }
+  // printNodes() {
+  //   console.log('===========');
+  //   console.log(`nodes=${this.mNodes.size}`)
+  //   console.log(`head.placement=${this.mHead?.placement}`)
+  //   console.log(`middle.placement=${this.mMiddle?.placement}`)
+  //   console.log(`tail.placement=${this.mTail?.placement}`)
+  //   let cur = this.mHead;
+  //   while (cur) {
+  //     console.log(`placement=${cur.placement}`);
+  //     cur = cur.next;
+  //   }
+  // }
 }

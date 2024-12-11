@@ -68,12 +68,12 @@ export class MCHttpResponse implements IMCHttpResponse {
     }
   }
 
-  private async onDataReceive(_: number, data: ArrayBuffer): Promise<void> {
+  private async onDataReceive(offset: number, data: ArrayBuffer): Promise<void> {
     if ( this.mAborted ) {
       return;
     }
     try {
-      MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Preparing to send response body data.`);
+      MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Preparing to send response body data. Offset: ${offset}, Bytes: ${data.byteLength}.`);
 
       if ( !this.mChunked ) {
         await this.mDataReceiveCallback?.(this, data);
@@ -171,12 +171,14 @@ export class MCHttpResponse implements IMCHttpResponse {
       fetcher.off('dataEnd');
       fetcher.off('aborted');
 
-      try {
-        MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Aborting fetcher.`);
-        await fetcher.abort(error);
-        MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Fetcher aborted successfully.`);
-      } catch (abortError) {
-        MCLogger.warn(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Failed to abort fetcher for request: ${this.mRequest}. Error: ${(abortError as Error)?.message || 'unknown'}`);
+      if ( !fetcher.isAborted ) {
+        try {
+          MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Aborting fetcher.`);
+          await fetcher.abort(error);
+          MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Fetcher aborted successfully.`);
+        } catch (abortError) {
+          MCLogger.warn(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Failed to abort fetcher for request: ${this.mRequest}. Error: ${(abortError as Error)?.message || 'unknown'}`);
+        }
       }
     }
   }

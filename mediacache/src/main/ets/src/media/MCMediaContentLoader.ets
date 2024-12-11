@@ -4,6 +4,7 @@ import { MCLogModule } from "../defines/MCLogModule";
 import MCLogger from "../utils/MCLogger";
 import { MCRange } from "../utils/MCRange";
 import { BusinessError } from "@kit.BasicServicesKit";
+import MCConfigs from "../utils/MCConfigs";
 
 export class MCMediaContentLoader implements IMCMediaContentLoader {
   private _mDataLoadCallback?: (loader: IMCMediaContentLoader, offset: number, data: ArrayBuffer) => void | Promise<void> = undefined;
@@ -73,7 +74,7 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
           break;
         }
 
-        const bufferSize = Math.min(4 * 1024 * 1024, readableLength);
+        const bufferSize = Math.min(MCConfigs.socketDataBufferSize, readableLength);
         const buffer = new ArrayBuffer(bufferSize);
         const len = await this._mContentReader.readData(this._mReadOffset, buffer, bufferSize);
         if ( this._mAborted ) {
