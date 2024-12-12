@@ -40,7 +40,7 @@ namespace MCAssetPrefetcher {
     /**
      * 指定分块大小; 预加载时可能会尝试分块请求媒体数据;
      *
-     * 例如预加载 50M 的数据, 在执行会尝试将 50M 的数据按指定的 chunkSize 分成多个块进行预加载, 可以通过 concurrentPrefetchCount 设置预加载的并发数;
+     * 例如预加载 50M 的数据, 在预加载时会尝试将 50M 的数据按指定的 chunkSize 分成多个块进行预加载, 可以通过 concurrentPrefetchCount 设置预加载的并发数;
      *
      * 默认值是 5M;
      * */
