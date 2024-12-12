@@ -82,8 +82,8 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
       return;
     }
 
-    const responseHeaders = this.generateResponseHeaders(response);
     if (this.mResponseReceiveCallback) {
+      const responseHeaders = this.generateResponseHeaders(response);
       MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Invoking responseReceive callback.`);
       await this.mResponseReceiveCallback(this, responseHeaders);
     }

@@ -28,7 +28,7 @@ namespace MCUtils {
 
   export function modifyRecord(record: Record<string, string>, key: string, value?: string): Record<string, string> {
     let map = recordToMap(record);
-    value != undefined ? map.set(key, value) : map.delete(key);
+    value ? map.set(key, value) : map.delete(key);
     return mapToRecord(map);
   }
 

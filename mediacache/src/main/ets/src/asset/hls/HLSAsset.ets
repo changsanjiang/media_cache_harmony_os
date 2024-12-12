@@ -2,6 +2,7 @@ import { HLSPlaylist, MCUtils } from "../../../../../../Index";
 import HLSDefines from "../../defines/HLSDefines";
 import { IMCAsset } from "../../defines/IMCAsset";
 import { IMCMedia } from "../../defines/IMCMedia";
+import { MCAssetType } from "../../defines/MCAssetType";
 import { MCMedia } from "../../media/MCMedia";
 import { MCReadwriteReference } from "../../utils/MCReadwriteReference";
 import MCURL from "../../utils/MCURL";
@@ -66,6 +67,10 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
   }
 
   readonly id: string;
+
+  get type(): MCAssetType {
+    return MCAssetType.HLS;
+  }
 
   get completeness(): Promise<number> {
     return this.calculateCompleteness();

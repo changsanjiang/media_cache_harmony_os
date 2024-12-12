@@ -10,7 +10,6 @@ import { IMCHttpOkResponseHeaders,
   IMCHttpResponseHeaders } from "../defines/IMCHttpResponseHeaders";
 import { buffer, util } from "@kit.ArkTS";
 import { MCURL } from "../../../../../Index";
-import MCConfigs from "../utils/MCConfigs";
 
 export class MCHttpResponse implements IMCHttpResponse {
   private mClientId: number;

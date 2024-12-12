@@ -94,10 +94,68 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     }
   }
 
+  // 探测元数据
+  probe(proxyRequest: IMCDataRequest, signal?: MCAbortSignal): Promise<IMCMediaMetadata> {
+    if ( this.mMetadata ) {
+      return Promise.resolve(this.mMetadata);
+    }
+
+    const requestTarget = proxyRequest.requestTarget;
+    const headers = proxyRequest.headers;
+    const mediaUrl = MCURL.parseUrl(requestTarget);
+    const request = new MCDownload.Request(mediaUrl, headers);
+
+    return MCDownload.probe(request, signal).then(async (response) => {
+      if ( this.mMetadata ) {
+        return this.mMetadata;
+      }
+
+      if ( signal?.isAborted === true ) {
+        throw signal.reason!
+      }
+
+      const statusCode = response.statusCode;
+      if ( statusCode !== 200 && statusCode !== 206 ) {
+        throw new MCDataResponseError(statusCode, 'xxx');
+      }
+
+      if ( this.mProxyHandler && statusCode !== 200 ) {
+        throw new MCDataResponseError(400, 'xxx'); // 内容代理仅支持200请求;
+      }
+
+      // 探测服务器支持的情况
+      // 如果不支持206请求，在未完全下载之前就只创建一个 200 loader
+
+      const headers = response.headers;
+      const acceptRangesHeader: string | undefined = headers['accept-ranges'];
+      const contentRangeHeader: string | undefined = headers['content-range'];
+      const contentTypeHeader: string | undefined = headers['content-type'];
+      const contentLengthHeader: string | undefined = headers['content-length'];
+
+      const contentType = contentTypeHeader || 'application/octet-stream';
+      const byteRangeAccessSupported = this.mProxyHandler ? false : statusCode === 206 || acceptRangesHeader === 'bytes';
+
+      /// - 情况1: 当内容需要代理时, 最终的数据长度只有在生成代理内容后才能确定, 这里需要暂时设置为 Number.MAX_SAFE_INTEGER;
+      /// - 情况2: 有些服务器不会返回 contentLengthHeader, 这里需要暂时设置 Number.MAX_SAFE_INTEGER;
+      const contentLength = this.mProxyHandler ? Number.MAX_SAFE_INTEGER : (contentLengthHeader ? parseInt(contentLengthHeader, 10) : Number.MAX_SAFE_INTEGER);
+      const contentRange = contentRangeHeader ? parseResponseContentRange(contentRangeHeader) : undefined;
+      const totalLength = contentRange ? contentRange.size : contentLength;
+
+      const metadata: IMCMediaMetadata = {
+        contentType: contentType,
+        totalLength: totalLength,
+        byteRangeAccessSupported: byteRangeAccessSupported
+      };
+      this.mMetadata = metadata;
+      MCDatabase.saveMediaMetadata(this.id, metadata);
+      return metadata;
+    });
+  }
+
   fetch(request: IMCDataRequest, signal?: MCAbortSignal): Promise<IMCDataResponse> {
     return this.probe(request, signal).then(() => this.resolve(request, signal)).catch((error: Error) => {
       if ( !(error instanceof MCDataResponseError) ) {
-        return Promise.reject(error);
+        throw error;
       }
 
       const response: IMCDataResponse = {
@@ -138,69 +196,12 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     return undefined;
   }
 
-  // 探测元数据
-  private probe(proxyRequest: IMCDataRequest, signal?: MCAbortSignal): Promise<void> {
-    if ( this.mMetadata ) {
-      return Promise.resolve();
-    }
-
-    const requestTarget = proxyRequest.requestTarget;
-    const headers = proxyRequest.headers;
-    const mediaUrl = MCURL.parseUrl(requestTarget);
-    const request = new MCDownload.Request(mediaUrl, headers);
-
-    return MCDownload.probe(request, signal).then(async (response) => {
-      if ( this.mMetadata ) {
-        return;
-      }
-
-      if ( signal?.aborted === true ) {
-        throw signal.reason!
-      }
-
-      const statusCode = response.statusCode;
-      if ( statusCode !== 200 && statusCode !== 206 ) {
-        throw new MCDataResponseError(statusCode, 'xxx');
-      }
-
-      if ( this.mProxyHandler && statusCode !== 200 ) {
-        throw new MCDataResponseError(400, 'xxx'); // 内容代理仅支持200请求;
-      }
-
-      // 探测服务器支持的情况
-      // 如果不支持206请求，在未完全下载之前就只创建一个 200 loader
-
-      const headers = response.headers;
-      const acceptRangesHeader: string | undefined = headers['accept-ranges'];
-      const contentRangeHeader: string | undefined = headers['content-range'];
-      const contentTypeHeader: string | undefined = headers['content-type'];
-      const contentLengthHeader: string | undefined = headers['content-length'];
-
-      const contentType = contentTypeHeader || 'application/octet-stream';
-      const byteRangeAccessSupported = this.mProxyHandler ? false : statusCode === 206 || acceptRangesHeader === 'bytes';
-
-      /// - 情况1: 当内容需要代理时, 最终的数据长度只有在生成代理内容后才能确定, 这里需要暂时设置为 Number.MAX_SAFE_INTEGER;
-      /// - 情况2: 有些服务器不会返回 contentLengthHeader, 这里需要暂时设置 Number.MAX_SAFE_INTEGER;
-      const contentLength = this.mProxyHandler ? Number.MAX_SAFE_INTEGER : (contentLengthHeader ? parseInt(contentLengthHeader, 10) : Number.MAX_SAFE_INTEGER);
-      const contentRange = contentRangeHeader ? parseResponseContentRange(contentRangeHeader) : undefined;
-      const totalLength = contentRange ? contentRange.size : contentLength;
-
-      const metadata: IMCMediaMetadata = {
-        contentType: contentType,
-        totalLength: totalLength,
-        byteRangeAccessSupported: byteRangeAccessSupported
-      };
-      this.mMetadata = metadata;
-      MCDatabase.saveMediaMetadata(this.id, metadata);
-    });
-  }
-
   private async resolve(proxyRequest: IMCDataRequest, signal?: MCAbortSignal): Promise<IMCDataResponse> {
     if ( this.mRestructurePromise ) {
       await this.mRestructurePromise;
     }
 
-    if ( signal?.aborted === true ) {
+    if ( signal && signal.isAborted ) {
       throw signal.reason!
     }
 

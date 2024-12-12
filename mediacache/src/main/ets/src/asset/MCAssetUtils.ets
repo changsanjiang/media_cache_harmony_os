@@ -16,6 +16,13 @@ namespace MCAssetUtils {
     return MCURL.generateProxyUrl(resUrl, localServerPort, assetType, assetId, mediaId);
   }
 
+  export async function generateProxyPath(resUrl: string): Promise<string> {
+    const assetType = await resolveAssetType(resUrl);
+    const assetId = await generateAssetId(resUrl);
+    const mediaId = assetId; // 根文件的媒体id和资产id一致;
+    return MCURL.generateProxyPath(resUrl, assetType, assetId, true, mediaId);
+  }
+
   /**
    * 为 hls 的媒体生成代理路径;
    *

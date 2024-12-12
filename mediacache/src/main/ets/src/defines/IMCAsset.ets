@@ -1,5 +1,6 @@
 import { IMCMedia } from "./IMCMedia";
 import { IMCReadwriteReference } from "./IMCReadwriteReference";
+import { MCAssetType } from "./MCAssetType";
 
 /**
  一个资产中包含单个或多个媒体, 每个媒体对应一个 http 地址;
@@ -10,6 +11,7 @@ import { IMCReadwriteReference } from "./IMCReadwriteReference";
  */
 export interface IMCAsset extends IMCReadwriteReference<IMCAsset> {
   readonly id: string;
+  readonly type: MCAssetType;
 
   readonly completeness: Promise<number>; // 完成度; [0, 1];
 

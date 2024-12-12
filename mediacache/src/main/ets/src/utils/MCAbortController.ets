@@ -11,10 +11,10 @@ export class MCAbortController {
 }
 
 export interface MCAbortSignal {
-  readonly aborted: boolean
+  readonly isAborted: boolean
   readonly reason: Error | undefined
-  addEventListener(event: 'aborted', callback: () => void): void;
-  removeEventListener(event: 'aborted', callback: () => void): void;
+  addEventListener(event: 'aborted', callback: (error: Error) => void): void;
+  removeEventListener(event: 'aborted', callback: (error: Error) => void): void;
 }
 
 class MCAbortSignal_ implements MCAbortSignal {
@@ -22,7 +22,7 @@ class MCAbortSignal_ implements MCAbortSignal {
   private mReason: Error | undefined = undefined
   private mListeners = new Array<Function>();
 
-  get aborted(): boolean {
+  get isAborted(): boolean {
     return this.mAborted;
   }
 
@@ -30,12 +30,12 @@ class MCAbortSignal_ implements MCAbortSignal {
     return this.mReason;
   }
 
-  addEventListener(_: "aborted", callback: () => void): void {
+  addEventListener(_: "aborted", callback: (error: Error) => void): void {
     if ( !this.mAborted ) this.mListeners.push(callback);
-    else callback();
+    else callback(this.mReason!);
   }
 
-  removeEventListener(_: "aborted", callback: () => void): void {
+  removeEventListener(_: "aborted", callback: (error: Error) => void): void {
     const index = this.mListeners.indexOf(callback);
     if (index >= 0) {
       this.mListeners.splice(index, 1);
@@ -53,7 +53,7 @@ class MCAbortSignal_ implements MCAbortSignal {
         abortErr.name = 'ABORT_ERR';
         this.mReason = abortErr;
       }
-      this.mListeners.forEach((listener) => { listener(); });
+      this.mListeners.forEach((listener) => { listener(this.mReason); });
       this.mListeners.length = 0;
     }
   }

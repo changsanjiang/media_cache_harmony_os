@@ -1,5 +1,6 @@
 import { IMCAsset } from "../../defines/IMCAsset";
 import { IMCMedia } from "../../defines/IMCMedia";
+import { MCAssetType } from "../../defines/MCAssetType";
 import { MCMedia } from "../../media/MCMedia";
 import { MCReadwriteReference } from "../../utils/MCReadwriteReference";
 
@@ -16,6 +17,10 @@ export class FILEAsset extends MCReadwriteReference<FILEAsset> implements IMCAss
   }
 
   readonly id: string;
+
+  get type(): MCAssetType {
+    return MCAssetType.FILE_BASED;
+  }
 
   get completeness(): Promise<number> {
     return this.mMedia.completeness;
