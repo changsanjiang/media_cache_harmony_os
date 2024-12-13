@@ -164,8 +164,9 @@ namespace MCAssetPrefetcher {
           const promises: Promise<void>[] = [];
           for (let p = 0; p < concurrentPrefetchCount; p++) {
             const fetchIndex = requestIndex;
-            const fetchProgressCallback = (progress: number) => {
-              fetchProgresses[fetchIndex] = progress;
+            const fetchProgressCallback = (receivedLength: number, expectedLength: number) => {
+              const fetchProgress = receivedLength / expectedLength;
+              fetchProgresses[fetchIndex] = fetchProgress;
               options?.onProgress?.(fetchProgresses.reduce((prev, cur) => prev + cur, 0) / fetchProgresses.length);
             };
             const fetchRequest = fetchRequests[fetchIndex];
@@ -191,7 +192,7 @@ namespace MCAssetPrefetcher {
         requestTarget: requestTarget,
         headers: headers,
       }
-      return fetch(generatePrefetchId(), media, request, options?.onProgress, signal);
+      return fetch(generatePrefetchId(), media, request, (receivedLength: number, expectedLength: number) => options?.onProgress?.(receivedLength / expectedLength), signal);
     }
   }
 
@@ -312,10 +313,10 @@ namespace MCAssetPrefetcher {
         const promises: Promise<void>[] = [];
         for (let p = 0; p < concurrentPrefetchCount; p++) {
           const fetchIndex = itemIndex;
-          const fetchProgressCallback: ((progress: number) => void) | undefined = onProgress ? (progress) => {
-            fetchProgresses[fetchIndex] = progress;
+          const fetchProgressCallback = (receivedLength: number, expectedLength: number) => {
+            fetchProgresses[fetchIndex] = receivedLength / expectedLength;
             onProgress?.(fetchProgresses.reduce((prev, cur) => prev + cur, 0) / fetchProgresses.length);
-          } : undefined;
+          };
 
           const item = items[fetchIndex];
           promises.push(prefetchMediaByHLSItem(asset, item, fetchProgressCallback, fetchAbortController.signal)); // 传递 fetchAbortController.signal, 当外部终止时, 内部也停止预缓存;
@@ -334,7 +335,7 @@ namespace MCAssetPrefetcher {
     }
   }
 
-  async function prefetchMediaByHLSItem(asset: HLSAsset, item: HLSDefines.Item, onProgress?: (progress: number) => void, signal?: MCAbortSignal): Promise<void> {
+  async function prefetchMediaByHLSItem(asset: HLSAsset, item: HLSDefines.Item, onProgress?: (receivedLength: number, expectedLength: number) => void, signal?: MCAbortSignal): Promise<void> {
     checkAbortSignal(signal);
 
     const uri = item.uri;
@@ -349,7 +350,7 @@ namespace MCAssetPrefetcher {
     }
   }
 
-  function fetch(clientId: number, media: IMCMedia, request: IMCDataRequest, onProgress?: (progress: number) => void, signal?: MCAbortSignal): Promise<void> {
+  function fetch(clientId: number, media: IMCMedia, request: IMCDataRequest, onProgress?: (receivedLength: number, expectedLength: number) => void, signal?: MCAbortSignal): Promise<void> {
     return new Promise(async (resolve, reject) => {
       if ( signal && signal.isAborted ) {
         reject(signal.reason!);  // reject
@@ -387,7 +388,7 @@ namespace MCAssetPrefetcher {
 
         receivedLength += data.byteLength;
         if ( contentLength && onProgress ) { // contentLength 不一定有值, 当数据以 chunked 形式响应时, 无法获取所请求的数据长度;
-          onProgress(receivedLength / contentLength);
+          onProgress(receivedLength, contentLength);
         }
       });
 
@@ -397,7 +398,7 @@ namespace MCAssetPrefetcher {
         }
 
         if ( onProgress && contentLength === undefined ) {
-          onProgress(1);
+          onProgress(receivedLength, receivedLength);
         }
 
         clearFetcherEvents(fetcher);
