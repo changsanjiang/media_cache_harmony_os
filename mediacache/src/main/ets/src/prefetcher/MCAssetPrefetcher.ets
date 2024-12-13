@@ -57,6 +57,8 @@ namespace MCAssetPrefetcher {
     signal?: MCAbortSignal;
   }
 
+  let mPrefetchId = -1
+
   export async function prefetch(resUrl: string, options?: MCAssetPrefetchOptions): Promise<void> {
     // 参数校验
     const prefetchSize = options?.prefetchSize;
@@ -162,7 +164,7 @@ namespace MCAssetPrefetcher {
           } : undefined;
 
           const request = requests[fetchIndex];
-          promises.push(fetch(-1, media, request, onProgress, fetchAbortController.signal));
+          promises.push(fetch(generatePrefetchId(), media, request, onProgress, fetchAbortController.signal));
           requestIndex += 1;
           if ( requestIndex >= requests.length ) break;
         }
@@ -181,7 +183,7 @@ namespace MCAssetPrefetcher {
         requestTarget: requestTarget,
         headers: headers,
       }
-      return fetch(-1, media, request, options?.onProgress, signal);
+      return fetch(generatePrefetchId(), media, request, options?.onProgress, signal);
     }
   }
 
@@ -288,6 +290,10 @@ namespace MCAssetPrefetcher {
     fetcher.off('dataReceive');
     fetcher.off('dataEnd');
     fetcher.off('aborted');
+  }
+
+  function generatePrefetchId(): number {
+    return --mPrefetchId
   }
 }
 
