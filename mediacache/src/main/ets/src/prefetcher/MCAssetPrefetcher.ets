@@ -1,7 +1,9 @@
-import { MCAssetUtils, MCUtils } from "../../../../../Index";
+import { HLSPlaylist, MCAssetUtils, MCUtils } from "../../../../../Index";
 import { FILEAsset } from "../asset/filebased/FILEAsset";
 import { HLSAsset } from "../asset/hls/HLSAsset";
+import HLSParser from "../asset/hls/HLSParser";
 import MCAssetManager from "../asset/MCAssetManager";
+import HLSDefines from "../defines/HLSDefines";
 import { IMCDataFetcher } from "../defines/IMCDataFetcher";
 import { IMCDataRequest } from "../defines/IMCDataRequest";
 import { IMCHttpOkResponseHeaders,
@@ -28,14 +30,12 @@ namespace MCAssetPrefetcher {
     /**
      * 预缓存指定数量的媒体文件; 这个参数主要用于流媒体(HLS), 因为它的播放列表(playlist)中通常包含多个段(ts)文件, 通过设置这个参数用来指定预缓存的文件数;
      *
-     * 指定预缓存的文件数时必须大于0.
+     * 指定预缓存的文件数必须大于0.
      *
      * 对于普通媒体文件的预缓存, 因为只包含一个文件, 所以整个媒体文件将被缓存;
      * 对于流媒体(HLS)的预缓存, 会尝试预缓存的指定数量的段(ts)文件;
      * */
     prefetchFileCount?: number;
-
-    additionalHeaders?: Record<string, string>;
 
     /**
      * 指定分块大小; 预加载时可能会尝试分块请求媒体数据;
@@ -54,6 +54,7 @@ namespace MCAssetPrefetcher {
     concurrentPrefetchCount?: number;
 
     onProgress?: (progress: number) => void;
+    additionalHeaders?: Record<string, string>;
     signal?: MCAbortSignal;
   }
 
@@ -74,8 +75,12 @@ namespace MCAssetPrefetcher {
     const signal = options?.signal;
     checkAbortSignal(signal);
 
-    // 获取代理路径
     const requestTarget = await MCAssetUtils.generateProxyPath(resUrl);
+    await prefetchByRequestTarget(requestTarget, options);
+  }
+
+  async function prefetchByRequestTarget(requestTarget: string, options?: MCAssetPrefetchOptions): Promise<void> {
+    const signal = options?.signal;
     checkAbortSignal(signal);
 
     // 获取资产
@@ -132,8 +137,8 @@ namespace MCAssetPrefetcher {
       const chunkSize = options?.chunkSize !== undefined && options?.chunkSize > 0 ? options.chunkSize : 5 * 1024 * 1024; // default: 5M;
       const concurrentPrefetchCount = options?.concurrentPrefetchCount !== undefined && options?.concurrentPrefetchCount > 0 ? options.concurrentPrefetchCount : 3; // default: 3;
 
-      const requests: IMCDataRequest[] = [];
-      const progresses: number[] = [];
+      const fetchRequests: IMCDataRequest[] = [];
+      const fetchProgresses: number[] = [];
       const totalLength = metadata.totalLength;
       let offset = 0;
       while (offset < prefetchSize) {
@@ -144,36 +149,39 @@ namespace MCAssetPrefetcher {
           requestTarget: requestTarget,
           headers: headers,
         }
-        requests.push(request);
-        progresses.push(0);
+        fetchRequests.push(request);
+        fetchProgresses.push(0);
         offset += chunkSize;
       }
 
-      // 并发控制
-      let requestIndex = 0;
-      while (requestIndex < requests.length) {
-        const promises: Promise<void>[] = [];
-        const fetchAbortController = new MCAbortController();
-        const prefetchAbortedCallback = (error: Error) => fetchAbortController.abort(error);
-        signal?.addEventListener('aborted', prefetchAbortedCallback);
-        for (let p = 0; p < concurrentPrefetchCount; p++) {
-          const fetchIndex = requestIndex;
-          const onProgress: ((progress: number) => void) | undefined = options?.onProgress ? (progress) => {
-            progresses[fetchIndex] = progress;
-            options?.onProgress?.(progresses.reduce((prev, cur) => prev + cur, 0) / progresses.length);
-          } : undefined;
-
-          const request = requests[fetchIndex];
-          promises.push(fetch(generatePrefetchId(), media, request, onProgress, fetchAbortController.signal));
-          requestIndex += 1;
-          if ( requestIndex >= requests.length ) break;
+      const fetchAbortController = new MCAbortController();
+      const signalAbortedCallback = (error: Error) => fetchAbortController.abort(error); // 外部终止时, 内部停止预缓存;
+      signal?.addEventListener('aborted', signalAbortedCallback);
+      try {
+        // 并发控制
+        let requestIndex = 0;
+        while (requestIndex < fetchRequests.length) {
+          const promises: Promise<void>[] = [];
+          for (let p = 0; p < concurrentPrefetchCount; p++) {
+            const fetchIndex = requestIndex;
+            const fetchProgressCallback = (progress: number) => {
+              fetchProgresses[fetchIndex] = progress;
+              options?.onProgress?.(fetchProgresses.reduce((prev, cur) => prev + cur, 0) / fetchProgresses.length);
+            };
+            const fetchRequest = fetchRequests[fetchIndex];
+            promises.push(fetch(generatePrefetchId(), media, fetchRequest, fetchProgressCallback, fetchAbortController.signal)); // 传递 fetchAbortController.signal, 当外部终止时, 内部也停止预缓存;
+            requestIndex += 1;
+            if ( requestIndex >= fetchRequests.length ) break;
+          }
+          await Promise.all(promises);
         }
-        await Promise.all(promises).catch((error: Error) => {
-          fetchAbortController.abort(error);
-          return Promise.reject(error);
-        }).finally(() => {
-          signal?.removeEventListener('aborted', prefetchAbortedCallback);
-        });
+      }
+      catch (error) {
+        fetchAbortController.abort(error);
+        throw error as Error;
+      }
+      finally {
+        signal?.removeEventListener('aborted', signalAbortedCallback);
       }
     }
     // 请求媒体所有数据
@@ -189,8 +197,154 @@ namespace MCAssetPrefetcher {
 
   async function prefetchHLSAsset(asset: HLSAsset, requestTarget: string, options?: MCAssetPrefetchOptions): Promise<void> {
     const signal = options?.signal;
-    if ( signal && signal.isAborted ) {
-      throw signal.reason!;
+    checkAbortSignal(signal)
+
+    // 获取播放列表
+    const playlistMedia = await asset.getMediaBy(requestTarget);
+    const playlistRequest: IMCDataRequest = {
+      requestTarget: requestTarget,
+      headers: options?.additionalHeaders
+    }
+    const playlistRawData = await read(generatePrefetchId(), playlistMedia, playlistRequest, signal)
+    const playlist = playlistRawData ? new HLSPlaylist(MCUtils.bufferToString(playlistRawData)) : undefined;
+    if ( !playlist || !playlist.allItems || playlist.allItems.length === 0 ) { // 空文件
+      options?.onProgress?.(1);
+      return;
+    }
+
+    if ( options?.prefetchSize ) {
+      await prefetchHLSAssetMediasBySpecifiedSize(asset, playlist, options.prefetchSize, options.concurrentPrefetchCount, options.onProgress)
+    }
+    else if ( options?.prefetchFileCount ) {
+      await prefetchHLSAssetMediasBySpecifiedSegmentCount(asset, playlist, options.prefetchFileCount, options.concurrentPrefetchCount, options.onProgress)
+    }
+    else {
+      await prefetchHLSAssetAllMedias(asset, playlist, options?.concurrentPrefetchCount, options?.onProgress)
+    }
+  }
+
+  function prefetchHLSAssetMediasBySpecifiedSize(asset: HLSAsset, playlist: HLSPlaylist, specifiedSize: number, concurrentPrefetchCount?: number, onProgress?: (progress: number) => void, signal?: MCAbortSignal): Promise<void> {
+
+    throw new Error("Method not implemented.");
+  }
+
+  async function prefetchHLSAssetMediasBySpecifiedSegmentCount(asset: HLSAsset, playlist: HLSPlaylist, specifiedSegmentCount: number, concurrentPrefetchCount?: number, onProgress?: (progress: number) => void, signal?: MCAbortSignal): Promise<void> {
+    checkAbortSignal(signal);
+
+    const segments = playlist.segments;
+    // 处理分段
+    if ( segments && segments.length > 0 ) {
+      const lastSegment = segments[Math.min(specifiedSegmentCount - 1, segments.length - 1)];
+      const lastItemIndex = playlist.allItems!.indexOf(lastSegment);
+      const items = playlist.allItems!.slice(0, lastItemIndex + 1);
+      return prefetchMediaByHLSItems(asset, items, concurrentPrefetchCount, onProgress);
+    }
+
+    const variantStream = playlist.variantStream;
+    if ( !variantStream ) {
+      onProgress?.(1);
+      return;
+    }
+
+    // 处理变体流 + renditions
+    const audioRendition = playlist.audioRendition;
+    const videoRendition = playlist.videoRendition;
+    const subtitlesRendition = playlist.subtitlesRendition;
+
+    const items: HLSDefines.Item[] = [];
+    items.push(variantStream);
+    if ( audioRendition ) items.push(audioRendition);
+    if ( videoRendition ) items.push(videoRendition);
+    if ( subtitlesRendition ) items.push(subtitlesRendition);
+
+    const fetchProgresses: number[] = items.map(() => 0);
+    const fetchAbortController = new MCAbortController();
+    const signalAbortedCallback = (error: Error) => fetchAbortController.abort(error); // 外部终止时, 内部停止预缓存;
+    signal?.addEventListener('aborted', signalAbortedCallback);
+
+    try {
+      let itemIndex = 0;
+      while (itemIndex < items.length) {
+        const item = items[itemIndex];
+        const uri = item.uri!
+        const fetchIndex = itemIndex;
+        const fetchProgressCallback = (progress: number) => {
+          fetchProgresses[fetchIndex] = progress;
+          onProgress?.(fetchProgresses.reduce((prev, cur) => prev + cur, 0) / fetchProgresses.length);
+        };
+
+        if ( item !== subtitlesRendition ) {
+          await prefetchByRequestTarget(uri, {
+            concurrentPrefetchCount: concurrentPrefetchCount,
+            onProgress: fetchProgressCallback,
+            signal: fetchAbortController.signal // 传递 fetchAbortController.signal, 当外部终止时, 内部也停止预缓存;
+          })
+        }
+        else {
+          await prefetchMediaByHLSItem(asset, item, fetchProgressCallback, fetchAbortController.signal);
+        }
+        itemIndex += 1;
+      }
+    }
+    finally {
+      signal?.removeEventListener('aborted', signalAbortedCallback);
+    }
+  }
+
+  function prefetchHLSAssetAllMedias(asset: HLSAsset, playlist: HLSPlaylist, concurrentPrefetchCount?: number, onProgress?: (progress: number) => void, signal?: MCAbortSignal): Promise<void> {
+    throw new Error("Method not implemented.");
+  }
+
+  async function prefetchMediaByHLSItems(asset: HLSAsset, items: HLSDefines.Item[], concurrentPrefetchCount?: number, onProgress?: (progress: number) => void, signal?: MCAbortSignal): Promise<void> {
+    checkAbortSignal(signal);
+
+    concurrentPrefetchCount = concurrentPrefetchCount !== undefined && concurrentPrefetchCount > 0 ? concurrentPrefetchCount : 3; // default: 3;
+
+    const fetchAbortController = new MCAbortController();
+    const signalAbortedCallback = (error: Error) => fetchAbortController.abort(error); // 外部终止时, 内部停止预缓存;
+    signal?.addEventListener('aborted', signalAbortedCallback);
+    try {
+      // 并发控制
+      let itemIndex = 0;
+      const fetchProgresses: number[] = items.map(() => 0);
+      while (itemIndex < items.length) {
+        const promises: Promise<void>[] = [];
+        for (let p = 0; p < concurrentPrefetchCount; p++) {
+          const fetchIndex = itemIndex;
+          const fetchProgressCallback: ((progress: number) => void) | undefined = onProgress ? (progress) => {
+            fetchProgresses[fetchIndex] = progress;
+            onProgress?.(fetchProgresses.reduce((prev, cur) => prev + cur, 0) / fetchProgresses.length);
+          } : undefined;
+
+          const item = items[fetchIndex];
+          promises.push(prefetchMediaByHLSItem(asset, item, fetchProgressCallback, fetchAbortController.signal)); // 传递 fetchAbortController.signal, 当外部终止时, 内部也停止预缓存;
+          itemIndex += 1;
+          if ( itemIndex >= items.length ) break;
+        }
+        await Promise.all(promises);
+      }
+    }
+    catch (error) {
+      fetchAbortController.abort(error);
+      throw error as Error;
+    }
+    finally {
+      signal?.removeEventListener('aborted', signalAbortedCallback);
+    }
+  }
+
+  async function prefetchMediaByHLSItem(asset: HLSAsset, item: HLSDefines.Item, onProgress?: (progress: number) => void, signal?: MCAbortSignal): Promise<void> {
+    checkAbortSignal(signal);
+
+    const uri = item.uri;
+    if ( uri ) {
+      const media = await asset.getMediaBy(uri);
+      checkAbortSignal(signal);
+
+      const request: IMCDataRequest = {
+        requestTarget: uri
+      };
+      return fetch(generatePrefetchId(), media, request, onProgress, signal);
     }
   }
 
@@ -247,6 +401,61 @@ namespace MCAssetPrefetcher {
 
         clearFetcherEvents(fetcher);
         resolve();
+      });
+
+      fetcher.on("aborted", (fetcher: IMCDataFetcher, error: Error) => {
+        if ( signal && signal.isAborted ) {
+          return;
+        }
+
+        clearFetcherEvents(fetcher);
+        reject(error); // reject
+      });
+
+      const signalAbortedCallback: ((error: Error) => void) | undefined = signal ? (error) => {
+        clearFetcherEvents(fetcher);
+        fetcher.abort(error);
+        reject(error); // reject
+      } : undefined;
+
+      signal?.addEventListener('aborted', signalAbortedCallback!);
+
+      try {
+        // prepare
+        await fetcher.prepare();
+      }
+      catch (error) {
+        reject(error); // reject
+      }
+      finally {
+        signal?.removeEventListener('aborted', signalAbortedCallback!);
+      }
+    });
+  }
+
+  function read(clientId: number, media: IMCMedia, request: IMCDataRequest, signal?: MCAbortSignal): Promise<ArrayBuffer | undefined> {
+    return new Promise(async (resolve, reject) => {
+      if ( signal && signal.isAborted ) {
+        reject(signal.reason!);  // reject
+        return;
+      }
+
+      const fetcher = new MCMediaDataFetcher(clientId, media, request);
+      let buffer: ArrayBuffer | undefined = undefined
+      fetcher.on("dataReceive", (_: IMCDataFetcher, __: number, data: ArrayBuffer) => {
+        if ( signal && signal.isAborted ) {
+          return;
+        }
+        buffer = buffer ? MCUtils.mergeArrayBuffers(buffer, data) : data;
+      });
+
+      fetcher.on("dataEnd", (fetcher: IMCDataFetcher) => {
+        if ( signal && signal.isAborted ) {
+          return;
+        }
+
+        clearFetcherEvents(fetcher);
+        resolve(buffer);
       });
 
       fetcher.on("aborted", (fetcher: IMCDataFetcher, error: Error) => {
