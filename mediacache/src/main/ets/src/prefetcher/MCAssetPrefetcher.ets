@@ -151,9 +151,9 @@ namespace MCAssetPrefetcher {
       let requestIndex = 0;
       while (requestIndex < requests.length) {
         const promises: Promise<void>[] = [];
-        const abortController = new MCAbortController();
-        const abortedCallback = (error: Error) => abortController.abort(error);
-        signal?.addEventListener('aborted', abortedCallback);
+        const fetchAbortController = new MCAbortController();
+        const prefetchAbortedCallback = (error: Error) => fetchAbortController.abort(error);
+        signal?.addEventListener('aborted', prefetchAbortedCallback);
         for (let p = 0; p < concurrentPrefetchCount; p++) {
           const fetchIndex = requestIndex;
           const onProgress: ((progress: number) => void) | undefined = options?.onProgress ? (progress) => {
@@ -162,15 +162,15 @@ namespace MCAssetPrefetcher {
           } : undefined;
 
           const request = requests[fetchIndex];
-          promises.push(fetch(-1, media, request, onProgress, abortController.signal));
+          promises.push(fetch(-1, media, request, onProgress, fetchAbortController.signal));
           requestIndex += 1;
           if ( requestIndex >= requests.length ) break;
         }
         await Promise.all(promises).catch((error: Error) => {
-          abortController.abort(error);
+          fetchAbortController.abort(error);
           return Promise.reject(error);
         }).finally(() => {
-          signal?.removeEventListener('aborted', abortedCallback);
+          signal?.removeEventListener('aborted', prefetchAbortedCallback);
         });
       }
     }
