@@ -275,6 +275,7 @@ namespace MCAssetPrefetcher {
 
         if ( item !== subtitlesRendition ) {
           await prefetchByRequestTarget(uri, {
+            prefetchFileCount: specifiedSegmentCount,
             concurrentPrefetchCount: concurrentPrefetchCount,
             onProgress: fetchProgressCallback,
             signal: fetchAbortController.signal // 传递 fetchAbortController.signal, 当外部终止时, 内部也停止预缓存;
@@ -292,7 +293,7 @@ namespace MCAssetPrefetcher {
   }
 
   function prefetchHLSAssetAllMedias(asset: HLSAsset, playlist: HLSPlaylist, concurrentPrefetchCount?: number, onProgress?: (progress: number) => void, signal?: MCAbortSignal): Promise<void> {
-    throw new Error("Method not implemented.");
+    return prefetchHLSAssetMediasBySpecifiedSegmentCount(asset, playlist, Number.MAX_SAFE_INTEGER, concurrentPrefetchCount, onProgress, signal);
   }
 
   async function prefetchMediaByHLSItems(asset: HLSAsset, items: HLSDefines.Item[], concurrentPrefetchCount?: number, onProgress?: (progress: number) => void, signal?: MCAbortSignal): Promise<void> {
