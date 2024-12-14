@@ -17,6 +17,7 @@ namespace MCMediaCache {
 
   export function prefetch(resUrl: string) {
     MCAssetPrefetcher.prefetch(resUrl, {
+      prefetchFileCount: 2,
       onProgress: (progress) => {
         console.log(`[Progress] ${progress}`)
       }
