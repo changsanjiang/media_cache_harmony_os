@@ -75,14 +75,16 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
         this.mMetadata = metadata;
         MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Metadata loaded. ContentType: ${this.mMetadata?.contentType}, TotalLength: ${this.mMetadata?.totalLength}, ByteRangeAccessSupported: ${this.mMetadata?.byteRangeAccessSupported}.`);
 
-        const contents = await this.mContentProvider.loadContents();
-        contents?.forEach((content) => this.mNodeList.upsertNode(content.contentOffset, content));
-        if (contents && contents.length > 0) {
-          await this.restructureContents(); // 重组内容, 删除冗余数据;
-        }
-        else {
+        if ( metadata.totalLength == 0 ) { // 空文件
           this.mAssembled = true;
           this.mFullyTrimmed = true;
+        }
+        else {
+          const contents = await this.mContentProvider.loadContents();
+          contents?.forEach((content) => this.mNodeList.upsertNode(content.contentOffset, content));
+          if (contents && contents.length > 0) {
+            await this.restructureContents(); // 重组内容, 删除冗余数据;
+          }
         }
       }
     }
