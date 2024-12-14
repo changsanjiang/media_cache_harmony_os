@@ -70,20 +70,15 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Starting prepare.`);
     try {
       this.mContentProvider = new MCMediaContentProvider(this.id, this.mDir, this.id);
-      await this.mContentProvider.prepare();
-
-      const contents = await this.mContentProvider.loadContents();
-      contents?.forEach((content) => this.mNodeList.upsertNode(content.contentOffset, content));
-
-      const metadata = await this.mContentProvider.loadMetadata();
+      const metadata = await this.mContentProvider.prepare();
       if (metadata) {
         this.mMetadata = metadata;
         MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Metadata loaded. ContentType: ${this.mMetadata?.contentType}, TotalLength: ${this.mMetadata?.totalLength}, ByteRangeAccessSupported: ${this.mMetadata?.byteRangeAccessSupported}.`);
-        if      (this.mMetadata.totalLength === Number.MAX_SAFE_INTEGER) { // 没有下载到任何有用的内容, 删除所有临时文件;
-          await this.mContentProvider.removeAllTempContentFiles();
-        }
-        else if (this.mMetadata.totalLength !== 0) { // 删除冗余数据;
-          await this.restructureContents();
+
+        const contents = await this.mContentProvider.loadContents();
+        contents?.forEach((content) => this.mNodeList.upsertNode(content.contentOffset, content));
+        if (contents && contents.length > 0) {
+          await this.restructureContents(); // 重组内容, 删除冗余数据;
         }
         else {
           this.mAssembled = true;

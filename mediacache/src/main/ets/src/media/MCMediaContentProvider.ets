@@ -8,24 +8,57 @@ import { JSON } from "@kit.ArkTS";
 export class MCMediaContentProvider {
   private mMediaId: string;
   private mDir: string;
+  private mTempDir: string;
   private mPrefix: string; // content file name prefix of content
   private mSequence = 0; // content file sequence number of content
 
   constructor(mediaId: string, dir: string, prefix: string) {
     this.mMediaId = mediaId;
     this.mDir = dir;
+    this.mTempDir = `${this.mDir}/mc_temp`;
     this.mPrefix = prefix;
   }
 
-  async prepare(): Promise<void> {
+  async prepare(): Promise<IMCMediaMetadata | undefined> {
     const exists = await fileIo.access(this.mDir, fileIo.AccessModeType.EXIST);
     if ( !exists ) {
       await fileIo.mkdir(this.mDir);
-      await fileIo.mkdir(`${this.mDir}/mc_temp`)
+      await fileIo.mkdir(this.mTempDir);
+      return undefined;
     }
+
+    const metadata = await this.loadMetadata();
+    if ( !metadata || metadata.totalLength === Number.MAX_SAFE_INTEGER ) {
+      // 清理临时文件
+      try {
+        const fileNames = await fileIo.listFile(this.mTempDir);
+        for (let fileName of fileNames) {
+          const filePath = `${this.mTempDir}/${fileName}`;
+          await fileIo.unlink(filePath);
+        }
+      }
+      catch (error) { }
+
+      // 清理无用的文件
+      try {
+        const fileNames = await fileIo.listFile(this.mDir);
+        const unavailableContents = fileNames.length > 0 ? fileNames.filter((fileName) => fileName.startsWith(this.mPrefix)) : undefined;
+        if ( unavailableContents ) {
+          // 这些文件也需要删除(它们可能是复制临时文件失败后的产物; 也或者复制成功了, 但是保存元数据时失败了, 无法确定内容完整性了);
+          for (let fileName of unavailableContents) {
+            const filePath = `${this.mDir}/${fileName}`;
+            await fileIo.unlink(filePath);
+          }
+        }
+      }
+      catch (error) { }
+
+      if ( !(await fileIo.access(this.mTempDir, fileIo.AccessModeType.EXIST)) ) await fileIo.mkdir(this.mTempDir);
+    }
+    return metadata;
   }
 
-  async loadMetadata(): Promise<IMCMediaMetadata | undefined> {
+  private async loadMetadata(): Promise<IMCMediaMetadata | undefined> {
     try {
       const fileName = 'mc_media_metadata.json';
       const filePath = `${this.mDir}/${fileName}`;
@@ -84,19 +117,9 @@ export class MCMediaContentProvider {
     const sequence = this.mSequence + 1;
     this.mSequence = sequence;
     const fileName = this.generateFileName(contentOffset, sequence);
-    const filePath = !temp ? `${this.mDir}/${fileName}` : `${this.mDir}/mc_temp/${fileName}`;
+    const filePath = !temp ? `${this.mDir}/${fileName}` : `${this.mTempDir}/${fileName}`;
     const content = new MCMediaContent(this.mMediaId, contentOffset, filePath, 0, temp);
     return content;
-  }
-
-  async removeAllTempContentFiles(): Promise<void> {
-    try {
-      const dir = `${this.mDir}/mc_temp`;
-      await fileIo.unlink(dir);
-      await fileIo.mkdir(`${this.mDir}/mc_temp`)
-    }
-    catch (error) {
-    }
   }
 
   /** file name format: `prefix_contentOffset_sequence`; */
