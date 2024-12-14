@@ -6,7 +6,6 @@ import { MCMediaContentProvider } from "./MCMediaContentProvider";
 import { MCMediaContentNodeList } from "./MCMediaContentNodeList";
 import { IMCMediaContentNode } from "../defines/IMCMediaContentNode";
 import { MCRange } from "../utils/MCRange";
-import MCDatabase from "../utils/MCDatabase";
 import { IMCMediaMetadata } from "../defines/IMCMediaMetadata";
 import { generateResponseContentRange, parseResponseContentRange } from "../defines/IMCHttpResponseContentRange";
 import { MCDownloadResponseHeaders } from "../utils/MCDownloadResponseHeaders";
@@ -71,10 +70,14 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Starting prepare.`);
     try {
       this.mContentProvider = new MCMediaContentProvider(this.id, this.mDir, this.id);
-      const contents = await this.mContentProvider.prepare();
+      await this.mContentProvider.prepare();
+
+      const contents = await this.mContentProvider.loadContents();
       contents?.forEach((content) => this.mNodeList.upsertNode(content.contentOffset, content));
-      this.mMetadata = await MCDatabase.queryMediaMetadata(this.id);
-      if (this.mMetadata) {
+
+      const metadata = await this.mContentProvider.loadMetadata();
+      if (metadata) {
+        this.mMetadata = metadata;
         MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Metadata loaded. ContentType: ${this.mMetadata?.contentType}, TotalLength: ${this.mMetadata?.totalLength}, ByteRangeAccessSupported: ${this.mMetadata?.byteRangeAccessSupported}.`);
         if      (this.mMetadata.totalLength === Number.MAX_SAFE_INTEGER) { // 没有下载到任何有用的内容, 删除所有临时文件;
           await this.mContentProvider.removeAllTempContentFiles();
@@ -147,7 +150,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
         byteRangeAccessSupported: byteRangeAccessSupported
       };
       this.mMetadata = metadata;
-      MCDatabase.saveMediaMetadata(this.id, metadata);
+      this.mContentProvider?.saveMetadata(metadata);
       return metadata;
     });
   }
@@ -383,7 +386,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
         byteRangeAccessSupported: true,
       };
       this.mMetadata = metadata;
-      MCDatabase.saveMediaMetadata(this.id, metadata);
+      this.mContentProvider?.saveMetadata(metadata);
     }
   }
 

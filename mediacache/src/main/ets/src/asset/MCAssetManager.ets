@@ -4,6 +4,7 @@ import { FILEAsset } from './filebased/FILEAsset';
 import { HLSAsset } from './hls/HLSAsset';
 import { fileIo } from '@kit.CoreFileKit';
 import MCURL from '../utils/MCURL';
+import MCConfigs from '../utils/MCConfigs';
 
 namespace MCAssetManager {
   const mMap: Map<string, IMCAsset> = new Map();
@@ -39,7 +40,7 @@ namespace MCAssetManager {
     }
   }
 
-  const mRootDir = getContext(mMap).filesDir + '/mc_media_cache';
+  const mRootDir = MCConfigs.context.filesDir + '/mc_media_cache';
   let mRootDirExists = false;
   async function getRootDir(): Promise<string> {
     if ( !mRootDirExists ) {

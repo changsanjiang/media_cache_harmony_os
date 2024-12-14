@@ -1,12 +1,15 @@
 import { IMCMediaContent } from "../defines/IMCMediaContent";
 import { MCMediaContent } from "./MCMediaContent";
-import { fileIo, statfs } from "@kit.CoreFileKit";
+import { fileIo } from "@kit.CoreFileKit";
+import { IMCMediaMetadata } from "../defines/IMCMediaMetadata";
+import { MCUtils } from "../../../../../Index";
+import { JSON } from "@kit.ArkTS";
 
 export class MCMediaContentProvider {
   private mMediaId: string;
   private mDir: string;
-  private mPrefix: string; // file name prefix of content
-  private mSequence = 0; // file sequence number of content
+  private mPrefix: string; // content file name prefix of content
+  private mSequence = 0; // content file sequence number of content
 
   constructor(mediaId: string, dir: string, prefix: string) {
     this.mMediaId = mediaId;
@@ -14,14 +17,56 @@ export class MCMediaContentProvider {
     this.mPrefix = prefix;
   }
 
-  /** 加载目录下缓存的媒体内容; */
-  async prepare(): Promise<IMCMediaContent[] | undefined> {
+  async prepare(): Promise<void> {
     const exists = await fileIo.access(this.mDir, fileIo.AccessModeType.EXIST);
     if ( !exists ) {
       await fileIo.mkdir(this.mDir);
       await fileIo.mkdir(`${this.mDir}/mc_temp`)
     }
+  }
 
+  async loadMetadata(): Promise<IMCMediaMetadata | undefined> {
+    try {
+      const fileName = 'mc_media_metadata.json';
+      const filePath = `${this.mDir}/${fileName}`;
+      const exists = await fileIo.access(filePath, fileIo.AccessModeType.EXIST);
+      if ( exists ) {
+        const content = await fileIo.readText(filePath, { encoding: 'utf-8' });
+        const record = JSON.parse(content) as Record<string, string>;
+        const checksum = record['checksum'];
+        const jsonStr = record['data'];
+        const calculatedChecksum = await MCUtils.hash(jsonStr);
+        if ( checksum === calculatedChecksum ) {
+          return JSON.parse(jsonStr) as IMCMediaMetadata;
+        }
+      }
+    }
+    catch (error) { }
+    return undefined;
+  }
+
+  async saveMetadata(metadata: IMCMediaMetadata): Promise<boolean> {
+    try {
+      const jsonStr = JSON.stringify(metadata);
+      const checksum = await MCUtils.hash(jsonStr);
+      const record: Record<string, string> = {
+        'checksum': checksum,
+        'data': jsonStr
+      };
+      const content = JSON.stringify(record);
+      const buffer = MCUtils.stringToBuffer(content);
+      const fileName = 'mc_media_metadata.json';
+      const filePath = `${this.mDir}/${fileName}`;
+      const file = await fileIo.open(filePath, fileIo.OpenMode.WRITE_ONLY | fileIo.OpenMode.TRUNC | fileIo.OpenMode.CREATE);
+      await fileIo.write(file.fd, buffer);
+      return true;
+    }
+    catch (error) { }
+    return false;
+  }
+
+  /** 加载目录下缓存的媒体内容; */
+  async loadContents(): Promise<IMCMediaContent[] | undefined> {
     const fileNames = await fileIo.listFile(this.mDir);
     const contentFileNames = fileNames.length > 0 ? fileNames.filter((fileName) => fileName.startsWith(this.mPrefix)) : undefined;
     return contentFileNames && contentFileNames.length > 0 ? Promise.all(contentFileNames.map(async (fileName) => {

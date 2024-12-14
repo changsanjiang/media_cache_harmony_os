@@ -15,6 +15,8 @@ namespace MCConfigs {
   /** 发送给客户端数据块时等待的超时时间; */
   export let socketDataSendTimeoutInterval = 5000;
 
+  export const context: Context = getContext('');
+
   /**
    * 媒体文件的数据一致性校验; 在调试阶段可以对返回给客户端的数据做一层校验, 判断本地缓存是否与媒体数据一致;
    *
