@@ -6,7 +6,7 @@ import { fileIo } from '@kit.CoreFileKit';
 import MCURL from '../utils/MCURL';
 import MCConfigs from '../utils/MCConfigs';
 
-namespace MCAssetManager {
+namespace MCAssetProvider {
   const mMap: Map<string, IMCAsset> = new Map();
   const mInitPromises: Map<string, Promise<IMCAsset>> = new Map();
 
@@ -53,4 +53,4 @@ namespace MCAssetManager {
   }
 }
 
-export default MCAssetManager;
+export default MCAssetProvider;
