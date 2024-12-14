@@ -1,5 +1,4 @@
 import { HLSPlaylist, MCUtils } from "../../../../../../Index";
-import HLSDefines from "../../defines/HLSDefines";
 import { IMCAsset } from "../../defines/IMCAsset";
 import { IMCMedia } from "../../defines/IMCMedia";
 import { MCAssetType } from "../../defines/MCAssetType";
@@ -52,11 +51,11 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
   /// variantStreamAsset.masterAsset;
   /// audioRenditionAsset.masterAsset;
   /// videoRenditionAsset.masterAsset;
-  private mMasterAsset?: HLSAsset = undefined;
-
-  private mVariantStreamItem?: HLSDefines.VariantStreamItem = undefined;
-  private mAudioRenditionItem?: HLSDefines.RenditionItem = undefined;
-  private mVideoRenditionItem?: HLSDefines.RenditionItem = undefined;
+  // private mMasterAsset?: HLSAsset = undefined;
+  //
+  // private mVariantStreamItem?: HLSDefines.VariantStreamItem = undefined;
+  // private mAudioRenditionItem?: HLSDefines.RenditionItem = undefined;
+  // private mVideoRenditionItem?: HLSDefines.RenditionItem = undefined;
 
   private mPlaylist?: HLSPlaylist = undefined; // proxy playlist;
 
@@ -110,19 +109,19 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
 
     const playlist = new HLSPlaylist(proxyContent);
     if ( playlist.variantStream ) {
-      this.mVariantStreamItem = playlist.variantStream;
       this.mVariantStreamAsset = await MCAssetManager.getAssetBy(playlist.variantStream.uri!) as HLSAsset;
-      this.mVariantStreamAsset.mMasterAsset = this;
+      // this.mVariantStreamAsset.mMasterAsset = this;
+      // this.mVariantStreamItem = playlist.variantStream;
     }
     if ( playlist.audioRendition ) {
-      this.mAudioRenditionItem = playlist.audioRendition;
       this.mAudioRenditionAsset = await MCAssetManager.getAssetBy(playlist.audioRendition.uri!) as HLSAsset;
-      this.mAudioRenditionAsset.mMasterAsset = this;
+      // this.mAudioRenditionAsset.mMasterAsset = this;
+      // this.mAudioRenditionItem = playlist.audioRendition;
     }
     if ( playlist.videoRendition ) {
-      this.mVideoRenditionItem = playlist.videoRendition;
       this.mVideoRenditionAsset = await MCAssetManager.getAssetBy(playlist.videoRendition.uri!) as HLSAsset;
-      this.mVideoRenditionAsset.mMasterAsset = this;
+      // this.mVideoRenditionAsset.mMasterAsset = this;
+      // this.mVideoRenditionItem = playlist.videoRendition;
     }
     this.mPlaylist = playlist;
   }
