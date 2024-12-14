@@ -290,7 +290,7 @@ namespace MCAssetPrefetcher {
         })
       }
       else {
-        await prefetchMediaByHLSItem(asset, item, (receivedLength: number, expectedLength: number) => fetchProgressCallback(receivedLength / expectedLength), signal);
+        await prefetchMediaByHLSItem(asset, item, (receivedLength: number, expectedLength: number) => { fetchProgressCallback(receivedLength / expectedLength) }, signal);
       }
       itemIndex += 1;
     }
