@@ -1,7 +1,6 @@
 import { HLSPlaylist, MCAssetUtils, MCUtils } from "../../../../../Index";
 import { FILEAsset } from "../asset/filebased/FILEAsset";
 import { HLSAsset } from "../asset/hls/HLSAsset";
-import HLSParser from "../asset/hls/HLSParser";
 import MCAssetManager from "../asset/MCAssetManager";
 import HLSDefines from "../defines/HLSDefines";
 import { IMCDataFetcher } from "../defines/IMCDataFetcher";
@@ -123,27 +122,24 @@ namespace MCAssetPrefetcher {
     const metadata = await media.probe(probeRequest, signal);
     checkAbortSignal(signal);
 
-    // 计算需要缓存的数据大小
-
-    let prefetchSize = options?.prefetchSize;
-
-    // 长度未知(Number.MAX_SAFE_INTEGER)或不支持范围请求时, 需要缓存所有数据, 需要设置为最大值;
-    if ( prefetchSize === undefined || prefetchSize > metadata.totalLength || metadata.totalLength === Number.MAX_SAFE_INTEGER || metadata.byteRangeAccessSupported === false ) {
-      prefetchSize = metadata.totalLength;
+    const mediaTotalLength = metadata.totalLength;
+    if ( mediaTotalLength === 0 ) { // 空文件
+      options?.onProgress?.(1);
+      return;
     }
 
     // 分段请求数据
-    if ( metadata.totalLength !== Number.MAX_SAFE_INTEGER && metadata.byteRangeAccessSupported ) {
+    if ( mediaTotalLength !== Number.MAX_SAFE_INTEGER && metadata.byteRangeAccessSupported ) {
+      const prefetchSize = options?.prefetchSize === undefined ? mediaTotalLength : Math.min(options.prefetchSize, mediaTotalLength);
       const chunkSize = options?.chunkSize !== undefined && options?.chunkSize > 0 ? options.chunkSize : 5 * 1024 * 1024; // default: 5M;
       const concurrentPrefetchCount = getConcurrentPrefetchCount(options?.concurrentPrefetchCount); // default: 3;
 
       const fetchRequests: IMCDataRequest[] = [];
       const fetchProgresses: number[] = [];
-      const totalLength = metadata.totalLength;
       let offset = 0;
       while (offset < prefetchSize) {
         const rangeStart = offset;
-        const rangeEnd = Math.min(offset + chunkSize, totalLength) - 1;
+        const rangeEnd = Math.min(offset + chunkSize, mediaTotalLength) - 1;
         const headers = MCUtils.modifyRecord(options?.additionalHeaders ?? { }, 'range', `bytes=${rangeStart}-${rangeEnd}`);
         const request: IMCDataRequest = {
           requestTarget: requestTarget,
@@ -165,8 +161,7 @@ namespace MCAssetPrefetcher {
           for (let p = 0; p < concurrentPrefetchCount; p++) {
             const fetchIndex = requestIndex;
             const fetchProgressCallback = (receivedLength: number, expectedLength: number) => {
-              const fetchProgress = receivedLength / expectedLength;
-              fetchProgresses[fetchIndex] = fetchProgress;
+              fetchProgresses[fetchIndex] = receivedLength / expectedLength;
               options?.onProgress?.(fetchProgresses.reduce((prev, cur) => prev + cur, 0) / fetchProgresses.length);
             };
             const fetchRequest = fetchRequests[fetchIndex];
@@ -202,11 +197,15 @@ namespace MCAssetPrefetcher {
 
     // 获取播放列表
     const playlistMedia = await asset.getMediaBy(requestTarget);
+    checkAbortSignal(signal);
+
     const playlistRequest: IMCDataRequest = {
       requestTarget: requestTarget,
       headers: options?.additionalHeaders
     }
     const playlistRawData = await read(generatePrefetchId(), playlistMedia, playlistRequest, signal)
+    checkAbortSignal(signal);
+
     const playlist = playlistRawData ? new HLSPlaylist(MCUtils.bufferToString(playlistRawData)) : undefined;
     if ( !playlist || !playlist.allItems || playlist.allItems.length === 0 ) { // 空文件
       options?.onProgress?.(1);
@@ -214,17 +213,17 @@ namespace MCAssetPrefetcher {
     }
 
     if ( options?.prefetchSize ) {
-      await prefetchHLSAssetMediasBySpecifiedSize(asset, playlist, options.prefetchSize, options.concurrentPrefetchCount, options.onProgress)
+      return prefetchHLSAssetMediasBySpecifiedSize(asset, playlist, options.prefetchSize, options.onProgress, options.signal)
     }
-    else if ( options?.prefetchFileCount ) {
-      await prefetchHLSAssetMediasBySpecifiedSegmentCount(asset, playlist, options.prefetchFileCount, options.concurrentPrefetchCount, options.onProgress)
+
+    if ( options?.prefetchFileCount ) {
+      return prefetchHLSAssetMediasBySpecifiedSegmentCount(asset, playlist, options.prefetchFileCount, options.concurrentPrefetchCount, options.onProgress, options.signal)
     }
-    else {
-      await prefetchHLSAssetAllMedias(asset, playlist, options?.concurrentPrefetchCount, options?.onProgress)
-    }
+
+    return prefetchHLSAssetAllMedias(asset, playlist, options?.concurrentPrefetchCount, options?.onProgress, options?.signal)
   }
 
-  async function prefetchHLSAssetMediasBySpecifiedSize(asset: HLSAsset, playlist: HLSPlaylist, specifiedSize: number, concurrentPrefetchCount?: number, onProgress?: (progress: number) => void, signal?: MCAbortSignal): Promise<void> {
+  async function prefetchHLSAssetMediasBySpecifiedSize(asset: HLSAsset, playlist: HLSPlaylist, specifiedSize: number, onProgress?: (progress: number) => void, signal?: MCAbortSignal): Promise<void> {
     checkAbortSignal(signal);
 
     // 处理分段
@@ -247,7 +246,7 @@ namespace MCAssetPrefetcher {
             }
           }
         };
-        await prefetchMediaByHLSItem(asset, item, fetchProgressCallback, signal); // 挨个缓存, 不并发请求(并发请求不好控制 specifiedSize);
+        await prefetchMediaByHLSItem(asset, item, fetchProgressCallback, signal); // 一个一个缓存, 不并发请求(并发请求不好控制 specifiedSize);
         itemIndex += 1;
       }
       return;
@@ -284,7 +283,6 @@ namespace MCAssetPrefetcher {
       if (item !== subtitlesRendition) {
         await prefetchByRequestTarget(uri, {
           prefetchSize: specifiedSize,
-          concurrentPrefetchCount: concurrentPrefetchCount,
           onProgress: fetchProgressCallback,
           signal: signal // 传递 fetchAbortController.signal, 当外部终止时, 内部也停止预缓存;
         })
@@ -326,37 +324,28 @@ namespace MCAssetPrefetcher {
     if ( subtitlesRendition ) items.push(subtitlesRendition);
 
     const fetchProgresses: number[] = items.map(() => 0);
-    const fetchAbortController = new MCAbortController();
-    const signalAbortedCallback = (error: Error) => fetchAbortController.abort(error); // 外部终止时, 内部停止预缓存;
-    signal?.addEventListener('aborted', signalAbortedCallback);
+    let itemIndex = 0;
+    while (itemIndex < items.length) {
+      const item = items[itemIndex];
+      const uri = item.uri!
+      const fetchIndex = itemIndex;
+      const fetchProgressCallback = (progress: number) => {
+        fetchProgresses[fetchIndex] = progress;
+        onProgress?.(fetchProgresses.reduce((prev, cur) => prev + cur, 0) / fetchProgresses.length);
+      };
 
-    try {
-      let itemIndex = 0;
-      while (itemIndex < items.length) {
-        const item = items[itemIndex];
-        const uri = item.uri!
-        const fetchIndex = itemIndex;
-        const fetchProgressCallback = (progress: number) => {
-          fetchProgresses[fetchIndex] = progress;
-          onProgress?.(fetchProgresses.reduce((prev, cur) => prev + cur, 0) / fetchProgresses.length);
-        };
-
-        if ( item !== subtitlesRendition ) {
-          await prefetchByRequestTarget(uri, {
-            prefetchFileCount: specifiedSegmentCount,
-            concurrentPrefetchCount: concurrentPrefetchCount,
-            onProgress: fetchProgressCallback,
-            signal: fetchAbortController.signal // 传递 fetchAbortController.signal, 当外部终止时, 内部也停止预缓存;
-          })
-        }
-        else {
-          await prefetchMediaByHLSItem(asset, item, fetchProgressCallback, fetchAbortController.signal);
-        }
-        itemIndex += 1;
+      if ( item !== subtitlesRendition ) {
+        await prefetchByRequestTarget(uri, {
+          prefetchFileCount: specifiedSegmentCount,
+          concurrentPrefetchCount: concurrentPrefetchCount,
+          onProgress: fetchProgressCallback,
+          signal: signal
+        })
       }
-    }
-    finally {
-      signal?.removeEventListener('aborted', signalAbortedCallback);
+      else {
+        await prefetchMediaByHLSItem(asset, item, fetchProgressCallback, signal);
+      }
+      itemIndex += 1;
     }
   }
 
