@@ -9,6 +9,7 @@ import MCConfigs from '../utils/MCConfigs';
 namespace MCAssetProvider {
   const mMap: Map<string, IMCAsset> = new Map();
   const mInitPromises: Map<string, Promise<IMCAsset>> = new Map();
+  const mRootDir = MCConfigs.context.filesDir + '/mc_media_cache';
 
   export async function getAssetBy(requestTarget: string): Promise<IMCAsset> {
     const targetInfo = MCURL.parse(requestTarget);
@@ -40,14 +41,13 @@ namespace MCAssetProvider {
     }
   }
 
-  const mRootDir = MCConfigs.context.filesDir + '/mc_media_cache';
-  let mRootDirExists = false;
+  let mRootDirCreated = false;
   async function getRootDir(): Promise<string> {
-    if ( !mRootDirExists ) {
+    if ( !mRootDirCreated ) {
       if ( !(await fileIo.access(mRootDir, fileIo.AccessModeType.EXIST)) ) {
         await fileIo.mkdir(mRootDir);
       }
-      mRootDirExists = true;
+      mRootDirCreated = true;
     }
     return mRootDir;
   }

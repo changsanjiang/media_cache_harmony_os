@@ -3,6 +3,7 @@ import { IMCMedia } from "../../defines/IMCMedia";
 import { MCAssetType } from "../../defines/MCAssetType";
 import { MCMedia } from "../../media/MCMedia";
 import { MCReadwriteReference } from "../../utils/MCReadwriteReference";
+import MCAssetCacheManager from "../MCAssetCacheManager";
 
 export class FILEAsset extends MCReadwriteReference<FILEAsset> implements IMCAsset {
   /** 基于文件的资产只有一个媒体; 所以 FILEAsset 只需要管理这一个 Media 即可; */
@@ -26,6 +27,11 @@ export class FILEAsset extends MCReadwriteReference<FILEAsset> implements IMCAss
     return this.mMedia.completeness;
   }
 
+  get cacheSize(): number {
+    // TODO() next ...
+    return 0;
+  }
+
   prepare(): Promise<void> {
     return this.mMedia.prepare();
   }
@@ -35,6 +41,12 @@ export class FILEAsset extends MCReadwriteReference<FILEAsset> implements IMCAss
   }
 
   protected getInstance(): FILEAsset {
+    return this;
+  }
+
+  readwriteRetain(): FILEAsset {
+    super.readwriteRetain();
+    MCAssetCacheManager.onAssetReadwrite(this);
     return this;
   }
 }

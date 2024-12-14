@@ -15,6 +15,8 @@ export interface IMCAsset extends IMCReadwriteReference<IMCAsset> {
 
   readonly completeness: Promise<number>; // 完成度; [0, 1];
 
+  readonly cacheSize: number; // 返回当前缓存的数据大小;
+
   prepare(): Promise<void>;
   getMediaBy(requestTarget: string): Promise<IMCMedia>;
 }

@@ -5,6 +5,7 @@ import { MCAssetType } from "../../defines/MCAssetType";
 import { MCMedia } from "../../media/MCMedia";
 import { MCReadwriteReference } from "../../utils/MCReadwriteReference";
 import MCURL from "../../utils/MCURL";
+import MCAssetCacheManager from "../MCAssetCacheManager";
 import MCAssetProvider from "../MCAssetProvider";
 import HLSParser from "./HLSParser";
 
@@ -73,6 +74,11 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
 
   get completeness(): Promise<number> {
     return this.calculateCompleteness();
+  }
+
+  get cacheSize(): number {
+    // TODO() next ...
+    return 0;
   }
 
   async prepare(): Promise<void> {
@@ -168,6 +174,12 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
   }
 
   protected getInstance(): HLSAsset {
+    return this;
+  }
+
+  readwriteRetain(): HLSAsset {
+    super.readwriteRetain();
+    MCAssetCacheManager.onAssetReadwrite(this);
     return this;
   }
 }
