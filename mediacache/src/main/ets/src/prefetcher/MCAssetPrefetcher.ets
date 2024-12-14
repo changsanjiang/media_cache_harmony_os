@@ -52,6 +52,9 @@ namespace MCAssetPrefetcher {
      * */
     concurrentPrefetchCount?: number;
 
+    /**
+     * 预加载的进度回调;
+     * */
     onProgress?: (progress: number) => void;
     additionalHeaders?: Record<string, string>;
     signal?: MCAbortSignal;
