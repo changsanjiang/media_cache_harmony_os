@@ -40,6 +40,7 @@ namespace MCAssetCacheManager {
         firstAccessed: now,
         lastAccessed: now
       }
+      mLogs.set(asset, log);
     }
     else {
       log.lastAccessed = now;
@@ -62,7 +63,10 @@ namespace MCAssetCacheManager {
       }
         break;
       case Limit.DISK_AGE: {
-        if (assetMaxDiskAge === 0) return;
+        if (assetMaxDiskAge === 0) {
+          return;
+        }
+
         const now = Date.now();
         const expiredAssets = Array.from(mLogs.entries()).filter(pair => (now - parseInt(pair[1].firstAccessed) > assetMaxDiskAge)).map(pair => pair[0]);
         if (expiredAssets.length > 0) {
@@ -77,23 +81,7 @@ namespace MCAssetCacheManager {
 
         let totalSize = Array.from(mLogs.keys()).reduce((prev, a) => prev + a.cacheSize, 0);
         if (totalSize > allAssetsMaxDiskSize) {
-          // 根据 size 和 lastAccessed 排序，优先移除较旧且大的文件
-          const sortedAssets = Array.from(mLogs.entries()).sort((a, b) => {
-            const a1 = parseInt(a[1].lastAccessed);
-            const b1 = parseInt(b[1].lastAccessed);
-            if ( a1 !== b1 ) {
-              return a1 - b1; // 先按访问时间排序
-            }
-            return a[0].cacheSize - b[0].cacheSize; // 再按大小排序
-          });
-
-          const assetsToEvict: IMCAsset[] = [];
-          for (const pair of sortedAssets) {
-            if (totalSize <= allAssetsMaxDiskSize) break;
-            assetsToEvict.push(pair[0]);
-            totalSize -= pair[0].cacheSize;
-          }
-          await evictAssets(assetsToEvict);
+          await evictAssetsBySize(totalSize - allAssetsMaxDiskSize);
         }
       }
         break;
@@ -106,11 +94,32 @@ namespace MCAssetCacheManager {
         const freeSpace = 0; // await MCUtils.getDiskFreeSpace();
         if (freeSpace < diskSpaceWarningThreshold) {
           // console.warn(`Disk space low: ${freeSpace} bytes available.`);
-          await evictAssetsByCount(Math.ceil(mLogs.size * 0.5)); // 清理部分资产
+          await evictAssetsBySize(diskSpaceWarningThreshold - freeSpace);
         }
       }
         break;
     }
+  }
+
+  function evictAssetsBySize(size: number): Promise<void> {
+    // 根据 size 和 lastAccessed 排序，优先移除较旧且大的文件
+    const sortedAssets = Array.from(mLogs.entries()).sort((a, b) => {
+      const a1 = parseInt(a[1].lastAccessed);
+      const b1 = parseInt(b[1].lastAccessed);
+      if ( a1 !== b1 ) {
+        return a1 - b1; // 先按访问时间排序
+      }
+      return b[0].cacheSize - a[0].cacheSize; // 再按大小排序
+    });
+
+    const assetsToEvict: IMCAsset[] = [];
+    let cacheSize = 0;
+    for (const pair of sortedAssets) {
+      if (cacheSize > size) break;
+      assetsToEvict.push(pair[0]);
+      cacheSize += pair[0].cacheSize;
+    }
+    return evictAssets(assetsToEvict);
   }
 
   function evictAssetsByCount(count: number): Promise<void> {
