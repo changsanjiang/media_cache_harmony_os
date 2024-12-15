@@ -2,6 +2,8 @@ import { IMCAsset } from "../defines/IMCAsset";
 import { MCPreferences } from "../utils/MCPreferences";
 import MCConfigs from '../utils/MCConfigs';
 import { statfs } from '@kit.CoreFileKit';
+import { MCUtils } from '../../../../../Index';
+import MCAssetManager from './MCAssetManager';
 
 namespace MCCacheManager {
   interface AccessLog {
@@ -33,7 +35,19 @@ namespace MCCacheManager {
   export let diskSpaceWarningThreshold: number = 1024 * 1024 * 1024; // 默认 1G;
 
   export async function prepare(): Promise<void> {
-    // mPref.getAll()
+    const record = await mPref.getAll();
+    const map = MCUtils.recordToMap(record);
+    for (let element of Array.from(map.entries())) {
+      const assetId = element[0];
+      const log = JSON.parse(element[1]) as AccessLog;
+      const asset = await MCAssetManager.getAsset(assetId);
+      if ( asset ) {
+        mLogs.set(asset, log);
+      }
+      else {
+        mPref.delete(assetId);
+      }
+    }
   }
 
   export async function onAssetReadwrite(asset: IMCAsset): Promise<void> {
