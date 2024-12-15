@@ -9,6 +9,7 @@ import MCConfigs from '../utils/MCConfigs';
 namespace MCAssetProvider {
   const mMap: Map<string, IMCAsset> = new Map();
   const mInitPromises: Map<string, Promise<IMCAsset>> = new Map();
+  const mLoadPromises: Map<string, Promise<IMCAsset | undefined>> = new Map();
   const mRootDir = MCConfigs.context.filesDir + '/mc_media_cache';
 
   export async function getAssetBy(requestTarget: string): Promise<IMCAsset> {
@@ -18,19 +19,40 @@ namespace MCAssetProvider {
     let asset = mMap.get(assetId);
 
     if (!asset) {
-      if (!mInitPromises.has(assetId)) {
-        mInitPromises.set(assetId, initializeAsset(assetId, assetType));
+      if ( mLoadPromises.has(assetId) ) {
+        asset = await mLoadPromises.get(assetId);
       }
 
-      asset = await mInitPromises.get(assetId);
+      if (!asset) {
+        if (!mInitPromises.has(assetId)) {
+          mInitPromises.set(assetId, initializeAsset(assetId, assetType));
+        }
+        asset = await mInitPromises.get(assetId);
+      }
     }
     return asset!;
+  }
+
+  export async function loadAssetBy(assetId: string): Promise<IMCAsset | undefined> {
+    let asset = mMap.get(assetId);
+    if ( !asset ) {
+      if ( mInitPromises.has(assetId) ) {
+        asset = await mInitPromises.get(assetId);
+      }
+      else {
+        if ( !mLoadPromises.has(assetId) ) {
+          mLoadPromises.set(assetId, findAsset(assetId));
+        }
+        asset = await mLoadPromises.get(assetId);
+      }
+    }
+    return asset;
   }
 
   async function initializeAsset(assetId: string, assetType: MCAssetType): Promise<IMCAsset> {
     try {
       const rootDir = await getRootDir();
-      const dir = `${rootDir}/${assetId}`;
+      const dir = `${rootDir}/${assetId}_${assetType}`;
       let asset = (assetType === MCAssetType.FILE_BASED) ? new FILEAsset(assetId, dir) : new HLSAsset(assetId, dir);
       await asset.prepare();
       mMap.set(assetId, asset);
@@ -38,6 +60,22 @@ namespace MCAssetProvider {
     }
     finally {
       mInitPromises.delete(assetId);
+    }
+  }
+
+  // 从缓存目录加载 asset; 如果不存在返回 undefined;
+  async function findAsset(assetId: string): Promise<IMCAsset | undefined> {
+    try {
+      const rootDir = await getRootDir();
+      const matches = await fileIo.listFile(rootDir).then(fileNames => fileNames.filter(name => name.startsWith(assetId)));
+      if ( matches && matches.length > 0 ) {
+        const assetType = parseAssetType(matches[0]);
+        return initializeAsset(assetId, assetType);
+      }
+      return undefined;
+    }
+    finally {
+      mLoadPromises.delete(assetId);
     }
   }
 
@@ -50,6 +88,10 @@ namespace MCAssetProvider {
       mRootDirCreated = true;
     }
     return mRootDir;
+  }
+
+  function parseAssetType(dirName: string): MCAssetType {
+    return parseInt(dirName.split("_")[1]);
   }
 }
 
