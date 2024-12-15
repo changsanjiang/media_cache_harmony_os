@@ -22,6 +22,8 @@ namespace MCCacheManager {
 
   const mLogs = new Map<IMCAsset, AccessLog>();
 
+  let mPeriodTrimStarted = false;
+
   /** Asset 个数限制; */
   export let assetCountLimit: number = 0;
 
@@ -37,6 +39,7 @@ namespace MCCacheManager {
   export async function prepare(): Promise<void> {
     const record = await mPref.getAll();
     const map = MCUtils.recordToMap(record);
+    let shouldFlush = false;
     for (let element of Array.from(map.entries())) {
       const assetId = element[0];
       const log = JSON.parse(element[1]) as AccessLog;
@@ -45,9 +48,16 @@ namespace MCCacheManager {
         mLogs.set(asset, log);
       }
       else {
+        if ( !shouldFlush ) shouldFlush = true;
         mPref.delete(assetId);
       }
     }
+    if ( shouldFlush ) await mPref.flush();
+
+    trimAssetsBy(Limit.COUNT);
+    trimAssetsBy(Limit.DISK_AGE);
+    trimAssetsBy(Limit.DISK_SIZE);
+    trimAssetsBy(Limit.DISK_SPACE_WARNING);
   }
 
   export async function onAssetReadwrite(asset: IMCAsset): Promise<void> {
@@ -66,7 +76,30 @@ namespace MCCacheManager {
       log.lastAccessed = now;
     }
 
-    return mPref.set(asset.id, JSON.stringify(log));
+    startPeriodTrim();
+    mPref.set(asset.id, JSON.stringify(log));
+  }
+
+  function startPeriodTrim() {
+    if ( mPeriodTrimStarted ) {
+      return;
+    }
+
+    mPeriodTrimStarted = true;
+
+    // 定期检测
+
+    // 每5分钟检测一次
+    setInterval(() => {
+      trimAssetsBy(Limit.COUNT);
+      trimAssetsBy(Limit.DISK_SIZE);
+    }, 5 * 60 * 1000);
+
+    // 每半小时检测一次
+    setInterval(() => {
+      trimAssetsBy(Limit.DISK_AGE);
+      trimAssetsBy(Limit.DISK_SPACE_WARNING);
+    }, 30 * 60 * 1000);
   }
 
   async function trimAssetsBy(limit: Limit): Promise<void> {
@@ -152,7 +185,7 @@ namespace MCCacheManager {
       // TODO() next ...
       // a.destroy() ...
       mLogs.delete(a);
-      await mPref.delete(a.id);
+      mPref.delete(a.id);
     }
     return mPref.flush();
   }
