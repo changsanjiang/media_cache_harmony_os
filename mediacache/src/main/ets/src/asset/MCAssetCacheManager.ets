@@ -1,5 +1,7 @@
 import { IMCAsset } from "../defines/IMCAsset";
 import { MCPreferences } from "../utils/MCPreferences";
+import MCConfigs from '../utils/MCConfigs';
+import { statfs } from '@kit.CoreFileKit';
 
 namespace MCAssetCacheManager {
   interface AccessLog {
@@ -29,6 +31,10 @@ namespace MCAssetCacheManager {
 
   /** 磁盘空间预警阈值(单位: 字节); */
   export let diskSpaceWarningThreshold: number = 1024 * 1024 * 1024; // 默认 1G;
+
+  export async function prepare(): Promise<void> {
+    // mPref.getAll()
+  }
 
   export async function onAssetReadwrite(asset: IMCAsset): Promise<void> {
     const now = Date.now().toString();
@@ -90,8 +96,7 @@ namespace MCAssetCacheManager {
           return;
         }
 
-        // TODO() next ...
-        const freeSpace = 0; // await MCUtils.getDiskFreeSpace();
+        const freeSpace = await getDiskFreeSpace();
         if (freeSpace < diskSpaceWarningThreshold) {
           // console.warn(`Disk space low: ${freeSpace} bytes available.`);
           await evictAssetsBySize(diskSpaceWarningThreshold - freeSpace);
@@ -136,6 +141,11 @@ namespace MCAssetCacheManager {
       await mPref.delete(a.id);
     }
     return mPref.flush();
+  }
+
+  function getDiskFreeSpace(): Promise<number> {
+    let path = MCConfigs.context.filesDir;
+    return statfs.getFreeSize(path);
   }
 }
 
