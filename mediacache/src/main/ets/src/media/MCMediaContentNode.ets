@@ -47,4 +47,8 @@ export class MCMediaContentNode implements IMCMediaContentNode {
   get lengthOfAllContents(): number {
     return this.mContents.reduce((prev, content) => prev + content.length, 0);
   }
+
+  get allContents(): IMCMediaContent[] {
+    return this.mContents.map((it) => it);
+  }
 }

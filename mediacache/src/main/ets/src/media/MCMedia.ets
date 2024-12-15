@@ -34,6 +34,8 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   private mFullyTrimmed = false; // 所有冗余数据都已删除;
   private mProxyHandler?: (requestUrl: string, currentUrl: string, data: ArrayBuffer) => Promise<ArrayBuffer> = undefined; // 代理内容;
   private mRestructurePromise?: Promise<void> = undefined;
+  private mRemoveAllCachesPromise?: Promise<void> = undefined;
+  private mRemoveAllCachesBeforeCallbacks: ((media: IMCMedia) => void | Promise<void>)[] = [];
 
   /// `id` 中不能包含下划线;
   ///
@@ -166,6 +168,10 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   }
 
   async readAllData(): Promise<ArrayBuffer | undefined> {
+    if ( this.mRemoveAllCachesPromise ) {
+      return undefined;
+    }
+
     if ( this.mAssembled ) {
       if ( this.mRestructurePromise ) {
         await this.mRestructurePromise;
@@ -197,12 +203,22 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   }
 
   private async resolve(proxyRequest: IMCDataRequest, signal?: MCAbortSignal): Promise<IMCDataResponse> {
-    if ( this.mRestructurePromise ) {
-      await this.mRestructurePromise;
-    }
-
     if ( signal && signal.isAborted ) {
       throw signal.reason!
+    }
+
+    if ( this.mRestructurePromise ) {
+      await this.mRestructurePromise;
+      if ( signal && signal.isAborted ) {
+        throw signal.reason!
+      }
+    }
+
+    if ( this.mRemoveAllCachesPromise ) {
+      await this.mRemoveAllCachesPromise;
+      if ( signal && signal.isAborted ) {
+        throw signal.reason!
+      }
     }
 
     const url = MCURL.parseUrl(proxyRequest.requestTarget);
@@ -397,11 +413,19 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   }
 
   // 该方法被回调时, 不仅仅当前 media 的读写计数为 0, 所有的 content 的读写计数也都为 0;
-  protected onReadwriteZeroReferences(): void {
+  protected async onReadwriteZeroReferences(): Promise<void> {
+    if ( this.mRemoveAllCachesPromise ) {
+      await this.mRemoveAllCachesPromise;
+    }
+
     if ( !this.mRestructurePromise ) this.mRestructurePromise = new Promise(async (resolve) => {
-      await this.restructureContents();
-      this.mRestructurePromise = undefined;
-      resolve();
+      try {
+        await this.restructureContents();
+      }
+      finally {
+        this.mRestructurePromise = undefined;
+        resolve();
+      }
     });
   }
 
@@ -617,7 +641,44 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   }
 
   async removeAllCaches(): Promise<void> {
+    if ( this.mRestructurePromise ) {
+      await this.mRestructurePromise;
+    }
 
+    if ( !this.mRemoveAllCachesPromise ) this.mRemoveAllCachesPromise = new Promise(async (resolve) => {
+      try {
+        this.mAssembled = false;
+        this.mFullyTrimmed = false;
+
+        for (let element of this.mRemoveAllCachesBeforeCallbacks.entries()) {
+          await element[1](this);
+        }
+
+        let node: IMCMediaContentNode | undefined = this.mNodeList.head;
+        while (node) {
+          for (let content of node.allContents) {
+            await content.destroy();
+          }
+          this.mNodeList.removeNode(node);
+          node = this.mNodeList.head;
+        }
+      }
+      finally {
+        resolve();
+        this.mRemoveAllCachesPromise = undefined;
+      }
+    });
+  }
+
+  on(_: "removeAllCachesBefore", callback: (media: IMCMedia) => void | Promise<void>): void {
+    this.mRemoveAllCachesBeforeCallbacks.push(callback);
+  }
+
+  off(_: "removeAllCachesBefore", callback: (media: IMCMedia) => void | Promise<void>): void {
+    const index = this.mRemoveAllCachesBeforeCallbacks.indexOf(callback);
+    if (index >= 0) {
+      this.mRemoveAllCachesBeforeCallbacks.splice(index, 1);
+    }
   }
 
   // private printDebugInfo() {

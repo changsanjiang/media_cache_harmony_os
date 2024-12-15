@@ -29,12 +29,15 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
   private mLoaders?: IMCMediaContentLoader[] = undefined;
   private mCurrentLoader?: IMCMediaContentLoader = undefined;
 
+  private mOnMediaRemoveAllCachesBeforeCallback = (_: IMCMedia) => this.abort(new Error(`Media all contents will be removed.`));
+
   constructor(clientId: number, media: IMCMedia, request: IMCDataRequest) {
     this.mClientId = clientId;
     this.mMedia = media;
     this.mRequest = request;
 
     media.readwriteRetain();
+    media.on('removeAllCachesBefore', this.mOnMediaRemoveAllCachesBeforeCallback);
   }
 
   get isAborted(): boolean {
@@ -200,6 +203,7 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
     this.mDataEnd = true;
 
     this.mMedia.readwriteRelease();
+    this.mMedia.off('removeAllCachesBefore', this.mOnMediaRemoveAllCachesBeforeCallback);
 
     if ( this.mDataEndCallback )  {
       MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Executing dataEnd callback.`);
@@ -228,6 +232,7 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
     }
 
     this.mMedia.readwriteRelease();
+    this.mMedia.off('removeAllCachesBefore', this.mOnMediaRemoveAllCachesBeforeCallback);
 
     if ( this.mAbortedCallback ) {
       MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Executing aborted callback with error: ${error?.message || "None"}.`);

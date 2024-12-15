@@ -174,6 +174,13 @@ export class MCMediaContentNodeList {
     }
   }
 
+  removeAllNodes(): void {
+    this.mHead = undefined;
+    this.mMiddle = undefined;
+    this.mTail = undefined;
+    this.mNodes.clear();
+  }
+
   enumerateNodesUsingBlock(block: (node: IMCMediaContentNode, stop: IMCStopFlag) => void): void {
     const stop: IMCStopFlag = { value: false };
     let cur = this.mHead;

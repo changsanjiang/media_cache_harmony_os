@@ -11,4 +11,5 @@ export interface IMCMediaContentNode {
   removeContent(content: IMCMediaContent): boolean;
 
   readonly lengthOfAllContents: number;
+  readonly allContents: IMCMediaContent[];
 }
