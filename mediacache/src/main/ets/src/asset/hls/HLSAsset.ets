@@ -5,8 +5,8 @@ import { MCAssetType } from "../../defines/MCAssetType";
 import { MCMedia } from "../../media/MCMedia";
 import { MCReadwriteReference } from "../../utils/MCReadwriteReference";
 import MCURL from "../../utils/MCURL";
-import MCAssetCacheManager from "../MCAssetCacheManager";
-import MCAssetProvider from "../MCAssetProvider";
+import MCCacheManager from "../MCCacheManager";
+import MCAssetManager from "../MCAssetManager";
 import HLSParser from "./HLSParser";
 
 export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset {
@@ -115,17 +115,17 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
 
     const playlist = new HLSPlaylist(proxyContent);
     if ( playlist.variantStream ) {
-      this.mVariantStreamAsset = await MCAssetProvider.getAssetBy(playlist.variantStream.uri!) as HLSAsset;
+      this.mVariantStreamAsset = await MCAssetManager.getAssetBy(playlist.variantStream.uri!) as HLSAsset;
       // this.mVariantStreamAsset.mMasterAsset = this;
       // this.mVariantStreamItem = playlist.variantStream;
     }
     if ( playlist.audioRendition ) {
-      this.mAudioRenditionAsset = await MCAssetProvider.getAssetBy(playlist.audioRendition.uri!) as HLSAsset;
+      this.mAudioRenditionAsset = await MCAssetManager.getAssetBy(playlist.audioRendition.uri!) as HLSAsset;
       // this.mAudioRenditionAsset.mMasterAsset = this;
       // this.mAudioRenditionItem = playlist.audioRendition;
     }
     if ( playlist.videoRendition ) {
-      this.mVideoRenditionAsset = await MCAssetProvider.getAssetBy(playlist.videoRendition.uri!) as HLSAsset;
+      this.mVideoRenditionAsset = await MCAssetManager.getAssetBy(playlist.videoRendition.uri!) as HLSAsset;
       // this.mVideoRenditionAsset.mMasterAsset = this;
       // this.mVideoRenditionItem = playlist.videoRendition;
     }
@@ -179,7 +179,7 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
 
   readwriteRetain(): HLSAsset {
     super.readwriteRetain();
-    MCAssetCacheManager.onAssetReadwrite(this);
+    MCCacheManager.onAssetReadwrite(this);
     return this;
   }
 }

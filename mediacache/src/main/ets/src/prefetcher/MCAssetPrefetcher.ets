@@ -1,7 +1,7 @@
 import { HLSPlaylist, MCAssetUtils, MCUtils } from "../../../../../Index";
 import { FILEAsset } from "../asset/filebased/FILEAsset";
 import { HLSAsset } from "../asset/hls/HLSAsset";
-import MCAssetProvider from "../asset/MCAssetProvider";
+import MCAssetManager from "../asset/MCAssetManager";
 import HLSDefines from "../defines/HLSDefines";
 import { IMCDataFetcher } from "../defines/IMCDataFetcher";
 import { IMCDataRequest } from "../defines/IMCDataRequest";
@@ -86,7 +86,7 @@ namespace MCAssetPrefetcher {
     checkAbortSignal(signal);
 
     // 获取资产
-    const asset = await MCAssetProvider.getAssetBy(requestTarget);
+    const asset = await MCAssetManager.getAssetBy(requestTarget);
     checkAbortSignal(signal);
 
     // 根据资产类型进行预加载

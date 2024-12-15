@@ -4,7 +4,7 @@ import { IMCHttpResponse } from "../defines/IMCHttpResponse";
 import { MCLogModule } from "../defines/MCLogModule";
 import { MCAssetDataFetcher } from "../asset/MCAssetDataFetcher";
 import { IMCDataFetcher } from "../defines/IMCDataFetcher";
-import MCAssetProvider from "../asset/MCAssetProvider";
+import MCAssetManager from "../asset/MCAssetManager";
 import { IMCHttpOkResponseHeaders,
   IMCHttpPartialContentResponseHeaders,
   IMCHttpResponseHeaders } from "../defines/IMCHttpResponseHeaders";
@@ -32,7 +32,7 @@ export class MCHttpResponse implements IMCHttpResponse {
   async prepare(): Promise<void> {
     MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Preparing response.`);
     try {
-      const asset = await MCAssetProvider.getAssetBy(this.mRequest.requestTarget);
+      const asset = await MCAssetManager.getAssetBy(this.mRequest.requestTarget);
       this.mFetcher = new MCAssetDataFetcher(this.mClientId, asset, {
         requestTarget: this.mRequest.requestTarget,
         headers: this.mRequest.headers

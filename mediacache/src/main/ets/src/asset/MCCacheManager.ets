@@ -3,7 +3,7 @@ import { MCPreferences } from "../utils/MCPreferences";
 import MCConfigs from '../utils/MCConfigs';
 import { statfs } from '@kit.CoreFileKit';
 
-namespace MCAssetCacheManager {
+namespace MCCacheManager {
   interface AccessLog {
     firstAccessed: string;    // 首次读写时间
     lastAccessed: string      // 最后一次访问的时间
@@ -149,4 +149,4 @@ namespace MCAssetCacheManager {
   }
 }
 
-export default MCAssetCacheManager;
+export default MCCacheManager;
