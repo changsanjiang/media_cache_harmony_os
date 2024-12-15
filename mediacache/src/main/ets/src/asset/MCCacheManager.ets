@@ -18,11 +18,10 @@ namespace MCCacheManager {
     DISK_SPACE_WARNING, // 磁盘空间预警
   }
 
-  const mPref = new MCPreferences<string>('mc_access_pref');
-
   const mLogs = new Map<IMCAsset, AccessLog>();
-
+  const mPref = new MCPreferences<string>('mc_access_pref');
   let mPeriodTrimStarted = false;
+  let mFlushId: number | undefined = undefined;
 
   /** Asset 个数限制; */
   export let assetCountLimit: number = 0;
@@ -78,6 +77,7 @@ namespace MCCacheManager {
 
     startPeriodTrim();
     mPref.set(asset.id, JSON.stringify(log));
+    startFlushAfter(5 * 1000);
   }
 
   function startPeriodTrim() {
@@ -182,17 +182,30 @@ namespace MCCacheManager {
 
   async function evictAssets(assets: IMCAsset[]): Promise<void> {
     for (const a of assets) {
-      // TODO() next ...
-      // a.destroy() ...
       mLogs.delete(a);
       mPref.delete(a.id);
+      a.removeAllCaches();
     }
-    return mPref.flush();
+    return flush();
   }
 
   function getDiskFreeSpace(): Promise<number> {
     let path = MCConfigs.context.filesDir;
     return statfs.getFreeSize(path);
+  }
+
+  function startFlushAfter(delay: number) {
+    if ( mFlushId === undefined ) {
+      mFlushId = setTimeout(() => flush(), delay);
+    }
+  }
+
+  async function flush(): Promise<void> {
+    if ( mFlushId !== undefined ) {
+      clearTimeout(mFlushId);
+      mFlushId = undefined;
+      return mPref.flush();
+    }
   }
 }
 

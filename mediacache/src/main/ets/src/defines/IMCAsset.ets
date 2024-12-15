@@ -12,11 +12,11 @@ import { MCAssetType } from "./MCAssetType";
 export interface IMCAsset extends IMCReadwriteReference<IMCAsset> {
   readonly id: string;
   readonly type: MCAssetType;
-
   readonly completeness: Promise<number>; // 完成度; [0, 1];
-
-  readonly cacheSize: number; // 返回当前缓存的数据大小;
 
   prepare(): Promise<void>;
   getMediaBy(requestTarget: string): Promise<IMCMedia>;
+
+  readonly cacheSize: number; // 返回当前缓存的数据大小;
+  removeAllCaches(): Promise<void>;  // 清理所有缓存;
 }
