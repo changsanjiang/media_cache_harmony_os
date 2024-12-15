@@ -606,6 +606,20 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     return lengthCached * 1.0 / this.mMetadata.totalLength;
   }
 
+  get cacheSize(): number {
+    let len = 0;
+    let node: IMCMediaContentNode | undefined = this.mNodeList.head;
+    while (node) {
+      len += node.lengthOfAllContents;
+      node = node.next;
+    }
+    return len;
+  }
+
+  async removeAllCaches(): Promise<void> {
+
+  }
+
   // private printDebugInfo() {
   //   setTimeout(() => {
   //     console.log(`AAAA: media.readwriteCount=${this.readwriteCount}`);

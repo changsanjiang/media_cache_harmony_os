@@ -76,11 +76,6 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
     return this.calculateCompleteness();
   }
 
-  get cacheSize(): number {
-    // TODO() next ...
-    return 0;
-  }
-
   async prepare(): Promise<void> {
     const playlistMedia = await this.initializeMedia(this.id, true);
     if ( playlistMedia.isAssembled ) {
@@ -181,5 +176,15 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
     super.readwriteRetain();
     MCCacheManager.onAssetReadwrite(this);
     return this;
+  }
+
+  get cacheSize(): number {
+    return Array.from(this.mMedias.entries()).reduce((prev, media) => prev + media[1].cacheSize, 0);
+  }
+
+  async removeAllCaches(): Promise<void> {
+    for (let element of this.mMedias.entries()) {
+      await element[1].removeAllCaches();
+    }
   }
 }

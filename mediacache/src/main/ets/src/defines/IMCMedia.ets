@@ -21,4 +21,7 @@ export interface IMCMedia extends IMCReadwriteReference<IMCMedia> {
   // 如果数据组合完成, 通过该方法可以获取媒体所有数据;
   // 请谨慎使用, 该方法仅适合获取小文件的所有数据;
   readAllData(): Promise<ArrayBuffer | undefined>;
+
+  readonly cacheSize: number; // 返回当前缓存的数据大小;
+  removeAllCaches(): Promise<void>;  // 清理所有缓存;
 }
