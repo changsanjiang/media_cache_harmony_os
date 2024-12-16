@@ -27,6 +27,15 @@ namespace MCMediaCache {
       console.log(`[Error] ${error.message}, Stack trace: ${error.stack}`);
     });
   }
+
+  let mPreparationPromise: Promise<void>;
+
+  class Init {
+    constructor() {
+
+    }
+  }
+  const mInit = new Init();
 }
 
 export default MCMediaCache;

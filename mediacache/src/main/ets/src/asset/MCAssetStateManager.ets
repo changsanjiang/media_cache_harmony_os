@@ -1,5 +1,6 @@
 import { MCUtils } from "../../../../../Index";
 import { MCPreferences } from "../utils/MCPreferences";
+import { MCRetryPromise } from "../utils/MCRetryPromise";
 
 namespace MCAssetStateManager {
   interface AssetState {
@@ -9,15 +10,29 @@ namespace MCAssetStateManager {
 
   const mStates = new Map<string, AssetState>();
   const mPref = new MCPreferences<string>('mc_asset_state_pref');
+  let mPreparationPromise: Promise<void> | undefined = undefined;
 
   export async function prepare(): Promise<void> {
-    const record = await mPref.getAll();
-    const map = MCUtils.recordToMap(record);
-    for ( let element of Array.from(map.entries()) ) {
-      const assetId = element[0];
-      const state = JSON.parse(element[1]) as AssetState;
-      mStates.set(assetId, state);
+    if ( !mPreparationPromise ) {
+      mPreparationPromise = new MCRetryPromise(async (resolve, reject) => {
+        try {
+          const record = await mPref.getAll();
+          const map = MCUtils.recordToMap(record);
+          for ( let element of Array.from(map.entries()) ) {
+            const assetId = element[0];
+            if ( mStates.get(assetId) ) {
+              const state = JSON.parse(element[1]) as AssetState;
+              mStates.set(assetId, state);
+            }
+          }
+          resolve();
+        }
+        catch (error) {
+          reject(error);
+        }
+      });
     }
+    return mPreparationPromise;
   }
 
   /** 判断资产是否被固定 */
