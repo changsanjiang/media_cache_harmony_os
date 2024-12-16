@@ -4,6 +4,8 @@ import MCConfigs from '../utils/MCConfigs';
 import { statfs } from '@kit.CoreFileKit';
 import { MCUtils } from '../../../../../Index';
 import MCAssetManager from './MCAssetManager';
+import MCCacheConfig from "./MCCacheConfig";
+import MCAssetStateManager from "./MCAssetStateManager";
 
 namespace MCCacheManager {
   interface AccessLog {
@@ -19,21 +21,9 @@ namespace MCCacheManager {
   }
 
   const mLogs = new Map<IMCAsset, AccessLog>();
-  const mPref = new MCPreferences<string>('mc_access_pref');
+  const mPref = new MCPreferences<string>('mc_cache_access_pref');
   let mPeriodTrimStarted = false;
   let mFlushId: number | undefined = undefined;
-
-  /** Asset 个数限制; */
-  export let assetCountLimit: number = 0;
-
-  /** Asset 保存时长限制(单位: 毫秒); */
-  export let assetMaxDiskAge: number = 0;
-
-  /** 所有缓存占用的磁盘空间限制(单位: 字节); */
-  export let allAssetsMaxDiskSize: number = 0;
-
-  /** 磁盘空间预警阈值(单位: 字节); */
-  export let diskSpaceWarningThreshold: number = 1024 * 1024 * 1024; // 默认 1G;
 
   export async function prepare(): Promise<void> {
     const record = await mPref.getAll();
@@ -105,48 +95,48 @@ namespace MCCacheManager {
   async function trimAssetsBy(limit: Limit): Promise<void> {
     switch (limit) {
       case Limit.COUNT: {
-        if ( assetCountLimit === 0 ) {
+        if ( MCCacheConfig.assetCountLimit === 0 ) {
           return;
         }
 
         const count = mLogs.size;
-        if ( count > assetCountLimit ) {
-          await evictAssetsByCount(count - assetCountLimit);
+        if ( count > MCCacheConfig.assetCountLimit ) {
+          await evictAssetsByCount(count - MCCacheConfig.assetCountLimit);
         }
       }
         break;
       case Limit.DISK_AGE: {
-        if (assetMaxDiskAge === 0) {
+        if (MCCacheConfig.assetMaxDiskAge === 0) {
           return;
         }
 
         const now = Date.now();
-        const expiredAssets = Array.from(mLogs.entries()).filter(pair => (now - parseInt(pair[1].firstAccessed) > assetMaxDiskAge)).map(pair => pair[0]);
+        const expiredAssets = Array.from(mLogs.entries()).filter(pair => !MCAssetStateManager.isPinned(pair[0].id) && (now - parseInt(pair[1].firstAccessed) > MCCacheConfig.assetMaxDiskAge)).map(pair => pair[0]);
         if (expiredAssets.length > 0) {
           await evictAssets(expiredAssets);
         }
       }
         break;
       case Limit.DISK_SIZE: {
-        if ( allAssetsMaxDiskSize === 0 ) {
+        if ( MCCacheConfig.allAssetsMaxDiskSize === 0 ) {
           return;
         }
 
-        let totalSize = Array.from(mLogs.keys()).reduce((prev, a) => prev + a.cacheSize, 0);
-        if (totalSize > allAssetsMaxDiskSize) {
-          await evictAssetsBySize(totalSize - allAssetsMaxDiskSize);
+        let totalSize = Array.from(mLogs.keys()).filter((a) => !MCAssetStateManager.isPinned(a.id)).reduce((prev, a) => prev + a.cacheSize, 0);
+        if (totalSize > MCCacheConfig.allAssetsMaxDiskSize) {
+          await evictAssetsBySize(totalSize - MCCacheConfig.allAssetsMaxDiskSize);
         }
       }
         break;
       case Limit.DISK_SPACE_WARNING: {
-        if (diskSpaceWarningThreshold === 0) {
+        if (MCCacheConfig.diskSpaceWarningThreshold === 0) {
           return;
         }
 
         const freeSpace = await getDiskFreeSpace();
-        if (freeSpace < diskSpaceWarningThreshold) {
+        if (freeSpace < MCCacheConfig.diskSpaceWarningThreshold) {
           // console.warn(`Disk space low: ${freeSpace} bytes available.`);
-          await evictAssetsBySize(diskSpaceWarningThreshold - freeSpace);
+          await evictAssetsBySize(MCCacheConfig.diskSpaceWarningThreshold - freeSpace);
         }
       }
         break;
@@ -155,7 +145,7 @@ namespace MCCacheManager {
 
   function evictAssetsBySize(size: number): Promise<void> {
     // 根据 size 和 lastAccessed 排序，优先移除较旧且大的文件
-    const sortedAssets = Array.from(mLogs.entries()).sort((a, b) => {
+    const sortedAssets = Array.from(mLogs.entries()).filter((pair) => !MCAssetStateManager.isPinned(pair[0].id)).sort((a, b) => {
       const a1 = parseInt(a[1].lastAccessed);
       const b1 = parseInt(b[1].lastAccessed);
       if ( a1 !== b1 ) {
@@ -175,7 +165,7 @@ namespace MCCacheManager {
   }
 
   function evictAssetsByCount(count: number): Promise<void> {
-    const sortedByAccess = Array.from(mLogs.entries()).sort((a, b) => parseInt(a[1].lastAccessed) - parseInt(b[1].lastAccessed));
+    const sortedByAccess = Array.from(mLogs.entries()).filter((pair) => !MCAssetStateManager.isPinned(pair[0].id)).sort((a, b) => parseInt(a[1].lastAccessed) - parseInt(b[1].lastAccessed));
     const assetsToEvict = sortedByAccess.slice(0, count).map(pair => pair[0]);
     return evictAssets(assetsToEvict);
   }
