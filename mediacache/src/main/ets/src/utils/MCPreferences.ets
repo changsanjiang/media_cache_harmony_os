@@ -22,6 +22,16 @@ export class MCPreferences<T extends preferences.ValueType> {
     return this.mPref.then(p => p.get(key, defValue) as T);
   }
 
+  getValueOrUndefined(key: string): Promise<T | undefined> {
+    return this.mPref.then(async (p) => {
+      const has = await p.has(key);
+      if ( has  ) {
+        return p.get(key, {}) as T;
+      }
+      return undefined;
+    });
+  }
+
   getAll(): Promise<Record<string, T>> {
     return this.mPref.then(p => p.getAll()).then(all => MCUtils.objectToRecord(all));
   }

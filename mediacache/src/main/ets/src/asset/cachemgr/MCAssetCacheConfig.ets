@@ -1,4 +1,4 @@
-namespace MCCacheConfig {
+namespace MCAssetCacheConfig {
   /** Asset 个数限制; */
   export let assetCountLimit: number = 0;
 
@@ -12,4 +12,4 @@ namespace MCCacheConfig {
   export let diskSpaceWarningThreshold: number = 1024 * 1024 * 1024; // 默认 1G;
 }
 
-export default MCCacheConfig;
+export default MCAssetCacheConfig;

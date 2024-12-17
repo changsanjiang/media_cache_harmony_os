@@ -5,7 +5,7 @@ import { MCAssetType } from "../../defines/MCAssetType";
 import { MCMedia } from "../../media/MCMedia";
 import { MCReadwriteReference } from "../../utils/MCReadwriteReference";
 import MCURL from "../../utils/MCURL";
-import MCCacheManager from "../MCCacheManager";
+import MCAssetCacheManager from "../cachemgr/MCAssetCacheManager";
 import MCAssetManager from "../MCAssetManager";
 import HLSParser from "./HLSParser";
 
@@ -174,7 +174,7 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
 
   readwriteRetain(): HLSAsset {
     super.readwriteRetain();
-    MCCacheManager.onAssetReadwrite(this);
+    MCAssetCacheManager.onAssetReadwrite(this);
     return this;
   }
 
