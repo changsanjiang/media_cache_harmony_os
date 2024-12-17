@@ -8,22 +8,16 @@ import MCConfigs from '../utils/MCConfigs';
 
 namespace MCAssetManager {
   const mMap: Map<string, IMCAsset> = new Map();
-  const mInitPromises: Map<string, Promise<IMCAsset>> = new Map();
-  const mFindPromises: Map<string, Promise<IMCAsset | undefined>> = new Map();
+  const mInitPromises: Map<string, Promise<IMCAsset | undefined>> = new Map();
   const mRootDir = MCConfigs.context.filesDir + '/mc_media_cache';
 
   export async function getAsset(assetId: string): Promise<IMCAsset | undefined> {
     let asset = mMap.get(assetId);
     if ( !asset ) {
-      if ( mInitPromises.has(assetId) ) {
-        asset = await mInitPromises.get(assetId);
+      if (!mInitPromises.has(assetId)) {
+        mInitPromises.set(assetId, initializeAsset(assetId));
       }
-
-      if ( !mFindPromises.has(assetId) ) {
-        mFindPromises.set(assetId, findAsset(assetId));
-      }
-
-      asset = await mFindPromises.get(assetId);
+      asset = await mInitPromises.get(assetId);
     }
     return asset;
   }
@@ -32,52 +26,47 @@ namespace MCAssetManager {
     const targetInfo = MCURL.parse(requestTarget);
     const assetType = targetInfo.assetType;
     const assetId = targetInfo.assetId;
+
     let asset = mMap.get(assetId);
-
     if (!asset) {
-      if ( mFindPromises.has(assetId) ) {
-        asset = await mFindPromises.get(assetId);
+      if (!mInitPromises.has(assetId)) {
+        mInitPromises.set(assetId, initializeAsset(assetId, assetType));
       }
-
-      if ( !asset ) {
-        if (!mInitPromises.has(assetId)) {
-          mInitPromises.set(assetId, initializeAsset(assetId, assetType));
-        }
-        asset = await mInitPromises.get(assetId);
-      }
+      asset = await mInitPromises.get(assetId);
     }
     return asset!;
   }
 
-  async function initializeAsset(assetId: string, assetType: MCAssetType): Promise<IMCAsset> {
+  async function initializeAsset(assetId: string, assetType?: MCAssetType): Promise<IMCAsset | undefined> {
     try {
-      const assetDir = `${mRootDir}/mc_${assetId}_${assetType}`;
-      let asset = (assetType === MCAssetType.FILE_BASED) ? new FILEAsset(assetId, assetDir) : new HLSAsset(assetId, assetDir);
-      await asset.prepare();
-      mMap.set(assetId, asset);
-      return asset;
+      if ( assetType === undefined ) {
+        for (let type of MCAssetTypeValues) {
+          const assetDir = `${mRootDir}/${generateAssetDirName(assetId, type)}`;
+          const exists = await fileIo.access(assetDir, fileIo.AccessModeType.EXIST);
+          if ( exists ) {
+            assetType = type;
+            break;
+          }
+        }
+      }
+
+      if ( assetType !== undefined ) {
+        const assetDir = `${mRootDir}/${generateAssetDirName(assetId, assetType)}`;
+        const asset = (assetType === MCAssetType.FILE_BASED) ? new FILEAsset(assetId, assetDir) : new HLSAsset(assetId, assetDir);
+        await asset.prepare();
+        mMap.set(assetId, asset);
+        return asset;
+      }
+
+      return undefined;
     }
     finally {
       mInitPromises.delete(assetId);
     }
   }
 
-  /** 从本地目录中查找 asset; */
-  async function findAsset(assetId: string): Promise<IMCAsset | undefined> {
-    try {
-      for (let assetType of MCAssetTypeValues) {
-        const assetDir = `${mRootDir}/mc_${assetId}_${assetType}`;
-        const exists = await fileIo.access(assetDir, fileIo.AccessModeType.EXIST);
-        if ( exists ) {
-          const asset = await initializeAsset(assetId, assetType);
-          return asset;
-        }
-      }
-      return undefined;
-    }
-    finally {
-       mFindPromises.delete(assetId);
-    }
+  function generateAssetDirName(assetId: string, assetType: MCAssetType): string {
+    return `mc_${assetId}_${assetType}`;
   }
 }
 
