@@ -3,3 +3,5 @@ export enum MCAssetType {
   /** HTTP Live Streaming; */
   HLS,
 }
+
+export const MCAssetTypeValues = [MCAssetType.FILE_BASED, MCAssetType.HLS];
