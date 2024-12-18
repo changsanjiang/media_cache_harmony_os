@@ -53,7 +53,7 @@ namespace MCAssetUtils {
   /**
    * 识别一个 url 指向的资源是基于文件的媒体还是一个 HLS 资源;
    * */
-  async function resolveAssetType(resUrl: string): Promise<MCAssetType> {
+  export async function resolveAssetType(resUrl: string): Promise<MCAssetType> {
     if ( MCConfigs.assetTypeResolver ) {
       return MCConfigs.assetTypeResolver(resUrl);
     }

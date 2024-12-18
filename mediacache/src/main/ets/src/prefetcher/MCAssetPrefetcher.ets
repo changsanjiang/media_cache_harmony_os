@@ -41,7 +41,7 @@ namespace MCAssetPrefetcher {
     checkAbortSignal(signal);
 
     // 获取资产
-    const asset = await MCAssetManager.getAssetBy(requestTarget);
+    const asset = await MCAssetManager.getAssetByRequestTarget(requestTarget);
     checkAbortSignal(signal);
 
     // 根据资产类型进行预加载

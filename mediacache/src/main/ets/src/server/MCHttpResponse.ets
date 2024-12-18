@@ -32,7 +32,7 @@ export class MCHttpResponse implements IMCHttpResponse {
   async prepare(): Promise<void> {
     MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Preparing response.`);
     try {
-      const asset = await MCAssetManager.getAssetBy(this.mRequest.requestTarget);
+      const asset = await MCAssetManager.getAssetByRequestTarget(this.mRequest.requestTarget);
       this.mFetcher = new MCAssetDataFetcher(this.mClientId, asset, {
         requestTarget: this.mRequest.requestTarget,
         headers: this.mRequest.headers

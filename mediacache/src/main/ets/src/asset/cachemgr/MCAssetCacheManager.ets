@@ -5,6 +5,7 @@ import MCAssetStateRepository from "./MCAssetStateRepository";
 import MCAssetAccessLogRepository from "./MCAssetAccessLogRepository";
 import MCAssetUtils from "../MCAssetUtils";
 import { MCAssetCacheConfig } from "../../defines/MCAssetCacheConfig";
+import MCAssetManager from "../MCAssetManager";
 
 namespace MCAssetCacheManager {
   enum Limit {
@@ -25,6 +26,26 @@ namespace MCAssetCacheManager {
     trimAssetsBy(Limit.DISK_AGE);
     trimAssetsBy(Limit.DISK_SIZE);
     trimAssetsBy(Limit.DISK_SPACE_WARNING);
+  }
+
+  export async function countOfBytesAllCaches(): Promise<number> {
+    const assets = await MCAssetManager.queryAssets(() => true);
+    return assets.reduce((prev, asset) => prev + asset.cacheSize, 0);
+  }
+
+  export async function countOfBytesPinnedCaches(): Promise<number> {
+    const assets = await MCAssetManager.queryAssets((info) => MCAssetStateRepository.isPinned(info.assetId));
+    return assets.reduce((prev, asset) => prev + asset.cacheSize, 0);
+  }
+
+  export async function removeCacheBy(resUrl: string): Promise<void> {
+    const asset = await MCAssetManager.getAssetByUrl(resUrl);
+    return evictAssets([asset]);
+  }
+
+  export async function removeCaches(): Promise<void> {
+    const assets = await MCAssetManager.queryAssets((info) => !MCAssetStateRepository.isPinned(info.assetId));
+    return evictAssets(assets);
   }
 
   export async function onAssetReadwrite(asset: IMCAsset): Promise<void> {
@@ -144,11 +165,13 @@ namespace MCAssetCacheManager {
   }
 
   async function evictAssets(assets: IMCAsset[]): Promise<void> {
-    for (const a of assets) {
-      await MCAssetAccessLogRepository.onEvict(a);
-      await a.removeAllCaches();
+    if ( assets.length > 0 ) {
+      for (const a of assets) {
+        await MCAssetAccessLogRepository.onEvict(a);
+        await a.removeAllCaches();
+      }
+      await MCAssetAccessLogRepository.flush();
     }
-    await MCAssetAccessLogRepository.flush();
   }
 
   function getDiskFreeSpace(): Promise<number> {

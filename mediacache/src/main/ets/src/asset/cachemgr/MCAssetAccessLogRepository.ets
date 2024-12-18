@@ -19,7 +19,7 @@ namespace MCAssetAccessLogRepository {
         try {
           const assetId = element[0];
           const log = JSON.parse(element[1]) as MCAssetAccessLog;
-          const asset = await MCAssetManager.getAsset(assetId);
+          const asset = await MCAssetManager.getAssetById(assetId);
           if ( asset ) {
             mLogs.set(asset, log);
           }

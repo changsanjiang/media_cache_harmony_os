@@ -110,17 +110,17 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
 
     const playlist = new HLSPlaylist(proxyContent);
     if ( playlist.variantStream ) {
-      this.mVariantStreamAsset = await MCAssetManager.getAssetBy(playlist.variantStream.uri!) as HLSAsset;
+      this.mVariantStreamAsset = await MCAssetManager.getAssetByRequestTarget(playlist.variantStream.uri!) as HLSAsset;
       // this.mVariantStreamAsset.mMasterAsset = this;
       // this.mVariantStreamItem = playlist.variantStream;
     }
     if ( playlist.audioRendition ) {
-      this.mAudioRenditionAsset = await MCAssetManager.getAssetBy(playlist.audioRendition.uri!) as HLSAsset;
+      this.mAudioRenditionAsset = await MCAssetManager.getAssetByRequestTarget(playlist.audioRendition.uri!) as HLSAsset;
       // this.mAudioRenditionAsset.mMasterAsset = this;
       // this.mAudioRenditionItem = playlist.audioRendition;
     }
     if ( playlist.videoRendition ) {
-      this.mVideoRenditionAsset = await MCAssetManager.getAssetBy(playlist.videoRendition.uri!) as HLSAsset;
+      this.mVideoRenditionAsset = await MCAssetManager.getAssetByRequestTarget(playlist.videoRendition.uri!) as HLSAsset;
       // this.mVideoRenditionAsset.mMasterAsset = this;
       // this.mVideoRenditionItem = playlist.videoRendition;
     }
