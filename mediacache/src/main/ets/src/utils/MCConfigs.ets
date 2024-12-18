@@ -4,8 +4,8 @@ import { MCAssetType } from '../defines/MCAssetType';
 import { MCDownloadRequest } from './MCDownloadRequest';
 
 namespace MCConfigs {
-  export let resolveAssetType: ((resUrl: string) => MCAssetType | Promise<MCAssetType>) | undefined = undefined;
-  export let resolveAssetIdentifier: ((resUrl: string) => string | Promise<string>) | undefined = undefined;
+  export let assetTypeResolver: ((resUrl: string) => MCAssetType | Promise<MCAssetType>) | undefined = undefined;
+  export let assetIdentifierGenerator: ((resUrl: string) => string | Promise<string>) | undefined = undefined;
 
   export let sessionConfiguration: rcp.SessionConfiguration | undefined = undefined;
   export let ignoredHeaders = ['host', "user-agent"];

@@ -1,15 +1,23 @@
 import MCAssetCacheManager from "./asset/cachemgr/MCAssetCacheManager";
 import MCAssetUtils from "./asset/MCAssetUtils";
+import { MCAssetCacheConfig } from "./defines/MCAssetCacheConfig";
 import { MCAssetPrefetchOptions } from "./defines/MCAssetPrefetchOptions";
+import { MCAssetType } from "./defines/MCAssetType";
 import MCAssetPrefetcher from "./prefetcher/MCAssetPrefetcher";
 import { MCHttpConnectionHandler } from "./server/MCHttpConnectionHandler";
 import { MCTcpSocketServer } from "./server/MCTcpSocketServer";
+import MCConfigs from "./utils/MCConfigs";
+import MCURL from "./utils/MCURL";
 
 namespace MCMediaCache {
   const mTcpServer = new MCTcpSocketServer();
   const mConnectionHandler = new MCHttpConnectionHandler();
   let mPrepared = false;
 
+  /** 缓存管理配置; 缓存管理器会根据这个配置定期检测并删除一些缓存; */
+  export const cacheConfig: MCAssetCacheConfig = MCAssetCacheManager.config;
+
+  /** 启动代理服务器; */
   export async function prepare(): Promise<void> {
     if ( !mPrepared ) {
       // 初始化缓存管理器
@@ -35,9 +43,43 @@ namespace MCMediaCache {
   export function setPinned(resUrl: string, isPinned: boolean): Promise<void> {
     return MCAssetCacheManager.setPinned(resUrl, isPinned);
   }
-
   export function isPinned(resUrl: string): Promise<boolean> {
     return MCAssetCacheManager.isPinned(resUrl);
+  }
+
+  /** 对缓存到本地的数据进行加密; */
+  export function setDataEncryptHandler(block: (resUrl: string, offset: number, data: ArrayBuffer) => Promise<void>) {
+    MCConfigs.dataEncryptHandler = (request, offset, data) => {
+      return block(request.url, offset, data);
+    }
+  }
+
+  /** 对数据解密; */
+  export function setDataDecryptHandler(block: (resUrl: string, offset: number, data: ArrayBuffer) => Promise<void>) {
+    MCConfigs.dataDecryptHandler = (request, offset, data) => {
+      return block(MCURL.parseUrl(request.requestTarget), offset, data);
+    };
+  }
+
+  /** 解析视频唯一标识; 同一标识引用相同的缓存;
+   *
+   * 当出现多个地址指向同一个视频, 例如 url 可能带有鉴权之类的参数, 这部分很容易发生变化, 但这些地址都指向同一个视频, 为了仅缓存一份视频, 你可以在这里将这些会变化的参数移除;
+   *
+   * */
+  export function setAssetIdentifierGenerator(block: (resUrl: string) => string | Promise<string>) {
+    MCConfigs.assetIdentifierGenerator = block;
+  }
+
+  /** 资产类型解析;
+   *
+   * 目前支持两种类型的资产, 你可以返回以下类型:
+   *
+   * - MCAssetType.FILE_BASED: 基于文件的媒体;
+   * - MCAssetType.HLS: 流媒体(m3u8);
+   *
+   * */
+  export function setAssetTypeResolver(block: (resUrl: string) => MCAssetType | Promise<MCAssetType>) {
+    MCConfigs.assetTypeResolver = block;
   }
 }
 

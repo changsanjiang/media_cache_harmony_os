@@ -39,7 +39,7 @@ namespace MCAssetUtils {
    * 为资产生成一个唯一标识符;
    * */
   export async function generateAssetId(resUrl: string): Promise<string> {
-    const target = MCConfigs.resolveAssetIdentifier ? (await MCConfigs.resolveAssetIdentifier(resUrl)) : resUrl;
+    const target = MCConfigs.assetIdentifierGenerator ? (await MCConfigs.assetIdentifierGenerator(resUrl)) : resUrl;
     return MCUtils.hash(target);
   }
 
@@ -54,8 +54,8 @@ namespace MCAssetUtils {
    * 识别一个 url 指向的资源是基于文件的媒体还是一个 HLS 资源;
    * */
   async function resolveAssetType(resUrl: string): Promise<MCAssetType> {
-    if ( MCConfigs.resolveAssetType ) {
-      return MCConfigs.resolveAssetType(resUrl);
+    if ( MCConfigs.assetTypeResolver ) {
+      return MCConfigs.assetTypeResolver(resUrl);
     }
 
     const pathname = url.URL.parseURL(resUrl).pathname;

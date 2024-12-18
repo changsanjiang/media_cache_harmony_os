@@ -1,10 +1,10 @@
 import { IMCAsset } from "../../defines/IMCAsset";
 import MCConfigs from '../../utils/MCConfigs';
 import { statfs } from '@kit.CoreFileKit';
-import MCAssetCacheConfig from "./MCAssetCacheConfig";
 import MCAssetStateRepository from "./MCAssetStateRepository";
 import MCAssetAccessLogRepository from "./MCAssetAccessLogRepository";
 import MCAssetUtils from "../MCAssetUtils";
+import { MCAssetCacheConfig } from "../../defines/MCAssetCacheConfig";
 
 namespace MCAssetCacheManager {
   enum Limit {
@@ -14,6 +14,7 @@ namespace MCAssetCacheManager {
     DISK_SPACE_WARNING, // 磁盘空间预警
   }
 
+  export const config = new MCAssetCacheConfig();
   let mPeriodTrimStarted = false;
 
   export async function prepare(): Promise<void> {
@@ -67,48 +68,48 @@ namespace MCAssetCacheManager {
   async function trimAssetsBy(limit: Limit): Promise<void> {
     switch (limit) {
       case Limit.COUNT: {
-        if ( MCAssetCacheConfig.assetCountLimit === 0 ) {
+        if ( config.assetCountLimit === 0 ) {
           return;
         }
 
         const count = MCAssetAccessLogRepository.getCount();
-        if ( count > MCAssetCacheConfig.assetCountLimit ) {
-          await evictAssetsByCount(count - MCAssetCacheConfig.assetCountLimit);
+        if ( count > config.assetCountLimit ) {
+          await evictAssetsByCount(count - config.assetCountLimit);
         }
       }
         break;
       case Limit.DISK_AGE: {
-        if (MCAssetCacheConfig.assetMaxDiskAge === 0) {
+        if (config.assetMaxDiskAge === 0) {
           return;
         }
 
         const now = Date.now();
-        const expiredAssets = MCAssetAccessLogRepository.filter(pair => !MCAssetStateRepository.isPinned(pair[0].id) && (now - parseInt(pair[1].firstAccessed) > MCAssetCacheConfig.assetMaxDiskAge)).map(pair => pair[0]);
+        const expiredAssets = MCAssetAccessLogRepository.filter(pair => !MCAssetStateRepository.isPinned(pair[0].id) && (now - parseInt(pair[1].firstAccessed) > config.assetMaxDiskAge)).map(pair => pair[0]);
         if (expiredAssets.length > 0) {
           await evictAssets(expiredAssets);
         }
       }
         break;
       case Limit.DISK_SIZE: {
-        if ( MCAssetCacheConfig.allAssetsMaxDiskSize === 0 ) {
+        if ( config.allAssetsMaxDiskSize === 0 ) {
           return;
         }
 
         let totalSize = MCAssetAccessLogRepository.filter(pair => !MCAssetStateRepository.isPinned(pair[0].id)).reduce((prev, pair) => prev + pair[0].cacheSize, 0);
-        if (totalSize > MCAssetCacheConfig.allAssetsMaxDiskSize) {
-          await evictAssetsBySize(totalSize - MCAssetCacheConfig.allAssetsMaxDiskSize);
+        if (totalSize > config.allAssetsMaxDiskSize) {
+          await evictAssetsBySize(totalSize - config.allAssetsMaxDiskSize);
         }
       }
         break;
       case Limit.DISK_SPACE_WARNING: {
-        if (MCAssetCacheConfig.diskSpaceWarningThreshold === 0) {
+        if (config.diskSpaceWarningThreshold === 0) {
           return;
         }
 
         const freeSpace = await getDiskFreeSpace();
-        if (freeSpace < MCAssetCacheConfig.diskSpaceWarningThreshold) {
+        if (freeSpace < config.diskSpaceWarningThreshold) {
           // console.warn(`Disk space low: ${freeSpace} bytes available.`);
-          await evictAssetsBySize(MCAssetCacheConfig.diskSpaceWarningThreshold - freeSpace);
+          await evictAssetsBySize(config.diskSpaceWarningThreshold - freeSpace);
         }
       }
         break;
