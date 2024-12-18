@@ -39,7 +39,7 @@ namespace MCMediaCache {
     return MCAssetPrefetcher.prefetch(resUrl, options);
   }
 
-  /** 标记是否"固定"; 缓存管理器会根据配置定期检测并删除一些缓存, 如果你想要保留某些视频防止被删除可以设置为"固定"; */
+  /** 标记是否"固定"; 缓存管理器会定期删除一些缓存, 如果你想要保留某些视频防止被删除可以将其设置为"固定"; */
   export function setPinned(resUrl: string, isPinned: boolean): Promise<void> {
     return MCAssetCacheManager.setPinned(resUrl, isPinned);
   }
