@@ -4,7 +4,7 @@ import MCUtils from "../../utils/MCUtils";
 import { MCAssetAccessLog } from "./MCAssetAccessLog";
 import MCAssetManager from "../MCAssetManager";
 
-namespace MCAssetAccessLogManager {
+namespace MCAssetAccessLogRepository {
   const mLogs = new Map<IMCAsset, MCAssetAccessLog>();
   const mPref = new MCPreferences<string>('mc_asset_access_pref');
   let mFlushId: number | undefined = undefined;
@@ -63,7 +63,7 @@ namespace MCAssetAccessLogManager {
     return mLogs.size;
   }
 
-  export function startFlushAfter(delay: number = 5 * 1000) {
+  export function deferFlush(delay: number = 5 * 1000) {
     if ( mFlushId === undefined ) {
       mFlushId = setTimeout(() => flush(), delay);
     }
@@ -78,4 +78,4 @@ namespace MCAssetAccessLogManager {
   }
 }
 
-export default MCAssetAccessLogManager;
+export default MCAssetAccessLogRepository;

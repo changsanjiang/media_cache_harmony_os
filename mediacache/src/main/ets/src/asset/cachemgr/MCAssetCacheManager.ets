@@ -2,8 +2,8 @@ import { IMCAsset } from "../../defines/IMCAsset";
 import MCConfigs from '../../utils/MCConfigs';
 import { statfs } from '@kit.CoreFileKit';
 import MCAssetCacheConfig from "./MCAssetCacheConfig";
-import MCAssetStateManager from "./MCAssetStateManager";
-import MCAssetAccessLogManager from "./MCAssetAccessLogManager";
+import MCAssetStateRepository from "./MCAssetStateRepository";
+import MCAssetAccessLogRepository from "./MCAssetAccessLogRepository";
 
 namespace MCAssetCacheManager {
   enum Limit {
@@ -16,8 +16,8 @@ namespace MCAssetCacheManager {
   let mPeriodTrimStarted = false;
 
   export async function prepare(): Promise<void> {
-    await MCAssetStateManager.prepare();
-    await MCAssetAccessLogManager.prepare();
+    await MCAssetStateRepository.prepare();
+    await MCAssetAccessLogRepository.prepare();
 
     trimAssetsBy(Limit.COUNT);
     trimAssetsBy(Limit.DISK_AGE);
@@ -26,8 +26,8 @@ namespace MCAssetCacheManager {
   }
 
   export async function onAssetReadwrite(asset: IMCAsset): Promise<void> {
-    await MCAssetAccessLogManager.onAccess(asset);
-    MCAssetAccessLogManager.startFlushAfter(5 * 1000);
+    await MCAssetAccessLogRepository.onAccess(asset);
+    MCAssetAccessLogRepository.deferFlush(5 * 1000);
     startPeriodTrim();
   }
 
@@ -60,7 +60,7 @@ namespace MCAssetCacheManager {
           return;
         }
 
-        const count = MCAssetAccessLogManager.getCount();
+        const count = MCAssetAccessLogRepository.getCount();
         if ( count > MCAssetCacheConfig.assetCountLimit ) {
           await evictAssetsByCount(count - MCAssetCacheConfig.assetCountLimit);
         }
@@ -72,7 +72,7 @@ namespace MCAssetCacheManager {
         }
 
         const now = Date.now();
-        const expiredAssets = MCAssetAccessLogManager.filter(pair => !MCAssetStateManager.isPinned(pair[0].id) && (now - parseInt(pair[1].firstAccessed) > MCAssetCacheConfig.assetMaxDiskAge)).map(pair => pair[0]);
+        const expiredAssets = MCAssetAccessLogRepository.filter(pair => !MCAssetStateRepository.isPinned(pair[0].id) && (now - parseInt(pair[1].firstAccessed) > MCAssetCacheConfig.assetMaxDiskAge)).map(pair => pair[0]);
         if (expiredAssets.length > 0) {
           await evictAssets(expiredAssets);
         }
@@ -83,7 +83,7 @@ namespace MCAssetCacheManager {
           return;
         }
 
-        let totalSize = MCAssetAccessLogManager.filter(pair => !MCAssetStateManager.isPinned(pair[0].id)).reduce((prev, pair) => prev + pair[0].cacheSize, 0);
+        let totalSize = MCAssetAccessLogRepository.filter(pair => !MCAssetStateRepository.isPinned(pair[0].id)).reduce((prev, pair) => prev + pair[0].cacheSize, 0);
         if (totalSize > MCAssetCacheConfig.allAssetsMaxDiskSize) {
           await evictAssetsBySize(totalSize - MCAssetCacheConfig.allAssetsMaxDiskSize);
         }
@@ -106,7 +106,7 @@ namespace MCAssetCacheManager {
 
   function evictAssetsBySize(size: number): Promise<void> {
     // 根据 size 和 lastAccessed 排序，优先移除较旧且大的文件
-    const sortedAssets = MCAssetAccessLogManager.filter(pair => !MCAssetStateManager.isPinned(pair[0].id)).sort((a, b) => {
+    const sortedAssets = MCAssetAccessLogRepository.filter(pair => !MCAssetStateRepository.isPinned(pair[0].id)).sort((a, b) => {
       const a1 = parseInt(a[1].lastAccessed);
       const b1 = parseInt(b[1].lastAccessed);
       if ( a1 !== b1 ) {
@@ -126,17 +126,17 @@ namespace MCAssetCacheManager {
   }
 
   function evictAssetsByCount(count: number): Promise<void> {
-    const sortedByAccess = MCAssetAccessLogManager.filter((pair) => !MCAssetStateManager.isPinned(pair[0].id)).sort((a, b) => parseInt(a[1].lastAccessed) - parseInt(b[1].lastAccessed));
+    const sortedByAccess = MCAssetAccessLogRepository.filter((pair) => !MCAssetStateRepository.isPinned(pair[0].id)).sort((a, b) => parseInt(a[1].lastAccessed) - parseInt(b[1].lastAccessed));
     const assetsToEvict = sortedByAccess.slice(0, count).map(pair => pair[0]);
     return evictAssets(assetsToEvict);
   }
 
   async function evictAssets(assets: IMCAsset[]): Promise<void> {
     for (const a of assets) {
-      await MCAssetAccessLogManager.onEvict(a);
+      await MCAssetAccessLogRepository.onEvict(a);
       await a.removeAllCaches();
     }
-    await MCAssetAccessLogManager.flush();
+    await MCAssetAccessLogRepository.flush();
   }
 
   function getDiskFreeSpace(): Promise<number> {

@@ -2,7 +2,7 @@ import { MCUtils } from "../../../../../../Index";
 import { MCPreferences } from "../../utils/MCPreferences";
 import { MCAssetState } from "./MCAssetState";
 
-namespace MCAssetStateManager {
+namespace MCAssetStateRepository {
   const mStates = new Map<string, MCAssetState>();
   const mPref = new MCPreferences<string>('mc_asset_state_pref');
 
@@ -32,4 +32,4 @@ namespace MCAssetStateManager {
   }
 }
 
-export default MCAssetStateManager;
+export default MCAssetStateRepository;
