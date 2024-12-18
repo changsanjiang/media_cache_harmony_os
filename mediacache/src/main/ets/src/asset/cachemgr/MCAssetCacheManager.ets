@@ -4,6 +4,7 @@ import { statfs } from '@kit.CoreFileKit';
 import MCAssetCacheConfig from "./MCAssetCacheConfig";
 import MCAssetStateRepository from "./MCAssetStateRepository";
 import MCAssetAccessLogRepository from "./MCAssetAccessLogRepository";
+import MCAssetUtils from "../MCAssetUtils";
 
 namespace MCAssetCacheManager {
   enum Limit {
@@ -29,6 +30,16 @@ namespace MCAssetCacheManager {
     await MCAssetAccessLogRepository.onAccess(asset);
     MCAssetAccessLogRepository.deferFlush(5 * 1000);
     startPeriodTrim();
+  }
+
+  export async function setPinned(resUrl: string, isPinned: boolean): Promise<void> {
+    const assetId = await MCAssetUtils.generateAssetId(resUrl);
+    await MCAssetStateRepository.setPinned(assetId, isPinned);
+  }
+
+  export async function isPinned(resUrl: string): Promise<boolean> {
+    const assetId = await MCAssetUtils.generateAssetId(resUrl);
+    return MCAssetStateRepository.isPinned(assetId);
   }
 
   function startPeriodTrim() {

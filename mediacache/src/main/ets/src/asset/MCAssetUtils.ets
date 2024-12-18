@@ -38,7 +38,7 @@ namespace MCAssetUtils {
   /**
    * 为资产生成一个唯一标识符;
    * */
-  async function generateAssetId(resUrl: string): Promise<string> {
+  export async function generateAssetId(resUrl: string): Promise<string> {
     const target = MCConfigs.resolveAssetIdentifier ? (await MCConfigs.resolveAssetIdentifier(resUrl)) : resUrl;
     return MCUtils.hash(target);
   }

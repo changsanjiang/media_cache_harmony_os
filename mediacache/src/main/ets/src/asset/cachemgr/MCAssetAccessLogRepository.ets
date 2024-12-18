@@ -8,27 +8,31 @@ namespace MCAssetAccessLogRepository {
   const mLogs = new Map<IMCAsset, MCAssetAccessLog>();
   const mPref = new MCPreferences<string>('mc_asset_access_pref');
   let mFlushId: number | undefined = undefined;
+  let mPrepared = false;
 
   export async function prepare(): Promise<void> {
-    const record = await mPref.getAll();
-    const map = MCUtils.recordToMap(record);
-    let shouldFlush = false;
-    for (let element of Array.from(map.entries())) {
-      try {
-        const assetId = element[0];
-        const log = JSON.parse(element[1]) as MCAssetAccessLog;
-        const asset = await MCAssetManager.getAsset(assetId);
-        if ( asset ) {
-          mLogs.set(asset, log);
+    if ( !mPrepared ) {
+      const record = await mPref.getAll();
+      const map = MCUtils.recordToMap(record);
+      let shouldFlush = false;
+      for (let element of Array.from(map.entries())) {
+        try {
+          const assetId = element[0];
+          const log = JSON.parse(element[1]) as MCAssetAccessLog;
+          const asset = await MCAssetManager.getAsset(assetId);
+          if ( asset ) {
+            mLogs.set(asset, log);
+          }
+          else {
+            if ( !shouldFlush ) shouldFlush = true;
+            mPref.delete(assetId);
+          }
         }
-        else {
-          if ( !shouldFlush ) shouldFlush = true;
-          mPref.delete(assetId);
-        }
+        catch (ignored) { }
       }
-      catch (ignored) { }
+      if ( shouldFlush ) await mPref.flush();
+      mPrepared = true;
     }
-    if ( shouldFlush ) await mPref.flush();
   }
 
   export async function onAccess(asset: IMCAsset): Promise<void> {

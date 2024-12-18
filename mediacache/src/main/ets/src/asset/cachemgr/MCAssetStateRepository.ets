@@ -5,16 +5,20 @@ import { MCAssetState } from "./MCAssetState";
 namespace MCAssetStateRepository {
   const mStates = new Map<string, MCAssetState>();
   const mPref = new MCPreferences<string>('mc_asset_state_pref');
+  let mPrepared = false;
 
   export async function prepare(): Promise<void> {
-    let record = await mPref.getAll();
-    const map = MCUtils.recordToMap(record);
-    for ( let element of Array.from(map.entries()) ) {
-      const assetId = element[0];
-      if ( mStates.get(assetId) ) {
-        const state = JSON.parse(element[1]) as MCAssetState;
-        mStates.set(assetId, state);
+    if ( !mPrepared ) {
+      let record = await mPref.getAll();
+      const map = MCUtils.recordToMap(record);
+      for ( let element of Array.from(map.entries()) ) {
+        const assetId = element[0];
+        if ( mStates.get(assetId) ) {
+          const state = JSON.parse(element[1]) as MCAssetState;
+          mStates.set(assetId, state);
+        }
       }
+      mPrepared = true;
     }
   }
 
