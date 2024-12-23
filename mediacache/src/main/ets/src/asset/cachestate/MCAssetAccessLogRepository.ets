@@ -1,10 +1,10 @@
 import { MCPreferences } from "../../utils/MCPreferences";
 import MCUtils from "../../utils/MCUtils";
-import { MCAssetAccessLog2 } from "./MCAssetAccessLog";
+import { MCAssetAccessLog } from "./MCAssetAccessLog";
 
 /** 记录访问日志; 例如最后一次的访问时间; */
 namespace MCAssetAccessLogRepository {
-  const mLogs = new Map<string, MCAssetAccessLog2>();
+  const mLogs = new Map<string, MCAssetAccessLog>();
   const mPref = new MCPreferences<string>('mc_asset_access_pref');
 
   export async function prepare(): Promise<void> {
@@ -13,7 +13,7 @@ namespace MCAssetAccessLogRepository {
     for (let element of Array.from(map.entries())) {
       try {
         const assetId = element[0];
-        const log = JSON.parse(element[1]) as MCAssetAccessLog2;
+        const log = JSON.parse(element[1]) as MCAssetAccessLog;
         mLogs.set(assetId, log);
       }
       catch (ignored) { }
@@ -48,7 +48,7 @@ namespace MCAssetAccessLogRepository {
     }
   }
 
-  export function filter(predicate: (pair: [string, MCAssetAccessLog2]) => boolean): [string, MCAssetAccessLog2][] {
+  export function filter(predicate: (pair: [string, MCAssetAccessLog]) => boolean): [string, MCAssetAccessLog][] {
     return Array.from(mLogs.entries()).filter(predicate);
   }
 
