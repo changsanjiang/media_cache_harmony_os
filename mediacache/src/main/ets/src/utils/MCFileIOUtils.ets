@@ -29,6 +29,30 @@ namespace MCFileIOUtils {
   export function getFreeSize(path: string): Promise<number> {
     return statfs.getFreeSize(path);
   }
+
+  export async function deleteAllFiles(path: string): Promise<void> {
+    try {
+      const info = await fileIo.stat(path);
+      if ( !info.isDirectory() ) {
+        await fileIo.unlink(path);
+        return;
+      }
+
+      const fileNames = await fileIo.listFile(path);
+      if ( fileNames.length === 0 ) {
+        await fileIo.unlink(path);
+        return;
+      }
+
+      // TODO() next  删除文件...
+    }
+    catch (error) {
+      if ( (error as BusinessError).code === 13900002 ) { // 13900002 - No such file or directory
+        return;
+      }
+      throw error as Error;
+    }
+  }
 }
 
 export default MCFileIOUtils;

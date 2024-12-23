@@ -5,7 +5,6 @@ import { HLSAsset } from './hls/HLSAsset';
 import { fileIo } from '@kit.CoreFileKit';
 import MCURL from '../utils/MCURL';
 import MCConfigs from '../utils/MCConfigs';
-import MCAssetUtils from './MCAssetUtils';
 import MCArrayUtils from '../utils/MCArrayUtils';
 import MCFileIOUtils from '../utils/MCFileIOUtils';
 
@@ -15,27 +14,23 @@ namespace MCAssetManager {
     readonly assetType: MCAssetType;
   }
   const mAssets: Map<string, IMCAsset> = new Map();
-  const mInitPromises: Map<string, Promise<IMCAsset | undefined>> = new Map();
+  const mInitPromises: Map<string, Promise<IMCAsset>> = new Map();
+  const mRemovePromises: Map<string, Promise<void>> = new Map();
   const mSizes: Map<string, number> = new Map();
   const mRootDir = MCConfigs.context.filesDir + '/mc_media_cache';
-  let mRootDirCreated = false;
-  let mRootDirPromise: Promise<void> | undefined = undefined;
-
-  export async function getAssetById(assetId: string): Promise<IMCAsset | undefined> {
-    return getAsset(assetId, undefined);
-  }
 
   export async function getAssetByRequestTarget(requestTarget: string): Promise<IMCAsset> {
     const targetInfo = MCURL.parse(requestTarget);
     const assetType = targetInfo.assetType;
     const assetId = targetInfo.assetId;
-    return getAsset(assetId, assetType) as Promise<IMCAsset>;
-  }
-
-  export async function getAssetByUrl(resUrl: string): Promise<IMCAsset> {
-    const assetId = await MCAssetUtils.generateAssetId(resUrl);
-    const assetType = await MCAssetUtils.resolveAssetType(resUrl);
-    return getAsset(assetId, assetType) as Promise<IMCAsset>;
+    let asset = mAssets.get(assetId);
+    if (!asset) {
+      if (!mInitPromises.has(assetId)) {
+        mInitPromises.set(assetId, initializeAsset(assetId, assetType));
+      }
+      asset = await mInitPromises.get(assetId);
+    }
+    return asset!;
   }
 
   export async function removeAssetBy(assetId: string): Promise<void> {
@@ -99,76 +94,41 @@ namespace MCAssetManager {
     return totalSize;
   }
 
-  async function getAsset(assetId: string, assetType?: MCAssetType): Promise<IMCAsset | undefined> {
-    let asset = mAssets.get(assetId);
-    if (!asset) {
-      if (!mInitPromises.has(assetId)) {
-        mInitPromises.set(assetId, initializeAsset(assetId, assetType));
-      }
-      asset = await mInitPromises.get(assetId);
-    }
-    return asset!;
-  }
-
-  async function initializeAsset(assetId: string, assetType?: MCAssetType): Promise<IMCAsset | undefined> {
+  async function initializeAsset(assetId: string, assetType: MCAssetType): Promise<IMCAsset> {
     try {
-      if ( !mRootDirCreated ) {
-        await mkRootDirIfNotExists();
-      }
-
-      if ( assetType === undefined ) {
-        for (let type of MCAssetTypeValues) {
-          const assetDir = `${mRootDir}/${generateAssetDirName(assetId, type)}`;
-          const exists = await fileIo.access(assetDir, fileIo.AccessModeType.EXIST);
-          if ( exists ) {
-            assetType = type;
-            break;
-          }
-        }
-      }
-
-      if ( assetType !== undefined ) {
-        const assetDir = `${mRootDir}/${generateAssetDirName(assetId, assetType)}`;
-        const asset = (assetType === MCAssetType.FILE_BASED) ? new FILEAsset(assetId, assetDir) : new HLSAsset(assetId, assetDir);
-        await asset.prepare();
-        mAssets.set(assetId, asset);
-        mSizes.delete(assetId);
-        return asset;
-      }
-
-      return undefined;
+      const assetDir = `${mRootDir}/${generateAssetDirName(assetId, assetType)}`;
+      const asset = (assetType === MCAssetType.FILE_BASED) ? new FILEAsset(assetId, assetDir) : new HLSAsset(assetId, assetDir);
+      await asset.prepare();
+      mAssets.set(assetId, asset);
+      mSizes.delete(assetId);
+      return asset;
     }
     finally {
       mInitPromises.delete(assetId);
     }
   }
 
-  function generateAssetDirName(assetId: string, assetType: MCAssetType): string {
-    return `mc_${assetId}_${assetType}`;
+  async function removeAsset(assetId: string): Promise<void> {
+    try {
+      if ( mInitPromises.has(assetId) ) {
+        await mInitPromises.get(assetId);
+      }
+
+      let asset = mAssets.get(assetId);
+      if ( asset ) {
+
+      }
+      else {
+
+      }
+    }
+    finally {
+      mRemovePromises.delete(assetId);
+    }
   }
 
-  async function mkRootDirIfNotExists(): Promise<void> {
-    if ( !mRootDirCreated ) {
-      if ( !mRootDirPromise ) {
-        mRootDirPromise = new Promise(async (resolve, reject) => {
-          try {
-            const exists = await fileIo.access(mRootDir, fileIo.AccessModeType.EXIST);
-            if ( !exists ) {
-              await fileIo.mkdir(mRootDir, true);
-            }
-            mRootDirCreated = true;
-            resolve();
-          }
-          catch (error) {
-            reject(error);
-          }
-          finally {
-            mRootDirPromise = undefined;
-          }
-        });
-      }
-      await mRootDirPromise;
-    }
+  function generateAssetDirName(assetId: string, assetType: MCAssetType): string {
+    return `mc_${assetId}_${assetType}`;
   }
 
   function parse(dirName: string): AssetDirNameInfo {

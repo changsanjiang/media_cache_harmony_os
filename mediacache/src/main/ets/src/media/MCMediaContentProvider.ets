@@ -22,7 +22,7 @@ export class MCMediaContentProvider {
   async prepare(): Promise<IMCMediaMetadata | undefined> {
     const exists = await fileIo.access(this.mDir, fileIo.AccessModeType.EXIST);
     if ( !exists ) {
-      await fileIo.mkdir(this.mDir);
+      await fileIo.mkdir(this.mDir, true);
       await fileIo.mkdir(this.mTempDir);
       return undefined;
     }
