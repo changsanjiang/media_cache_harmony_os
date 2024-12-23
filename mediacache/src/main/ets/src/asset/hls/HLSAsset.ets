@@ -77,6 +77,9 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
   }
 
   async prepare(): Promise<void> {
+
+    // TODO() 确认是否需要创建asset的目录
+
     const playlistMedia = await this.initializeMedia(this.id, true);
     if ( playlistMedia.isAssembled ) {
       const rawData = await playlistMedia.readAllData();

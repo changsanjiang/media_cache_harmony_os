@@ -1,24 +1,22 @@
-import { MCUtils } from "../../../../../../Index";
 import { MCPreferences } from "../../utils/MCPreferences";
+import MCUtils from "../../utils/MCUtils";
 import { MCAssetState } from "./MCAssetState";
 
+/** 记录资源状态; 例如是否固定; */
 namespace MCAssetStateRepository {
   const mStates = new Map<string, MCAssetState>();
   const mPref = new MCPreferences<string>('mc_asset_state_pref');
-  let mPrepared = false;
 
   export async function prepare(): Promise<void> {
-    if ( !mPrepared ) {
-      let record = await mPref.getAll();
-      const map = MCUtils.recordToMap(record);
-      for ( let element of Array.from(map.entries()) ) {
+    let record = await mPref.getAll();
+    const map = MCUtils.recordToMap(record);
+    for ( let element of Array.from(map.entries()) ) {
+      try {
         const assetId = element[0];
-        if ( mStates.get(assetId) ) {
-          const state = JSON.parse(element[1]) as MCAssetState;
-          mStates.set(assetId, state);
-        }
+        const state = JSON.parse(element[1]) as MCAssetState;
+        mStates.set(assetId, state);
       }
-      mPrepared = true;
+      catch (ignored) { }
     }
   }
 
@@ -33,6 +31,14 @@ namespace MCAssetStateRepository {
     mStates.set(assetId, state);
     await mPref.set(assetId, JSON.stringify(state));
     await mPref.flush();
+  }
+
+  export async function onEvict(assetId: string): Promise<void> {
+    if ( mStates.get(assetId) ) {
+      mStates.delete(assetId);
+      await mPref.delete(assetId);
+      await mPref.flush();
+    }
   }
 }
 

@@ -84,17 +84,6 @@ namespace MCUtils {
     }
     return true;
   }
-
-  export function arrayMapNotUndefined<T, U>(array: T[], block: (value: T, index: number, array: T[]) => U | undefined): U[] {
-    const results = new Array();
-    array.forEach((value, index, array) => {
-      const result = block(value, index, array);
-      if ( result !== undefined ) {
-        results.push(result);
-      }
-    });
-    return results as U[];
-  }
 }
 
 export default MCUtils;

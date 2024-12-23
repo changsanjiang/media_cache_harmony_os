@@ -29,6 +29,9 @@ export class MCMediaContentProvider {
 
     const metadata = await this.loadMetadata();
     if ( !metadata || metadata.totalLength === Number.MAX_SAFE_INTEGER ) {
+
+      // TODO(), 临时文件夹看起来用不上了, 下一步需要移除相关逻辑;
+
       // 清理临时文件
       try {
         const fileNames = await fileIo.listFile(this.mTempDir);
