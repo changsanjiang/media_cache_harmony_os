@@ -13,6 +13,7 @@ namespace MCMediaCache {
   const mTcpServer = new MCTcpSocketServer();
   const mConnectionHandler = new MCHttpConnectionHandler();
   let mPrepared = false;
+  let mPreparationPromise: Promise<void> | undefined = undefined;
 
   /** 缓存管理配置; 缓存管理器会根据这个配置定期检测并删除一些缓存; */
   export const cacheConfig: MCAssetCacheConfig = MCAssetCacheManager.config;
@@ -20,13 +21,27 @@ namespace MCMediaCache {
   /** 启动代理服务器; */
   export async function prepare(): Promise<void> {
     if ( !mPrepared ) {
-      // 启动代理服务器
-      mTcpServer.on('connect', (connection) => mConnectionHandler.handleConnection(connection));
-      await mTcpServer.start();
+      if ( mPreparationPromise === undefined ) {
+        mPreparationPromise = new Promise(async (resolve, reject) => {
+          try {
+            // 启动代理服务器
+            mTcpServer.on('connect', (connection) => mConnectionHandler.handleConnection(connection));
+            await mTcpServer.start();
 
-      // 初始化缓存管理器
-      await MCAssetCacheManager.prepare();
-      mPrepared = true;
+            // 初始化缓存管理器
+            await MCAssetCacheManager.prepare();
+            mPrepared = true;
+            resolve();
+          }
+          catch (error) {
+            reject(error);
+          }
+          finally {
+            mPreparationPromise = undefined;
+          }
+        });
+      }
+      await mPreparationPromise;
     }
   }
 
