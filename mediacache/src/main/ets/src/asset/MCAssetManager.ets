@@ -23,6 +23,10 @@ namespace MCAssetManager {
     const targetInfo = MCURL.parse(requestTarget);
     const assetType = targetInfo.assetType;
     const assetId = targetInfo.assetId;
+    if ( mRemovePromises.has(assetId) ) {
+      await mRemovePromises.get(assetId);
+    }
+
     let asset = mAssets.get(assetId);
     if (!asset) {
       let promise = mInitPromises.get(assetId);
@@ -44,6 +48,10 @@ namespace MCAssetManager {
   }
 
   export async function removeAssetBy(assetId: string): Promise<void> {
+    if ( mInitPromises.has(assetId) ) {
+      await mInitPromises.get(assetId);
+    }
+
     let promise = mRemovePromises.get(assetId);
     if ( promise === undefined ) {
       promise = removeAsset(assetId);
@@ -117,10 +125,6 @@ namespace MCAssetManager {
   }
 
   async function initializeAsset(assetId: string, assetType: MCAssetType): Promise<IMCAsset> {
-    if ( mRemovePromises.has(assetId) ) {
-      await mRemovePromises.get(assetId);
-    }
-
     const assetDir = `${mRootDir}/${generateAssetDirName(assetId, assetType)}`;
     const asset = (assetType === MCAssetType.FILE_BASED) ? new FILEAsset(assetId, assetDir) : new HLSAsset(assetId, assetDir);
     await asset.prepare();
@@ -130,10 +134,6 @@ namespace MCAssetManager {
   }
 
   async function removeAsset(assetId: string): Promise<void> {
-    if ( mInitPromises.has(assetId) ) {
-      await mInitPromises.get(assetId);
-    }
-
     let asset = mAssets.get(assetId);
     let assetDir: string | undefined = undefined;
     if ( asset ) {

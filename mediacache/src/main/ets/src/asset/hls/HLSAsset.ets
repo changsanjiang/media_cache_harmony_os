@@ -190,7 +190,18 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
     return Array.from(this.mMedias.entries()).reduce((prev, media) => prev + media[1].cacheSize, 0);
   }
 
-  abort(error?: Error | undefined): Promise<void> {
+  async abort(error?: Error | undefined): Promise<void> {
+    if ( this.mVariantStreamAsset ) {
+      const promises: Promise<void>[] = [];
+      promises.push(this.mVariantStreamAsset.abort(error));
+      if ( this.mAudioRenditionAsset ) {
+        promises.push(this.mAudioRenditionAsset.abort(error));
+      }
+      if ( this.mVideoRenditionAsset ) {
+        promises.push(this.mVideoRenditionAsset.abort(error));
+      }
+      await Promise.allSettled(promises);
+    }
     return this.mAbortController.abort(error);
   }
 }

@@ -13,7 +13,7 @@ namespace MCConfigs {
   /** 发送给客户端的数据块大小; */
   export let socketDataBufferSize = 512 * 1024;
   /** 发送给客户端数据块时等待的超时时间; */
-  export let socketDataSendTimeoutInterval = 5000;
+  export let socketDataSendTimeoutInterval = 60 * 1000;
 
   export const context: Context = getContext('');
 

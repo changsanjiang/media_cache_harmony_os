@@ -7,8 +7,7 @@ namespace MCURL {
    * 通过这个方法生成的代理地址都是根地址;
    * */
   export function generateProxyUrl(resUrl: string, localServerPort: number, assetType: MCAssetType, assetId: string, mediaId: string): string {
-    return `http://${MCConsts.LOCALHOST}:${localServerPort}${generateProxyPath(resUrl, assetType, assetId, true,
-      mediaId)}`
+    return `http://${MCConsts.LOCALHOST}:${localServerPort}${generateProxyPath(resUrl, assetType, assetId, true, mediaId)}`
   }
 
   /**
@@ -18,10 +17,9 @@ namespace MCURL {
    * sub proxyPath format: `PATH_PROXY_URL/assetType/assetId/sub/mediaId/encodedURI`;
    * */
   export function generateProxyPath(resUrl: string, assetType: MCAssetType, assetId: string, isRoot: boolean, mediaId: string): string {
-    return `${MCConsts.PATH_PROXY_URL}/${assetType}/${assetId}/${isRoot ? "root" :
-      "sub"}/${mediaId}/${encodeURIComponent(resUrl)}`;
+    return `${MCConsts.PATH_PROXY_URL}/${assetType}/${assetId}/${isRoot ? "root" : "sub"}/${mediaId}/${encodeURIComponent(resUrl)}`;
   }
-
+ 
   export interface ProxyTargetInfo {
     readonly url: string;
     readonly assetType: MCAssetType;
