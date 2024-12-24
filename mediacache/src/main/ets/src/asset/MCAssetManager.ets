@@ -69,6 +69,10 @@ namespace MCAssetManager {
 
   /** 计算资产的缓存大小; */
   export async function calculateCacheSize(assetId: string): Promise<number> {
+    if ( mRemovePromises.has(assetId) ) {
+      await mRemovePromises.get(assetId);
+    }
+
     // 如果内存中已引用资产, 则通过资产获取缓存大小;
     let asset = mAssets.get(assetId);
     if ( !asset && mInitPromises.has(assetId) ) {
