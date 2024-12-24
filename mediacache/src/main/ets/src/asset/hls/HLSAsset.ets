@@ -3,6 +3,8 @@ import { IMCAsset } from "../../defines/IMCAsset";
 import { IMCMedia } from "../../defines/IMCMedia";
 import { MCAssetType } from "../../defines/MCAssetType";
 import { MCMedia } from "../../media/MCMedia";
+import { MCAbortController } from "../../utils/MCAbortController";
+import MCArrayUtils from "../../utils/MCArrayUtils";
 import { MCReadwriteReference } from "../../utils/MCReadwriteReference";
 import MCURL from "../../utils/MCURL";
 import MCAssetCacheManager from "../cachemgr/MCAssetCacheManager";
@@ -14,6 +16,7 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
   private mMedias: Map<string, IMCMedia> = new Map();
   private mDir: string;
   private mInitPromises: Map<string, Promise<IMCMedia>> = new Map();
+  private mAbortController = new MCAbortController();
 
   /// ----- master.m3u8
   /// #EXTM3U
@@ -149,7 +152,7 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
       }
     }
 
-    const media = new MCMedia(mediaId, this.mDir, proxyHandler);
+    const media = new MCMedia(mediaId, this.mDir, this.mAbortController.signal, proxyHandler);
     await media.prepare();
     this.mMedias.set(mediaId, media);
     return media;
@@ -187,9 +190,7 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
     return Array.from(this.mMedias.entries()).reduce((prev, media) => prev + media[1].cacheSize, 0);
   }
 
-  async abortAllFetchRequests(): Promise<void> {
-    for (let element of this.mMedias.entries()) {
-      await element[1].abortAllFetchRequests();
-    }
+  abort(error?: Error | undefined): Promise<void> {
+    return this.mAbortController.abort(error);
   }
 }

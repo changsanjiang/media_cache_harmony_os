@@ -10,6 +10,7 @@ import { IMCHttpOkResponseHeaders,
   IMCHttpPartialContentResponseHeaders,
   IMCHttpResponseHeaders } from "../defines/IMCHttpResponseHeaders";
 import MCConfigs from "../utils/MCConfigs";
+import { media } from "@kit.MediaKit";
 
 export class MCMediaDataFetcher implements IMCDataFetcher {
   private mMedia: IMCMedia;
@@ -28,8 +29,7 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
   private mResponse?: IMCDataResponse = undefined;
   private mLoaders?: IMCMediaContentLoader[] = undefined;
   private mCurrentLoader?: IMCMediaContentLoader = undefined;
-
-  private mOnMediaRemoveAllCachesBeforeCallback = (_: IMCMedia) => this.abort(new Error(`Media all contents will be removed.`));
+  private mMediaAbortCallback = (error: Error) => this.abort(error);
 
   constructor(clientId: number, media: IMCMedia, request: IMCDataRequest) {
     this.mClientId = clientId;
@@ -37,7 +37,6 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
     this.mRequest = request;
 
     media.readwriteRetain();
-    media.on('removeAllCachesBefore', this.mOnMediaRemoveAllCachesBeforeCallback);
   }
 
   get isAborted(): boolean {
@@ -46,6 +45,7 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
 
   async prepare(): Promise<void> {
     MCLogger.info(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Starting prepare for request: ${JSON.stringify(this.mRequest)}}`);
+    this.mMedia.abortSignal.addEventListener('aborted', this.mMediaAbortCallback);
 
     if (this.mAborted) {
       MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Cannot prepare as the fetcher has been aborted.`);
@@ -202,8 +202,8 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
 
     this.mDataEnd = true;
 
+    this.mMedia.abortSignal.removeEventListener('aborted', this.mMediaAbortCallback);
     this.mMedia.readwriteRelease();
-    this.mMedia.off('removeAllCachesBefore', this.mOnMediaRemoveAllCachesBeforeCallback);
 
     if ( this.mDataEndCallback )  {
       MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Executing dataEnd callback.`);
@@ -231,8 +231,8 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
       await this.clear(error);
     }
 
+    this.mMedia.abortSignal.removeEventListener('aborted', this.mMediaAbortCallback);
     this.mMedia.readwriteRelease();
-    this.mMedia.off('removeAllCachesBefore', this.mOnMediaRemoveAllCachesBeforeCallback);
 
     if ( this.mAbortedCallback ) {
       MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Executing aborted callback with error: ${error?.message || "None"}.`);

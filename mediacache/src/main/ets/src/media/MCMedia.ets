@@ -27,6 +27,7 @@ import MCUtils from "../utils/MCUtils";
 export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   readonly id: string;
   private mDir: string;
+  private mAbortSignal: MCAbortSignal;
   private mMetadata?: IMCMediaMetadata = undefined;
   private mContentProvider?: MCMediaContentProvider = undefined;
   private mNodeList = new MCMediaContentNodeList();
@@ -34,23 +35,25 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   private mFullyTrimmed = false; // 所有冗余数据都已删除;
   private mProxyHandler?: (requestUrl: string, currentUrl: string, data: ArrayBuffer) => Promise<ArrayBuffer> = undefined; // 代理内容;
   private mRestructurePromise?: Promise<void> = undefined;
-  private mRemoveAllCachesPromise?: Promise<void> = undefined;
-  private mRemoveAllCachesBeforeCallbacks: ((media: IMCMedia) => void | Promise<void>)[] = [];
 
   /// `id` 中不能包含下划线;
   ///
   /// proxy: 内容需要代理时设置;
-  constructor(id: string, dir: string, proxy?: (requestUrl: string, currentUrl: string, data: ArrayBuffer) => Promise<ArrayBuffer>) {
+  constructor(id: string, dir: string, abortSignal: MCAbortSignal, proxy?: (requestUrl: string, currentUrl: string, data: ArrayBuffer) => Promise<ArrayBuffer>) {
     if (id.includes("_")) {
       throw new Error(`The media ID '${id}' is invalid. Media IDs cannot contain underscores ('_').`);
     }
     super();
     this.id = id;
     this.mDir = dir;
+    this.mAbortSignal = abortSignal;
     this.mProxyHandler = proxy;
     MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${id}]: MCMedia instance created with dir ${dir}.`);
   }
 
+  get abortSignal(): MCAbortSignal {
+    return this.mAbortSignal;
+  }
   get metadataReady(): boolean {
     return this.mMetadata !== undefined;
   }
@@ -168,10 +171,6 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   }
 
   async readAllData(): Promise<ArrayBuffer | undefined> {
-    if ( this.mRemoveAllCachesPromise ) {
-      return undefined;
-    }
-
     if ( this.mAssembled ) {
       if ( this.mRestructurePromise ) {
         await this.mRestructurePromise;
@@ -209,13 +208,6 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
 
     if ( this.mRestructurePromise ) {
       await this.mRestructurePromise;
-      if ( signal && signal.isAborted ) {
-        throw signal.reason!
-      }
-    }
-
-    if ( this.mRemoveAllCachesPromise ) {
-      await this.mRemoveAllCachesPromise;
       if ( signal && signal.isAborted ) {
         throw signal.reason!
       }
@@ -414,10 +406,6 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
 
   // 该方法被回调时, 不仅仅当前 media 的读写计数为 0, 所有的 content 的读写计数也都为 0;
   protected async onReadwriteZeroReferences(): Promise<void> {
-    if ( this.mRemoveAllCachesPromise ) {
-      await this.mRemoveAllCachesPromise;
-    }
-
     if ( !this.mRestructurePromise ) this.mRestructurePromise = new Promise(async (resolve) => {
       try {
         await this.restructureContents();
@@ -638,51 +626,6 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       node = node.next;
     }
     return len;
-  }
-
-  async abortAllFetchRequests(): Promise<void> {
-
-  }
-
-  async removeAllCaches(): Promise<void> {
-    if ( this.mRestructurePromise ) {
-      await this.mRestructurePromise;
-    }
-
-    if ( !this.mRemoveAllCachesPromise ) this.mRemoveAllCachesPromise = new Promise(async (resolve) => {
-      try {
-        this.mAssembled = false;
-        this.mFullyTrimmed = false;
-
-        for (let element of this.mRemoveAllCachesBeforeCallbacks.entries()) {
-          await element[1](this);
-        }
-
-        let node: IMCMediaContentNode | undefined = this.mNodeList.head;
-        while (node) {
-          for (let content of node.allContents) {
-            await content.destroy();
-          }
-          this.mNodeList.removeNode(node);
-          node = this.mNodeList.head;
-        }
-      }
-      finally {
-        resolve();
-        this.mRemoveAllCachesPromise = undefined;
-      }
-    });
-  }
-
-  on(_: "removeAllCachesBefore", callback: (media: IMCMedia) => void | Promise<void>): void {
-    this.mRemoveAllCachesBeforeCallbacks.push(callback);
-  }
-
-  off(_: "removeAllCachesBefore", callback: (media: IMCMedia) => void | Promise<void>): void {
-    const index = this.mRemoveAllCachesBeforeCallbacks.indexOf(callback);
-    if (index >= 0) {
-      this.mRemoveAllCachesBeforeCallbacks.splice(index, 1);
-    }
   }
 
   // private printDebugInfo() {
