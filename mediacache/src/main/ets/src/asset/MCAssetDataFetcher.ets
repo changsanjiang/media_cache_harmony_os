@@ -2,7 +2,6 @@ import { IMCAsset } from "../defines/IMCAsset";
 import { IMCDataFetcher } from "../defines/IMCDataFetcher";
 import { IMCDataRequest } from "../defines/IMCDataRequest";
 import { IMCHttpResponseHeaders } from "../defines/IMCHttpResponseHeaders";
-import { MCDataDecryptHandler } from "../defines/MCDataDecryptHandler";
 import { MCLogModule } from "../defines/MCLogModule";
 import { MCMediaDataFetcher } from "../media/MCMediaDataFetcher";
 import MCLogger from "../utils/MCLogger";
@@ -11,7 +10,6 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
   private mClientId: number;
   private mRequest: IMCDataRequest;
   private mAsset: IMCAsset;
-  private mDecrypt?: MCDataDecryptHandler;
 
   private mResponseReceiveCallback?: (fetcher: IMCDataFetcher, responseHeaders: IMCHttpResponseHeaders) => void | Promise<void> = undefined;
   private mDataReceiveCallback?: (fetcher: IMCDataFetcher, offset: number, data: ArrayBuffer) => void | Promise<void> = undefined;
@@ -23,15 +21,14 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
 
   private mMediaDataFetcher?: IMCDataFetcher;
 
-  constructor(clientId: number, asset: IMCAsset, request: IMCDataRequest, decrypt?: MCDataDecryptHandler) {
+  constructor(clientId: number, asset: IMCAsset, request: IMCDataRequest) {
     this.mClientId = clientId;
     this.mAsset = asset;
     this.mRequest = request;
-    this.mDecrypt = decrypt;
 
     asset.readwriteRetain();
 
-    MCLogger.info(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Instance created  for request: ${JSON.stringify(this.mRequest)}}`);
+    MCLogger.info(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Instance created for request: ${JSON.stringify(this.mRequest)}}`);
   }
 
   get isAborted(): boolean {
@@ -79,10 +76,6 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
   private async onDataReceive(offset: number, data: ArrayBuffer): Promise<void> {
     if ( this.mAborted ) {
       return;
-    }
-
-    if ( this.mDecrypt ) {
-      await this.mDecrypt(this.mRequest, offset, data);
     }
 
     if ( this.mAborted ) {

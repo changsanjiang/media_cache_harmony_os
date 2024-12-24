@@ -9,6 +9,15 @@ namespace MCArrayUtils {
     });
     return results;
   }
+
+  export function remove<T>(array: T[], element: T): number {
+    const index = array.indexOf(element);
+    if ( index >= 0 ) {
+      array.splice(index, 1);
+      return index;
+    }
+    return -1;
+  }
 }
 
 export default MCArrayUtils;

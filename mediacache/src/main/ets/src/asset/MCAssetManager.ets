@@ -137,8 +137,8 @@ namespace MCAssetManager {
     let asset = mAssets.get(assetId);
     let assetDir: string | undefined = undefined;
     if ( asset ) {
-      // 停止asset当前所有任务;
-      await asset.abortAllFetchRequests();
+      // 停止所有相关的fetch请求;
+      // await asset.abortAllFetchRequests();
     }
     else {
       assetDir = await queryAssetDirBy(assetId);

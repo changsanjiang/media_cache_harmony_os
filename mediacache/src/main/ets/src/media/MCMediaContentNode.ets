@@ -1,5 +1,6 @@
 import { IMCMediaContent } from "../defines/IMCMediaContent";
 import { IMCMediaContentNode } from "../defines/IMCMediaContentNode";
+import MCArrayUtils from "../utils/MCArrayUtils";
 
 export class MCMediaContentNode implements IMCMediaContentNode {
   private mContents: Array<IMCMediaContent> = new Array();
@@ -36,12 +37,7 @@ export class MCMediaContentNode implements IMCMediaContentNode {
   }
 
   removeContent(content: IMCMediaContent): boolean {
-    const index = this.mContents.indexOf(content);
-    if (index >= 0) {
-      this.mContents.splice(index, 1);
-      return true;
-    }
-    return false;
+    return MCArrayUtils.remove(this.mContents, content) != -1;
   }
 
   get lengthOfAllContents(): number {
