@@ -25,16 +25,39 @@ namespace MCAssetManager {
     const assetId = targetInfo.assetId;
     let asset = mAssets.get(assetId);
     if (!asset) {
-      if (!mInitPromises.has(assetId)) {
-        mInitPromises.set(assetId, initializeAsset(assetId, assetType));
+      let promise = mInitPromises.get(assetId);
+      if ( promise === undefined ) {
+        promise = initializeAsset(assetId, assetType);
+        mInitPromises.set(assetId, promise);
+        try {
+          asset = await promise;
+        }
+        finally {
+          mInitPromises.delete(assetId);
+        }
       }
-      asset = await mInitPromises.get(assetId);
+      else {
+        asset = await promise;
+      }
     }
-    return asset!;
+    return asset;
   }
 
   export async function removeAssetBy(assetId: string): Promise<void> {
-    // TODO() 删除资产
+    let promise = mRemovePromises.get(assetId);
+    if ( promise === undefined ) {
+      promise = removeAsset(assetId);
+      mRemovePromises.set(assetId, promise);
+      try {
+        await promise;
+      }
+      finally {
+        mRemovePromises.delete(assetId);
+      }
+    }
+    else {
+      await promise;
+    }
   }
 
   /** 查询根目录下所有资产的id; */
@@ -95,36 +118,50 @@ namespace MCAssetManager {
   }
 
   async function initializeAsset(assetId: string, assetType: MCAssetType): Promise<IMCAsset> {
-    try {
-      const assetDir = `${mRootDir}/${generateAssetDirName(assetId, assetType)}`;
-      const asset = (assetType === MCAssetType.FILE_BASED) ? new FILEAsset(assetId, assetDir) : new HLSAsset(assetId, assetDir);
-      await asset.prepare();
-      mAssets.set(assetId, asset);
-      mSizes.delete(assetId);
-      return asset;
+    if ( mRemovePromises.has(assetId) ) {
+      await mRemovePromises.get(assetId);
     }
-    finally {
-      mInitPromises.delete(assetId);
-    }
+
+    const assetDir = `${mRootDir}/${generateAssetDirName(assetId, assetType)}`;
+    const asset = (assetType === MCAssetType.FILE_BASED) ? new FILEAsset(assetId, assetDir) : new HLSAsset(assetId, assetDir);
+    await asset.prepare();
+    mAssets.set(assetId, asset);
+    mSizes.delete(assetId);
+    return asset;
   }
 
   async function removeAsset(assetId: string): Promise<void> {
-    try {
-      if ( mInitPromises.has(assetId) ) {
-        await mInitPromises.get(assetId);
-      }
+    if ( mInitPromises.has(assetId) ) {
+      await mInitPromises.get(assetId);
+    }
 
-      let asset = mAssets.get(assetId);
-      if ( asset ) {
+    let asset = mAssets.get(assetId);
+    let assetDir: string | undefined = undefined;
+    if ( asset ) {
+      // 停止asset当前所有任务;
+      await asset.abortAllFetchTasks();
+    }
+    else {
+      assetDir = await queryAssetDirBy(assetId);
+    }
 
-      }
-      else {
+    if ( assetDir ) {
+      await MCFileIOUtils.deleteAllFiles(assetDir);
+    }
 
+    mAssets.delete(assetId);
+  }
+
+  /** 查询资产目录; */
+  async function queryAssetDirBy(assetId: string): Promise<string | undefined> {
+    for (let assetType of MCAssetTypeValues) {
+      const assetDir = `${mRootDir}/${generateAssetDirName(assetId, assetType)}`;
+      const exists = await fileIo.access(assetDir, fileIo.AccessModeType.EXIST);
+      if ( exists ) {
+        return assetDir;
       }
     }
-    finally {
-      mRemovePromises.delete(assetId);
-    }
+    return undefined;
   }
 
   function generateAssetDirName(assetId: string, assetType: MCAssetType): string {

@@ -190,4 +190,7 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
       await element[1].removeAllCaches();
     }
   }
+
+  async abortAllFetchTasks(): Promise<void> {
+  }
 }

@@ -39,12 +39,11 @@ namespace MCFileIOUtils {
       }
 
       const fileNames = await fileIo.listFile(path);
-      if ( fileNames.length === 0 ) {
-        await fileIo.unlink(path);
-        return;
+      if ( fileNames.length !== 0 ) {
+        const promises = fileNames.map((fileName) => deleteAllFiles(`${path}/${fileName}`));
+        await Promise.all(promises);
       }
-
-      // TODO() next  删除文件...
+      await fileIo.unlink(path);
     }
     catch (error) {
       if ( (error as BusinessError).code === 13900002 ) { // 13900002 - No such file or directory
