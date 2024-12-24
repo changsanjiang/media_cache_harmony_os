@@ -23,7 +23,7 @@ export interface IMCMedia extends IMCReadwriteReference<IMCMedia> {
   readAllData(): Promise<ArrayBuffer | undefined>;
 
   readonly cacheSize: number; // 返回当前缓存的数据大小;
-  removeAllCaches(): Promise<void>;  // 清理所有缓存;
+  abortAllFetchRequests(): Promise<void>;
 
   on(event: "removeAllCachesBefore", callback: (media: IMCMedia) => void | Promise<void>): void;
   off(event: "removeAllCachesBefore", callback: (media: IMCMedia) => void | Promise<void>): void;

@@ -77,9 +77,6 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
   }
 
   async prepare(): Promise<void> {
-
-    // TODO() 确认是否需要创建asset的目录
-
     const playlistMedia = await this.initializeMedia(this.id, true);
     if ( playlistMedia.isAssembled ) {
       const rawData = await playlistMedia.readAllData();
@@ -97,11 +94,21 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
 
     const mediaId = targetInfo.mediaId;
     let media: IMCMedia | undefined = this.mMedias.get(mediaId);
-    if ( !media ) {
-      if ( !this.mInitPromises.has(mediaId) ) {
-        this.mInitPromises.set(mediaId, this.initializeMedia(mediaId, targetInfo.isRoot));
+    if ( media === undefined ) {
+      let promise = this.mInitPromises.get(mediaId);
+      if ( promise === undefined ) {
+        promise = this.initializeMedia(mediaId, targetInfo.isRoot);
+        this.mInitPromises.set(mediaId, promise);
+        try {
+          media = await promise;
+        }
+        finally {
+          this.mInitPromises.delete(mediaId);
+        }
       }
-      media = await this.mInitPromises.get(mediaId)!;
+      else {
+        media = await promise;
+      }
     }
     return media;
   }
@@ -131,26 +138,21 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
   }
 
   private async initializeMedia(mediaId: string, isRoot: boolean): Promise<IMCMedia> {
-    try {
-      let proxyHandler: ((requestUrl: string, currentUrl: string, data: ArrayBuffer) => Promise<ArrayBuffer>) | undefined = undefined;
-      if ( isRoot ) { // 代理所有的根文件(playlist);
-        proxyHandler = async (requestUrl, currentUrl, data) => {
-          const content = MCUtils.bufferToString(data);
-          // variantStreamSelectionHandler?: HLSDefines.VariantStreamSelectionHandler, renditionSelectionHandler?: HLSDefines.RenditionSelectionHandler
-          const proxyContent = await HLSParser.proxy(this.id, content, requestUrl, currentUrl);
-          if ( mediaId === this.id ) await this.initializePlaylist(proxyContent);
-          return MCUtils.stringToBuffer(proxyContent);
-        }
+    let proxyHandler: ((requestUrl: string, currentUrl: string, data: ArrayBuffer) => Promise<ArrayBuffer>) | undefined = undefined;
+    if ( isRoot ) { // 代理所有的根文件(playlist);
+      proxyHandler = async (requestUrl, currentUrl, data) => {
+        const content = MCUtils.bufferToString(data);
+        // variantStreamSelectionHandler?: HLSDefines.VariantStreamSelectionHandler, renditionSelectionHandler?: HLSDefines.RenditionSelectionHandler
+        const proxyContent = await HLSParser.proxy(this.id, content, requestUrl, currentUrl);
+        if ( mediaId === this.id ) await this.initializePlaylist(proxyContent);
+        return MCUtils.stringToBuffer(proxyContent);
       }
+    }
 
-      const media = new MCMedia(mediaId, this.mDir, proxyHandler);
-      await media.prepare();
-      this.mMedias.set(mediaId, media);
-      return media;
-    }
-    finally {
-      this.mInitPromises.delete(mediaId);
-    }
+    const media = new MCMedia(mediaId, this.mDir, proxyHandler);
+    await media.prepare();
+    this.mMedias.set(mediaId, media);
+    return media;
   }
 
   private async calculateCompleteness(): Promise<number> {
@@ -185,12 +187,9 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
     return Array.from(this.mMedias.entries()).reduce((prev, media) => prev + media[1].cacheSize, 0);
   }
 
-  async removeAllCaches(): Promise<void> {
-    for (let element of this.mMedias.entries()) {
-      await element[1].removeAllCaches();
-    }
-  }
-
   async abortAllFetchRequests(): Promise<void> {
+    for (let element of this.mMedias.entries()) {
+      await element[1].abortAllFetchRequests();
+    }
   }
 }

@@ -35,7 +35,7 @@ namespace MCAssetCacheManager {
 
   export async function setPinned(resUrl: string, isPinned: boolean): Promise<void> {
     const assetId = await MCAssetUtils.generateAssetId(resUrl);
-    await MCAssetStateRepository.setPinned(assetId, isPinned);
+    return MCAssetStateRepository.setPinned(assetId, isPinned);
   }
 
   export async function isPinned(resUrl: string): Promise<boolean> {

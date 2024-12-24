@@ -49,10 +49,7 @@ export class FILEAsset extends MCReadwriteReference<FILEAsset> implements IMCAss
     return this.mMedia.cacheSize;
   }
 
-  removeAllCaches(): Promise<void> {
-    return this.mMedia.removeAllCaches();
-  }
-
-  async abortAllFetchRequests(): Promise<void> {
+  abortAllFetchRequests(): Promise<void> {
+    return this.mMedia.abortAllFetchRequests();
   }
 }

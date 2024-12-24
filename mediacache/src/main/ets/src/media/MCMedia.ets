@@ -640,6 +640,10 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     return len;
   }
 
+  async abortAllFetchRequests(): Promise<void> {
+
+  }
+
   async removeAllCaches(): Promise<void> {
     if ( this.mRestructurePromise ) {
       await this.mRestructurePromise;
