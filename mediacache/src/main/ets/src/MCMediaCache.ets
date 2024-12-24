@@ -20,11 +20,12 @@ namespace MCMediaCache {
   /** 启动代理服务器; */
   export async function prepare(): Promise<void> {
     if ( !mPrepared ) {
-      // 初始化缓存管理器
-      await MCAssetCacheManager.prepare();
       // 启动代理服务器
       mTcpServer.on('connect', (connection) => mConnectionHandler.handleConnection(connection));
       await mTcpServer.start();
+
+      // 初始化缓存管理器
+      await MCAssetCacheManager.prepare();
       mPrepared = true;
     }
   }
