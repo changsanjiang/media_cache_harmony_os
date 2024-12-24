@@ -87,16 +87,11 @@ namespace MCAssetManager {
     let size = mSizes.get(assetId);
     if ( size === undefined ) {
       try {
-        for (let type of MCAssetTypeValues) {
-          const assetDir = `${mRootDir}/${generateAssetDirName(assetId, type)}`;
-          const exists = await fileIo.access(assetDir, fileIo.AccessModeType.EXIST);
-          if ( exists ) {
-            size = await MCFileIOUtils.calculateTotalBytes(assetDir);
-            break;
-          }
-        }
-      } catch (ignored) { }
-      if ( size === undefined ) size = 0;
+        const assetDir = await queryAssetDirBy(assetId);
+        size = assetDir ? await MCFileIOUtils.calculateTotalBytes(assetDir) : 0;
+      } catch (ignored) {
+        size = 0;
+      }
       mSizes.set(assetId, size);
     }
     return size;
@@ -154,6 +149,7 @@ namespace MCAssetManager {
     }
 
     mAssets.delete(assetId);
+    mSizes.delete(assetId);
   }
 
   /** 查询资产目录; */
