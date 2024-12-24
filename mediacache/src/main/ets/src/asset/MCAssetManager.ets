@@ -143,7 +143,7 @@ namespace MCAssetManager {
     let assetDir: string | undefined = undefined;
     if ( asset ) {
       // 停止asset当前所有任务;
-      await asset.abortAllFetchTasks();
+      await asset.abortAllFetchRequests();
     }
     else {
       assetDir = await queryAssetDirBy(assetId);

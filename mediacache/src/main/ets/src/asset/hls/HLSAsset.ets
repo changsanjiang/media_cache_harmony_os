@@ -191,6 +191,6 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
     }
   }
 
-  async abortAllFetchTasks(): Promise<void> {
+  async abortAllFetchRequests(): Promise<void> {
   }
 }

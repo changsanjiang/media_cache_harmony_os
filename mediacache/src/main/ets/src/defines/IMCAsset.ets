@@ -20,5 +20,5 @@ export interface IMCAsset extends IMCReadwriteReference<IMCAsset> {
   readonly cacheSize: number; // 返回当前缓存的数据大小;
   removeAllCaches(): Promise<void>;  // 清理所有缓存;
 
-  abortAllFetchTasks(): Promise<void>;
+  abortAllFetchRequests(): Promise<void>;
 }

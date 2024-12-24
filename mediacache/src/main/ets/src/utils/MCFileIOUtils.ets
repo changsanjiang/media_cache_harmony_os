@@ -37,13 +37,6 @@ namespace MCFileIOUtils {
         await fileIo.unlink(path);
         return;
       }
-
-      const fileNames = await fileIo.listFile(path);
-      if ( fileNames.length !== 0 ) {
-        const promises = fileNames.map((fileName) => deleteAllFiles(`${path}/${fileName}`));
-        await Promise.all(promises);
-      }
-      await fileIo.unlink(path);
     }
     catch (error) {
       if ( (error as BusinessError).code === 13900002 ) { // 13900002 - No such file or directory
@@ -51,6 +44,13 @@ namespace MCFileIOUtils {
       }
       throw error as Error;
     }
+
+    const fileNames = await fileIo.listFile(path);
+    if ( fileNames.length !== 0 ) {
+      const promises = fileNames.map((fileName) => deleteAllFiles(`${path}/${fileName}`));
+      await Promise.all(promises);
+    }
+    await fileIo.unlink(path);
   }
 }
 
