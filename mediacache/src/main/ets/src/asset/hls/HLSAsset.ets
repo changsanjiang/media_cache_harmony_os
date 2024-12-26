@@ -63,6 +63,9 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
   // private mVideoRenditionItem?: HLSDefines.RenditionItem = undefined;
 
   private mPlaylist?: HLSPlaylist = undefined; // proxy playlist;
+  private mVariantStreamPlaylist?: HLSPlaylist = undefined;
+  private mAudioRenditionPlaylist?: HLSPlaylist = undefined;
+  private mVideoRenditionPlaylist?: HLSPlaylist = undefined;
 
   constructor(id: string, dir: string) {
     super();
