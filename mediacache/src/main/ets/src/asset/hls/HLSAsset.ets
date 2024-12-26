@@ -2,6 +2,7 @@ import { HLSPlaylist, MCUtils } from "../../../../../../Index";
 import { IMCAsset } from "../../defines/IMCAsset";
 import { IMCMedia } from "../../defines/IMCMedia";
 import { MCAssetType } from "../../defines/MCAssetType";
+import { MCMediaKind } from "../../defines/MCMediaKind";
 import { MCMedia } from "../../media/MCMedia";
 import { MCAbortController } from "../../utils/MCAbortController";
 import MCArrayUtils from "../../utils/MCArrayUtils";
@@ -80,7 +81,7 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
   }
 
   async prepare(): Promise<void> {
-    const playlistMedia = await this.initializeMedia(this.id, true);
+    const playlistMedia = await this.initializeMedia(this.id, MCMediaKind.PLAYLIST);
     if ( playlistMedia.isAssembled ) {
       const rawData = await playlistMedia.readAllData();
       if ( rawData ) {
@@ -100,7 +101,7 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
     if ( media === undefined ) {
       let promise = this.mInitPromises.get(mediaId);
       if ( promise === undefined ) {
-        promise = this.initializeMedia(mediaId, targetInfo.isRoot);
+        promise = this.initializeMedia(mediaId, targetInfo.mediaKind);
         this.mInitPromises.set(mediaId, promise);
         try {
           media = await promise;
@@ -117,32 +118,32 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
   }
 
   private async initializePlaylist(proxyContent: string): Promise<void> {
-    if ( this.mPlaylist ) {
-      return;
-    }
-
-    const playlist = new HLSPlaylist(proxyContent);
-    if ( playlist.variantStream ) {
-      this.mVariantStreamAsset = await MCAssetManager.getAssetByRequestTarget(playlist.variantStream.uri!) as HLSAsset;
-      // this.mVariantStreamAsset.mMasterAsset = this;
-      // this.mVariantStreamItem = playlist.variantStream;
-    }
-    if ( playlist.audioRendition ) {
-      this.mAudioRenditionAsset = await MCAssetManager.getAssetByRequestTarget(playlist.audioRendition.uri!) as HLSAsset;
-      // this.mAudioRenditionAsset.mMasterAsset = this;
-      // this.mAudioRenditionItem = playlist.audioRendition;
-    }
-    if ( playlist.videoRendition ) {
-      this.mVideoRenditionAsset = await MCAssetManager.getAssetByRequestTarget(playlist.videoRendition.uri!) as HLSAsset;
-      // this.mVideoRenditionAsset.mMasterAsset = this;
-      // this.mVideoRenditionItem = playlist.videoRendition;
-    }
-    this.mPlaylist = playlist;
+    // if ( this.mPlaylist ) {
+    //   return;
+    // }
+    //
+    // const playlist = new HLSPlaylist(proxyContent);
+    // if ( playlist.variantStream ) {
+    //   this.mVariantStreamAsset = await MCAssetManager.getAssetByRequestTarget(playlist.variantStream.uri!) as HLSAsset;
+    //   // this.mVariantStreamAsset.mMasterAsset = this;
+    //   // this.mVariantStreamItem = playlist.variantStream;
+    // }
+    // if ( playlist.audioRendition ) {
+    //   this.mAudioRenditionAsset = await MCAssetManager.getAssetByRequestTarget(playlist.audioRendition.uri!) as HLSAsset;
+    //   // this.mAudioRenditionAsset.mMasterAsset = this;
+    //   // this.mAudioRenditionItem = playlist.audioRendition;
+    // }
+    // if ( playlist.videoRendition ) {
+    //   this.mVideoRenditionAsset = await MCAssetManager.getAssetByRequestTarget(playlist.videoRendition.uri!) as HLSAsset;
+    //   // this.mVideoRenditionAsset.mMasterAsset = this;
+    //   // this.mVideoRenditionItem = playlist.videoRendition;
+    // }
+    // this.mPlaylist = playlist;
   }
 
-  private async initializeMedia(mediaId: string, isRoot: boolean): Promise<IMCMedia> {
+  private async initializeMedia(mediaId: string, mediaKind: MCMediaKind): Promise<IMCMedia> {
     let proxyHandler: ((requestUrl: string, currentUrl: string, data: ArrayBuffer) => Promise<ArrayBuffer>) | undefined = undefined;
-    if ( isRoot ) { // 代理所有的根文件(playlist);
+    if ( mediaKind === MCMediaKind.PLAYLIST ) {
       proxyHandler = async (requestUrl, currentUrl, data) => {
         const content = MCUtils.bufferToString(data);
         // variantStreamSelectionHandler?: HLSDefines.VariantStreamSelectionHandler, renditionSelectionHandler?: HLSDefines.RenditionSelectionHandler

@@ -2,6 +2,7 @@ import { MCRange } from "../../utils/MCRange";
 import HLSDefines from "../../defines/HLSDefines";
 import { MCUtils } from "../../../../../../Index";
 import MCAssetUtils from '../MCAssetUtils';
+import { MCMediaKind } from "../../defines/MCMediaKind";
 
 namespace HLSParser {
 
@@ -108,17 +109,17 @@ namespace HLSParser {
           const uri = item.uri;
           if ( uri ) {
             const absoluteUrl = HLSDefines.getAbsoluteUrl(uri, currentUrl);
-            let isChildAsset = false;
+            let mediaKind = MCMediaKind.FILE;
             if      ( item.itemType == HLSDefines.ItemType.VARIANT_STREAM ) {
-              isChildAsset = true;
+              mediaKind = MCMediaKind.PLAYLIST;
             }
             else if ( item.itemType === HLSDefines.ItemType.RENDITION ) {
               const renditionType = (item as HLSDefines.RenditionItem).renditionType;
               if ( renditionType === HLSDefines.RenditionType.AUDIO || renditionType === HLSDefines.RenditionType.VIDEO ) {
-                isChildAsset = false;
+                mediaKind = MCMediaKind.PLAYLIST;
               }
             }
-            const proxyPath = await MCAssetUtils.generateHLSProxyPath(absoluteUrl, isChildAsset, assetId);
+            const proxyPath = await MCAssetUtils.generateHLSProxyPath(assetId, mediaKind, absoluteUrl);
             proxyPlaylist = MCUtils.replaceCharactersInRange(proxyPlaylist, [item.uriRange!.location, uri.length], proxyPath);
           }
         }

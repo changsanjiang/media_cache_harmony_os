@@ -173,7 +173,7 @@ export class MCHttpResponse implements IMCHttpResponse {
       fetcher.off('dataEnd');
       fetcher.off('aborted');
 
-      if ( !fetcher.isAborted ) {
+      if ( !fetcher.isCompleted ) {
         try {
           MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Aborting fetcher.`);
           await fetcher.abort(error);

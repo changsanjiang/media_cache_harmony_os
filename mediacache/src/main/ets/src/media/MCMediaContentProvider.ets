@@ -63,7 +63,7 @@ export class MCMediaContentProvider {
 
   private async loadMetadata(): Promise<IMCMediaMetadata | undefined> {
     try {
-      const fileName = 'mc_media_metadata.json';
+      const fileName = `mc_${this.mMediaId}_metadata.json`;
       const filePath = `${this.mDir}/${fileName}`;
       const exists = await fileIo.access(filePath, fileIo.AccessModeType.EXIST);
       if ( exists ) {
@@ -91,7 +91,7 @@ export class MCMediaContentProvider {
       };
       const content = JSON.stringify(record);
       const buffer = MCUtils.stringToBuffer(content);
-      const fileName = 'mc_media_metadata.json';
+      const fileName = `mc_${this.mMediaId}_metadata.json`;
       const filePath = `${this.mDir}/${fileName}`;
       const file = await fileIo.open(filePath, fileIo.OpenMode.WRITE_ONLY | fileIo.OpenMode.TRUNC | fileIo.OpenMode.CREATE);
       await fileIo.write(file.fd, buffer);

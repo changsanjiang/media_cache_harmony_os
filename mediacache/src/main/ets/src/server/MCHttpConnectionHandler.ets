@@ -163,7 +163,7 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
 
   private closeOrKeepConnection(request: IMCHttpRequest, connection: socket.TCPSocketConnection) {
     if ( request.headers[`connection`].toLowerCase() === `keep-alive` ) {
-      const keepAliveHeader = request.headers[`keep-alive:`];
+      const keepAliveHeader = request.headers[`keep-alive`];
       const keepAlive: IMCHttpKeepAlive = keepAliveHeader ? parseKeepAlive(keepAliveHeader, 10, -1) : { timeout: 10, max: -1 };
       //  max param will be ignored;
       const shouldKeepAlive = keepAlive.timeout > 0;

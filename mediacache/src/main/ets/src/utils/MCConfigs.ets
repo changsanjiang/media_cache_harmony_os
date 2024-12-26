@@ -4,14 +4,14 @@ import { MCAssetType } from '../defines/MCAssetType';
 import { MCDownloadRequest } from './MCDownloadRequest';
 
 namespace MCConfigs {
-  export let assetTypeResolver: ((resUrl: string) => MCAssetType | Promise<MCAssetType>) | undefined = undefined;
-  export let assetIdentifierGenerator: ((resUrl: string) => string | Promise<string>) | undefined = undefined;
+  export let assetTypeResolver: ((resUrl: string) => Promise<MCAssetType | undefined>) | undefined = undefined;
+  export let assetIdentifierPreprocessor: ((resUrl: string) => Promise<string | undefined>) | undefined = undefined;
 
   export let sessionConfiguration: rcp.SessionConfiguration | undefined = undefined;
   export let ignoredHeaders = ['host', "user-agent"];
 
   /** 发送给客户端的数据块大小; */
-  export let socketDataBufferSize = 512 * 1024;
+  export let socketDataBufferSize = 8 * 1024;
   /** 发送给客户端数据块时等待的超时时间; */
   export let socketDataSendTimeoutInterval = 60 * 1000;
 

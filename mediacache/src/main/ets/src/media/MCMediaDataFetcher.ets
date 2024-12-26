@@ -39,8 +39,8 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
     media.readwriteRetain();
   }
 
-  get isAborted(): boolean {
-    return this.mAborted;
+  get isCompleted(): boolean {
+    return this.mDataEnd || this.mAborted;
   }
 
   async prepare(): Promise<void> {

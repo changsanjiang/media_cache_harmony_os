@@ -104,25 +104,27 @@ namespace MCMediaCache {
     };
   }
 
-  /** 返回视频唯一标识; 相同的标识引用同一个缓存;
-   *
-   * 当出现多个地址指向同一个视频, 例如 url 可能带有鉴权之类的参数, 这部分很容易发生变化, 但这些地址都指向同一个视频, 为了确保只缓存一份视频, 你可以在这里将这些会变化的参数移除;
-   *
-   * */
-  export function setAssetIdentifierGenerator(block: (resUrl: string) => string | Promise<string>) {
-    MCConfigs.assetIdentifierGenerator = block;
-  }
-
-  /** 资产类型解析;
+  /** 资产类型解析; 根据 url 解析相应的资产类型;
    *
    * 目前支持两种类型的资产, 你可以返回以下类型:
    *
    * - MCAssetType.FILE_BASED: 基于文件的媒体;
    * - MCAssetType.HLS: 流媒体(m3u8);
    *
+   * 返回 undefined 将采用默认处理;
    * */
-  export function setAssetTypeResolver(block: (resUrl: string) => MCAssetType | Promise<MCAssetType>) {
+  export function setAssetTypeResolver(block: (resUrl: string) => Promise<MCAssetType | undefined>) {
     MCConfigs.assetTypeResolver = block;
+  }
+
+  /** 生成资产标识时的预处理器; 当出现多个地址指向同一个视频, 例如 url 可能带有鉴权之类的参数, 这部分很容易发生变化, 但这些地址都指向同一个视频, 为了确保只缓存一份视频, 你可以在这里将这些会变化的参数移除;
+   *
+   * 相同的标识将引用同一份缓存;
+   *
+   * 返回 undefined 将采用默认处理;
+   * */
+  export function setAssetIdentifierPreprocessor(block: (resUrl: string) => Promise<string | undefined>) {
+    MCConfigs.assetIdentifierPreprocessor = block;
   }
 }
 

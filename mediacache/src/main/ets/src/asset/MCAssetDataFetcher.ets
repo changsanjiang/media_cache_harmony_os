@@ -31,8 +31,8 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
     MCLogger.info(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Instance created for request: ${JSON.stringify(this.mRequest)}}`);
   }
 
-  get isAborted(): boolean {
-    return this.mAborted;
+  get isCompleted(): boolean {
+    return this.mDataEnd || this.mAborted;
   }
 
   async prepare(): Promise<void> {
@@ -147,7 +147,7 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
       fetcher.off('dataEnd');
       fetcher.off('aborted');
 
-      if ( !fetcher.isAborted ) {
+      if ( !fetcher.isCompleted ) {
         try {
           MCLogger.debug(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Aborting fetcher.`);
           await fetcher.abort(error);
