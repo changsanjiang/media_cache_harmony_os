@@ -9,14 +9,16 @@ export class MCMediaContentProvider {
   private mMediaId: string;
   private mDir: string;
   private mTempDir: string;
-  private mPrefix: string; // content file name prefix of content
-  private mSequence = 0; // content file sequence number of content
+  private mPrefix: string; // file name prefix of content;
+  private mSequence = 0; // file sequence number of content;
 
-  constructor(mediaId: string, dir: string, prefix: string) {
+
+
+  constructor(mediaId: string, dir: string) {
     this.mMediaId = mediaId;
     this.mDir = dir;
     this.mTempDir = `${this.mDir}/mc_temp`;
-    this.mPrefix = prefix;
+    this.mPrefix = mediaId;
   }
 
   async prepare(): Promise<IMCMediaMetadata | undefined> {
@@ -63,7 +65,7 @@ export class MCMediaContentProvider {
 
   private async loadMetadata(): Promise<IMCMediaMetadata | undefined> {
     try {
-      const fileName = `mc_${this.mMediaId}_metadata.json`;
+      const fileName = this.generateMetadataFileName();
       const filePath = `${this.mDir}/${fileName}`;
       const exists = await fileIo.access(filePath, fileIo.AccessModeType.EXIST);
       if ( exists ) {
@@ -91,7 +93,7 @@ export class MCMediaContentProvider {
       };
       const content = JSON.stringify(record);
       const buffer = MCUtils.stringToBuffer(content);
-      const fileName = `mc_${this.mMediaId}_metadata.json`;
+      const fileName = this.generateMetadataFileName();
       const filePath = `${this.mDir}/${fileName}`;
       const file = await fileIo.open(filePath, fileIo.OpenMode.WRITE_ONLY | fileIo.OpenMode.TRUNC | fileIo.OpenMode.CREATE);
       await fileIo.write(file.fd, buffer);
@@ -119,15 +121,19 @@ export class MCMediaContentProvider {
   createContent(contentOffset: number, temp: boolean = false): IMCMediaContent {
     const sequence = this.mSequence + 1;
     this.mSequence = sequence;
-    const fileName = this.generateFileName(contentOffset, sequence);
+    const fileName = this.generateContentFileName(contentOffset, sequence);
     const filePath = !temp ? `${this.mDir}/${fileName}` : `${this.mTempDir}/${fileName}`;
     const content = new MCMediaContent(this.mMediaId, contentOffset, filePath, 0, temp);
     return content;
   }
 
   /** file name format: `prefix_contentOffset_sequence`; */
-  private generateFileName(contentOffset: number, sequence: number): string {
+  private generateContentFileName(contentOffset: number, sequence: number): string {
     return `${this.mPrefix}_${contentOffset}_${sequence}`;
+  }
+
+  private generateMetadataFileName(): string {
+    return `mc_${this.mMediaId}_metadata.json`;
   }
 
   private getContentOffsetAndSequence(fileName: string): string[] {

@@ -74,7 +74,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   async prepare(): Promise<void> {
     MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Starting prepare.`);
     try {
-      this.mContentProvider = new MCMediaContentProvider(this.id, this.mDir, this.id);
+      this.mContentProvider = new MCMediaContentProvider(this.id, this.mDir);
       const metadata = await this.mContentProvider.prepare();
       if (metadata) {
         this.mMetadata = metadata;
