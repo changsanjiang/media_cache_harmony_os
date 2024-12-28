@@ -29,6 +29,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   private mDir: string;
   private mAbortSignal: MCAbortSignal;
   private mMetadata?: IMCMediaMetadata = undefined;
+  private mMetadataFileSize = 0;
   private mContentProvider?: MCMediaContentProvider = undefined;
   private mNodeList = new MCMediaContentNodeList();
   private mAssembled = false; // 是否已组合完成, 是否已得到完整内容; 虽然得到了完整内容, 但是文件夹下可能还存在正在读取的冗余数据;
@@ -71,7 +72,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     return this.calculateCompleteness();
   }
   get currentCachedSize(): number {
-    let len = 0;
+    let len = this.mMetadataFileSize;
     let node: IMCMediaContentNode | undefined = this.mNodeList.head;
     while (node) {
       len += node.lengthOfAllContents;
@@ -84,12 +85,13 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Starting prepare.`);
     try {
       this.mContentProvider = new MCMediaContentProvider(this.id, this.mDir);
-      const metadata = await this.mContentProvider.prepare();
-      if (metadata) {
-        this.mMetadata = metadata;
+      const entries = await this.mContentProvider.prepare();
+      if (entries) {
+        this.mMetadataFileSize = entries[0];
+        this.mMetadata = entries[1];
         MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Metadata loaded. ContentType: ${this.mMetadata?.contentType}, TotalLength: ${this.mMetadata?.totalLength}, ByteRangeAccessSupported: ${this.mMetadata?.byteRangeAccessSupported}.`);
 
-        if ( metadata.totalLength == 0 ) { // 空文件
+        if ( this.mMetadata.totalLength == 0 ) { // 空文件
           this.mAssembled = true;
           this.mFullyTrimmed = true;
         }
@@ -374,39 +376,32 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     return content;
   }
 
-  async destroyTempContent(content: IMCMediaContent): Promise<void> {
-    if ( this.mRestructurePromise ) {
-      await this.mRestructurePromise;
-    }
+  // 生成代理内容;
+  applyProxy(requestUrl: string, currentUrl: string, contentData: ArrayBuffer): Promise<ArrayBuffer> {
+    return this.mProxyHandler!(requestUrl, currentUrl, contentData);
+  }
 
+  /** 销毁临时内容; */
+  async destroy(content: IMCMediaContent): Promise<void> {
     if ( content.isTemp ) {
       await content.destroy();
       const node = this.mNodeList.getNodeBy(content.contentOffset);
       node?.removeContent(content);
     }
   }
-  async copyTempContent(content: IMCMediaContent): Promise<void> {
-    if ( this.mRestructurePromise ) {
-      await this.mRestructurePromise;
-    }
 
+  /** 交付最终内容; 临时内容转为正式内容; */
+  async finalize(content: IMCMediaContent): Promise<void> {
     if ( content.isTemp ) {
-      const newContent = this.mContentProvider!.createContent(0);
-      this.mNodeList.upsertNode(0, newContent);
-      await this.mergeData(newContent, content);
+      content.finalize();
       const metadata: IMCMediaMetadata = {
         contentType: this.mMetadata!.contentType,
-        totalLength: newContent.length,
+        totalLength: content.length,
         byteRangeAccessSupported: true,
       };
       this.mMetadata = metadata;
       this.mContentProvider?.saveMetadata(metadata);
     }
-  }
-
-  // 生成代理内容;
-  applyProxy(requestUrl: string, currentUrl: string, contentData: ArrayBuffer): Promise<ArrayBuffer> {
-    return this.mProxyHandler!(requestUrl, currentUrl, contentData);
   }
 
   protected getInstance(): MCMedia {

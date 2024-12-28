@@ -114,6 +114,10 @@ export class MCMediaContent implements IMCMediaContent {
     return this.mWriter;
   }
 
+  finalize(): void {
+    this.mTemp = false;
+  }
+
   destroy(): Promise<void> {
     const waits = new Array<Promise<void>>();
     if ( this.mReadPromiseLink ) {

@@ -142,7 +142,7 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
 
   private async onComplete(res: MCDownload.Response): Promise<void> { // 下载完成后调用
     if ( this.isAborted ) {
-      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[Http] Download for URL: ${this.mRequest.url} is aborted, skipping completion.`);
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[Http] Download aborted for URL: ${this.mRequest.url}. Completion process skipped.`);
       return;
     }
 
@@ -155,8 +155,8 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
         throw new Error(`Expected 200 status code, but got ${res.statusCode}`);
       }
 
-      await this.mMedia.copyTempContent(this.mContent); // 临时内容下载完成, 复制到正式目录;
-      MCLogger.info(MCLogModule.MCMediaContentLoader, () => `[Http] Temporary content copied for URL: ${this.mRequest.url}.`);
+      await this.mMedia.finalize(this.mContent); // 临时内容下载完成, 交付转为正式内容;
+      MCLogger.info(MCLogModule.MCMediaContentLoader, () => `[Http] Temporary content finalized and stored for URL: ${this.mRequest.url}.`);
 
       if ( this.isAborted ) {
         throw new Error(`Loader aborted after copying temporary content.`);
@@ -201,7 +201,7 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
       if (content.isTemp) {
         MCLogger.debug(MCLogModule.MCMediaContentLoader, () => '[Http] Destroying temporary content.');
         try {
-          await this.mMedia.destroyTempContent(content);
+          await this.mMedia.destroy(content);
           MCLogger.debug(MCLogModule.MCMediaContentLoader, () => '[Http] Temporary content destroyed successfully.');
         }
         catch (error) {

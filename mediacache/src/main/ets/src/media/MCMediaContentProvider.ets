@@ -8,48 +8,37 @@ import { JSON } from "@kit.ArkTS";
 export class MCMediaContentProvider {
   private mMediaId: string;
   private mDir: string;
-  private mTempDir: string;
-  private mPrefix: string; // file name prefix of content;
-  private mSequence = 0; // file sequence number of content;
-
-
+  private mMetadataFileNamePrefix: string;
+  private mContentFileNamePrefix: string; // file name prefix of content;
+  private mContentFileSequence = 0; // file sequence number of content;
 
   constructor(mediaId: string, dir: string) {
     this.mMediaId = mediaId;
     this.mDir = dir;
-    this.mTempDir = `${this.mDir}/mc_temp`;
-    this.mPrefix = mediaId;
+    this.mMetadataFileNamePrefix = "m";
+    this.mContentFileNamePrefix = "c";
   }
 
-  async prepare(): Promise<IMCMediaMetadata | undefined> {
+  async prepare(): Promise<[number, IMCMediaMetadata] | undefined> {
     const exists = await fileIo.access(this.mDir, fileIo.AccessModeType.EXIST);
     if ( !exists ) {
       await fileIo.mkdir(this.mDir, true);
-      await fileIo.mkdir(this.mTempDir);
       return undefined;
     }
 
-    const metadata = await this.loadMetadata();
-    if ( !metadata || metadata.totalLength === Number.MAX_SAFE_INTEGER ) {
+    const entries = await this.loadMetadata();
+    if ( !entries ) {
+      return undefined;
+    }
 
-      // TODO(), 临时文件夹看起来用不上了, 下一步需要移除相关逻辑;
-
-      // 清理临时文件
-      try {
-        const fileNames = await fileIo.listFile(this.mTempDir);
-        for (let fileName of fileNames) {
-          const filePath = `${this.mTempDir}/${fileName}`;
-          await fileIo.unlink(filePath);
-        }
-      }
-      catch (error) { }
-
-      // 清理无用的文件
+    const metadata = entries[1];
+    if ( metadata.totalLength === Number.MAX_SAFE_INTEGER ) {
+      // 这些文件需要删除(元数据未就绪之前, 无法确定内容完整性);
       try {
         const fileNames = await fileIo.listFile(this.mDir);
-        const unavailableContents = fileNames.length > 0 ? fileNames.filter((fileName) => fileName.startsWith(this.mPrefix)) : undefined;
+        const prefix = `${this.mContentFileNamePrefix}_`;
+        const unavailableContents = fileNames.length > 0 ? fileNames.filter((fileName) => fileName.startsWith(prefix)) : undefined;
         if ( unavailableContents ) {
-          // 这些文件也需要删除(它们可能是复制临时文件失败后的产物; 也或者复制成功了, 但是保存元数据时失败了, 无法确定内容完整性了);
           for (let fileName of unavailableContents) {
             const filePath = `${this.mDir}/${fileName}`;
             await fileIo.unlink(filePath);
@@ -57,13 +46,12 @@ export class MCMediaContentProvider {
         }
       }
       catch (error) { }
-
-      if ( !(await fileIo.access(this.mTempDir, fileIo.AccessModeType.EXIST)) ) await fileIo.mkdir(this.mTempDir);
     }
-    return metadata;
+    return entries;
   }
 
-  private async loadMetadata(): Promise<IMCMediaMetadata | undefined> {
+  /** 返回文件大小和元数据; */
+  private async loadMetadata(): Promise<[number, IMCMediaMetadata] | undefined> {
     try {
       const fileName = this.generateMetadataFileName();
       const filePath = `${this.mDir}/${fileName}`;
@@ -75,7 +63,8 @@ export class MCMediaContentProvider {
         const jsonStr = record['data'];
         const calculatedChecksum = await MCUtils.hash(jsonStr);
         if ( checksum === calculatedChecksum ) {
-          return JSON.parse(jsonStr) as IMCMediaMetadata;
+          const fileSize = (await fileIo.stat(filePath)).size;
+          return [fileSize, JSON.parse(jsonStr) as IMCMediaMetadata];
         }
       }
     }
@@ -83,7 +72,8 @@ export class MCMediaContentProvider {
     return undefined;
   }
 
-  async saveMetadata(metadata: IMCMediaMetadata): Promise<boolean> {
+  /** 写入成功后返回文件大小; */
+  async saveMetadata(metadata: IMCMediaMetadata): Promise<number> {
     try {
       const jsonStr = JSON.stringify(metadata);
       const checksum = await MCUtils.hash(jsonStr);
@@ -97,48 +87,50 @@ export class MCMediaContentProvider {
       const filePath = `${this.mDir}/${fileName}`;
       const file = await fileIo.open(filePath, fileIo.OpenMode.WRITE_ONLY | fileIo.OpenMode.TRUNC | fileIo.OpenMode.CREATE);
       await fileIo.write(file.fd, buffer);
-      return true;
+      return buffer.byteLength;
     }
     catch (error) { }
-    return false;
+    return 0;
   }
 
   /** 加载目录下缓存的媒体内容; */
   async loadContents(): Promise<IMCMediaContent[] | undefined> {
     const fileNames = await fileIo.listFile(this.mDir);
-    const contentFileNames = fileNames.length > 0 ? fileNames.filter((fileName) => fileName.startsWith(this.mPrefix)) : undefined;
+    const prefix = `${this.mContentFileNamePrefix}_`;
+    const contentFileNames = fileNames.length > 0 ? fileNames.filter((fileName) => fileName.startsWith(prefix)) : undefined;
     return contentFileNames && contentFileNames.length > 0 ? Promise.all(contentFileNames.map(async (fileName) => {
       const filePath = `${this.mDir}/${fileName}`;
       const fileSize = (await fileIo.stat(filePath)).size;
       const props = this.getContentOffsetAndSequence(fileName);
       const contentOffset = parseInt(props[0], 10);
       const sequence = parseInt(props[1], 10);
-      if ( this.mSequence < sequence ) this.mSequence = sequence;
+      if ( this.mContentFileSequence < sequence ) this.mContentFileSequence = sequence;
       return new MCMediaContent(this.mMediaId, contentOffset, filePath, fileSize);
     })) : undefined;
   }
 
   createContent(contentOffset: number, temp: boolean = false): IMCMediaContent {
-    const sequence = this.mSequence + 1;
-    this.mSequence = sequence;
+    const sequence = this.mContentFileSequence + 1;
+    this.mContentFileSequence = sequence;
     const fileName = this.generateContentFileName(contentOffset, sequence);
-    const filePath = !temp ? `${this.mDir}/${fileName}` : `${this.mTempDir}/${fileName}`;
+    const filePath = `${this.mDir}/${fileName}`;
     const content = new MCMediaContent(this.mMediaId, contentOffset, filePath, 0, temp);
     return content;
   }
 
-  /** file name format: `prefix_contentOffset_sequence`; */
+  /** file name format: `prefix_mediaId_contentOffset_sequence`; */
   private generateContentFileName(contentOffset: number, sequence: number): string {
-    return `${this.mPrefix}_${contentOffset}_${sequence}`;
+    return `${this.mContentFileNamePrefix}_${this.mMediaId}_${contentOffset}_${sequence}`;
   }
 
+  /** file name format: `prefix_mediaId`; */
   private generateMetadataFileName(): string {
-    return `mc_${this.mMediaId}_metadata.json`;
+    return `${this.mMetadataFileNamePrefix}_${this.mMediaId}`;
   }
 
   private getContentOffsetAndSequence(fileName: string): string[] {
     const parts = fileName.split("_");
-    if (parts.length != 3) {
+    if (parts.length != 4) {
       throw new Error(`Invalid file name format: ${fileName}`);
     }
     return fileName.split("_").slice(-2);
