@@ -86,6 +86,8 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     try {
       this.mContentProvider = new MCMediaContentProvider(this.id, this.mDir);
       const entries = await this.mContentProvider.prepare();
+      this.checkAbortSignal(this.mAbortSignal);
+
       if (entries) {
         this.mMetadataFileSize = entries[0];
         this.mMetadata = entries[1];
@@ -98,6 +100,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
         }
         else {
           const contents = await this.mContentProvider.loadContents();
+          this.checkAbortSignal(this.mAbortSignal);
           MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Loaded ${contents?.length || 0} content blocks from storage.`);
 
           contents?.forEach((content) => this.mNodeList.upsertNode(content.contentOffset, content));
@@ -140,17 +143,15 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
         return this.mMetadata;
       }
 
-      if ( signal?.isAborted === true ) {
-        throw signal.reason!
-      }
+      this.checkAbortSignal(signal);
 
       const statusCode = response.statusCode;
       if ( statusCode !== 200 && statusCode !== 206 ) {
-        throw new MCDataResponseError(statusCode, 'xxx');
+        throw new MCDataResponseError(statusCode, `Unexpected HTTP status code: ${statusCode}`);
       }
 
       if ( this.mProxyHandler && statusCode !== 200 ) {
-        throw new MCDataResponseError(400, 'xxx'); // 内容代理仅支持200请求;
+        throw new MCDataResponseError(500, 'Content proxy mode requires HTTP status code 200'); // 内容代理仅支持200请求;
       }
 
       // 探测服务器支持的情况
@@ -197,10 +198,6 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
 
   async readAllData(): Promise<ArrayBuffer | undefined> {
     if ( this.mAssembled ) {
-      if ( this.mRestructurePromise ) {
-        await this.mRestructurePromise;
-      }
-
       let buffer: ArrayBuffer | undefined = undefined;
       let node = this.mNodeList.head;
       let offset = 0;
@@ -227,15 +224,10 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   }
 
   private async resolve(proxyRequest: IMCDataRequest, signal?: MCAbortSignal): Promise<IMCDataResponse> {
-    if ( signal && signal.isAborted ) {
-      throw signal.reason!
-    }
+    this.checkAbortSignal(signal);
 
     if ( this.mRestructurePromise ) {
       await this.mRestructurePromise;
-      if ( signal && signal.isAborted ) {
-        throw signal.reason!
-      }
     }
 
     const url = MCURL.parseUrl(proxyRequest.requestTarget);
@@ -350,12 +342,12 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       const requestRange = requestRangeHeader ? parseRequestRange(requestRangeHeader) : undefined;
       if ( requestRange ) {
         if ( !this.mMetadata!.byteRangeAccessSupported ) {
-          throw new Error(`xxx`);
+          throw new Error(`Byte range access is not supported for the requested content. Request range: ${JSON.stringify(requestRange)}, Metadata: ${JSON.stringify(this.mMetadata)}`);
         }
 
         const contentRangeHeader = responseHeaders['content-range'];
         if ( contentRangeHeader === undefined ) {
-          throw new Error(`Response headers missing 'content-range' for request ${JSON.stringify(request)}.`);
+          throw new Error(`Response headers missing 'content-range' for the given request. Request: ${JSON.stringify(request)}, Response Headers: ${JSON.stringify(responseHeaders)}`);
         }
 
         const contentRange = parseResponseContentRange(contentRangeHeader);
@@ -365,7 +357,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
         if ( requestContentRange.rangeStart !== contentRange.rangeStart ||
              requestContentRange.rangeEnd !== contentRange.rangeEnd ||
              requestContentRange.size !== contentRange.size ) {
-          throw new Error('Invalid server response: mismatched request range.');  // TODO: http error
+          throw new Error(`Invalid server response: Mismatched content range. Expected: ${JSON.stringify(requestContentRange)}, Actual: ${JSON.stringify(contentRange)}, Request: ${JSON.stringify(request)}, Metadata: ${JSON.stringify(this.mMetadata)}`);
         }
         return new MCRange(contentRange.rangeStart, contentRange.rangeEnd + 1 - contentRange.rangeStart);
       }
@@ -460,13 +452,14 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
           let isNextNodeRemoved = false;
 
           if ( writer?.isTemp ) {
-            throw new Error(`试图向临时内容写入数据`);
+            throw new Error(`Attempted to write data into a temporary content file. MediaId: ${this.id}, Writer: ${JSON.stringify(writer)}, Reader: ${JSON.stringify(reader)}`);
           }
 
           if ( writer && reader ) {
             const isMerged = await this.mergeData(writer, reader);
             if ( isMerged ) {
               await reader.destroy();
+              this.checkAbortSignal(this.mAbortSignal);
               nextNode.removeContent(reader);
               MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Merged content from nextNode into currentNode.`);
               if ( nextNode.numberOfContents == 0 ) {
@@ -504,6 +497,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       const redundantContents = node.filterContents((content) => content !== longestContent);
       for (let redundant of redundantContents) {
         await redundant.destroy();
+        this.checkAbortSignal(this.mAbortSignal);
         node.removeContent(redundant);
         MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Destroyed redundant content at offset: ${redundant.contentOffset}.`);
       }
@@ -542,11 +536,14 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       try {
         while (position < readRange.max) {
           const len = await reader.readData(position, buffer, buffer.byteLength);
+          this.checkAbortSignal(this.mAbortSignal);
           if (len === 0) break;
           position += await writer.writeData(buffer, len);
+          this.checkAbortSignal(this.mAbortSignal);
         }
         await reader.close();
         await writer.close();
+        this.checkAbortSignal(this.mAbortSignal);
 
         MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Merge completed. Data from reader successfully written to writer.`);
         return true;
@@ -634,6 +631,12 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       node = node.next;
     }
     return lengthCached * 1.0 / this.mMetadata.totalLength;
+  }
+
+  private checkAbortSignal(signal: MCAbortSignal | undefined) {
+    if ( signal && signal.isAborted ) {
+      throw signal.reason as Error;
+    }
   }
 
   // private printDebugInfo() {
