@@ -1,68 +1,23 @@
 import { HLSPlaylist, MCUtils } from "../../../../../../Index";
+import HLSDefines from "../../defines/HLSDefines";
 import { IMCAsset } from "../../defines/IMCAsset";
 import { IMCMedia } from "../../defines/IMCMedia";
 import { MCAssetType } from "../../defines/MCAssetType";
 import { MCMediaKind } from "../../defines/MCMediaKind";
 import { MCMedia } from "../../media/MCMedia";
 import { MCAbortController } from "../../utils/MCAbortController";
-import MCArrayUtils from "../../utils/MCArrayUtils";
 import { MCReadwriteReference } from "../../utils/MCReadwriteReference";
-import { MCRetryPromise } from "../../utils/MCRetryPromise";
 import MCURL from "../../utils/MCURL";
 import MCAssetCacheManager from "../cachemgr/MCAssetCacheManager";
-import MCAssetManager from "../MCAssetManager";
 import HLSParser from "./HLSParser";
-import List from "@ohos.util.List";
-import HLSDefines from "../../defines/HLSDefines";
 
 export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset {
   /** HLS 会有多个媒体文件; */
   private mMedias: Map<string, IMCMedia> = new Map();
+  private mPlaylists: Map<string, HLSPlaylist> = new Map();
   private mDir: string;
   private mInitPromises: Map<string, Promise<IMCMedia>> = new Map();
   private mAbortController = new MCAbortController();
-
-  /// ----- master.m3u8
-  /// #EXTM3U
-  /// #EXT-X-VERSION:6
-  /// #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio_group",NAME="English",DEFAULT=YES,AUTOSELECT=YES,LANGUAGE="en",URI="https://example.com/audio/english.m3u8"
-  /// #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio_group",NAME="Spanish",DEFAULT=NO,AUTOSELECT=YES,LANGUAGE="es",URI="https://example.com/audio/spanish.m3u8"
-  /// #EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subtitles_group",NAME="English",DEFAULT=NO,AUTOSELECT=YES,URI="https://example.com/subtitles/english.vtt"
-  /// #EXT-X-STREAM-INF:BANDWIDTH=1280000,RESOLUTION=1280x720,AUDIO="audio_group"
-  /// 720p_output.m3u8
-  /// #EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=854x480,AUDIO="audio_group"
-  /// 480p_output.m3u8
-  ///
-  /// ----- variant_stream: 720p_output.m3u8
-  /// 720p_output.m3u8
-  /// #EXTM3U
-  /// #EXT-X-VERSION:6
-  /// #EXT-X-TARGETDURATION:10
-  /// #EXT-X-MEDIA-SEQUENCE:0
-  /// #EXT-X-INDEPENDENT-SEGMENTS
-  /// #EXTINF:10.0,
-  /// 720p_segment_000.ts
-  /// #EXT-X-ENDLIST
-  ///
-  /// ----- audio_rendition: english.m3u8
-  /// #EXTM3U
-  /// #EXT-X-VERSION:6
-  /// #EXT-X-TARGETDURATION:10
-  /// #EXT-X-MEDIA-SEQUENCE:0
-  /// #EXTINF:10.0,
-  /// english_segment_000.ts
-  /// #EXT-X-ENDLIST
-
-  private mMasterPlaylist?: HLSPlaylist = undefined;
-
-  private mVariantStreamMediaId?: string = undefined;
-  private mVariantStreamPlaylist?: HLSPlaylist = undefined;
-
-  private mAudioRenditionMediaId?: string = undefined;
-  private mAudioRenditionPlaylist?: HLSPlaylist = undefined;
-
-  private mVideoRenditionMediaId?: string = undefined;
-  private mVideoRenditionPlaylist?: HLSPlaylist = undefined;
 
   constructor(id: string, dir: string) {
     super();
@@ -76,68 +31,24 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
     return MCAssetType.HLS;
   }
 
-  get completeness(): Promise<number> {
-    return this.calculateCompleteness();
+  get isCached(): boolean {
+    return this.checkMediasCachedBy(this.mPlaylists.get(this.id));
   }
 
-  prepare(): Promise<void> {
-    return this.loadPlaylist(this.id);
+  get currentCachedSize(): number {
+    return Array.from(this.mMedias.entries()).reduce((prev, media) => prev + media[1].currentCachedSize, 0);
+  }
+
+  async prepare(): Promise<void> {
+    await this.loadPlaylists(this.id);
+    await this.initializeMediasBy(this.mPlaylists.get(this.id));
   }
 
   async getMediaBy(requestTarget: string): Promise<IMCMedia> {
     const targetInfo = MCURL.parse(requestTarget);
-    if ( targetInfo.assetId !== this.id ) {
-      throw new Error(`xxx`);
-    }
     const mediaId = targetInfo.mediaId;
     const mediaKind = targetInfo.mediaKind;
     return this.getMedia(mediaId, mediaKind);
-  }
-
-  /** Load playlist if content already assembled; */
-  private async loadPlaylist(mediaId: string): Promise<void> {
-    const playlistMedia = await this.getMedia(mediaId, MCMediaKind.PLAYLIST);
-    if ( playlistMedia.isAssembled ) {
-      const rawData = await playlistMedia.readAllData();
-      if ( rawData ) {
-        await this.initializePlaylist(mediaId, MCUtils.bufferToString(rawData));
-      }
-    }
-  }
-
-  private async initializePlaylist(mediaId: string, proxyContent: string): Promise<void> {
-    if ( mediaId === this.id ) {
-      if ( !this.mMasterPlaylist ) {
-        this.mMasterPlaylist = new HLSPlaylist(proxyContent);
-
-        if ( this.mMasterPlaylist.variantStream ) {
-          const targetInfo = MCURL.parse(this.mMasterPlaylist.variantStream.uri!);
-          this.mVariantStreamMediaId = targetInfo.mediaId;
-          await this.loadPlaylist(targetInfo.mediaId);
-        }
-
-        if ( this.mMasterPlaylist.audioRendition ) {
-          const targetInfo = MCURL.parse(this.mMasterPlaylist.audioRendition.uri!);
-          this.mVariantStreamMediaId = targetInfo.mediaId;
-          await this.loadPlaylist(targetInfo.mediaId);
-        }
-
-        if ( this.mMasterPlaylist.videoRendition ) {
-          const targetInfo = MCURL.parse(this.mMasterPlaylist.videoRendition.uri!);
-          this.mVariantStreamMediaId = targetInfo.mediaId;
-          await this.loadPlaylist(targetInfo.mediaId);
-        }
-      }
-    }
-    else if ( mediaId === this.mVariantStreamMediaId ) {
-      if ( !this.mVariantStreamPlaylist ) this.mVariantStreamPlaylist = new HLSPlaylist(proxyContent);
-    }
-    else if ( mediaId === this.mAudioRenditionMediaId ) {
-      if ( !this.mAudioRenditionPlaylist ) this.mAudioRenditionPlaylist = new HLSPlaylist(proxyContent);
-    }
-    else if ( mediaId === this.mVideoRenditionMediaId ) {
-      if ( !this.mVideoRenditionPlaylist ) this.mVideoRenditionPlaylist = new HLSPlaylist(proxyContent);
-    }
   }
 
   private async getMedia(mediaId: string, mediaKind: MCMediaKind): Promise<IMCMedia> {
@@ -161,6 +72,44 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
     return media;
   }
 
+  /** Load playlist if content already assembled; */
+  private async loadPlaylists(mediaId: string): Promise<void> {
+    const playlistMedia = await this.getMedia(mediaId, MCMediaKind.PLAYLIST);
+    if ( playlistMedia.isAssembled ) {
+      const rawData = await playlistMedia.readAllData();
+      if ( rawData ) {
+        await this.initializePlaylist(mediaId, MCUtils.bufferToString(rawData));
+      }
+    }
+  }
+
+  private async initializePlaylist(mediaId: string, proxyContent: string): Promise<void> {
+    if ( this.mPlaylists.get(mediaId) ) {
+      return;
+    }
+
+    const playlist = new HLSPlaylist(proxyContent);
+    this.mPlaylists.set(mediaId, playlist);
+
+    const isMaster = (mediaId === this.id);
+    if ( isMaster ) {
+      if ( playlist.variantStream ) {
+        const targetInfo = MCURL.parse(playlist.variantStream.uri!);
+        await this.loadPlaylists(targetInfo.mediaId); // 尝试加载 variant stream playlist
+      }
+
+      if ( playlist.audioRendition ) {
+        const targetInfo = MCURL.parse(playlist.audioRendition.uri!);
+        await this.loadPlaylists(targetInfo.mediaId); // 尝试加载 audio rendition playlist
+      }
+
+      if ( playlist.videoRendition ) {
+        const targetInfo = MCURL.parse(playlist.videoRendition.uri!);
+        await this.loadPlaylists(targetInfo.mediaId);  // 尝试加载 video rendition playlist
+      }
+    }
+  }
+
   private async initializeMedia(mediaId: string, mediaKind: MCMediaKind): Promise<IMCMedia> {
     let proxyHandler: ((requestUrl: string, currentUrl: string, data: ArrayBuffer) => Promise<ArrayBuffer>) | undefined = undefined;
     // 代理 playlist 中的各个片段;
@@ -181,69 +130,91 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
     return media;
   }
 
-  private async findMedia(mediaId: string): Promise<IMCMedia | undefined> {
-    return undefined;
-  }
+  private async initializeMediasBy(playlist: HLSPlaylist | undefined): Promise<void> {
+    if ( playlist === undefined ) {
+      return;
+    }
 
-  private async calculateCompleteness(): Promise<number> {
-    if ( this.mMasterPlaylist ) {
-      if ( this.mMasterPlaylist.allItems?.length === 0 ) {
-        return 1;
+    const allItems = playlist.allItems;
+    if ( !allItems || allItems.length === 0 ) {
+      return;
+    }
+
+    let itemIndex = 0;
+    const concurrentLoadCount = 3;
+    while (itemIndex < allItems.length ) {
+      const promises: Promise<IMCMedia>[] = [];
+      for (let p = 0; p < concurrentLoadCount; p++) {
+        const item = allItems[itemIndex];
+        const targetInfo = MCURL.parse(item.uri!);
+        promises.push(this.initializeMedia(targetInfo.mediaId, targetInfo.mediaKind));
+        itemIndex += 1;
+        if ( itemIndex >= allItems.length ) break;
       }
-
-      // if ( this.mMasterPlaylist.segments ) {
-      //   // calculate segments progress
-      //   const promises = this.mMasterPlaylist.segments.map((item) => this.getMediaBy(item.uri!).then((media) => media.completeness));
-      //   return Promise.all(promises).then((progresses) => ((progresses.reduce((prev, cur) => prev + cur, 0)) / this.mMasterPlaylist!.segments!.length));
-      // }
-      // else {
-      //   return this.mVariantStreamAsset!.completeness;
-      // }
+      await Promise.allSettled(promises);
     }
-    return 0;
+
+    const childPlaylistItems: HLSDefines.Item[] = [];
+    const variantStream = playlist.variantStream;
+    const audioRendition = playlist.audioRendition;
+    const videoRendition = playlist.videoRendition;
+    if ( variantStream ) {
+      childPlaylistItems.push(variantStream);
+    }
+    if ( audioRendition ) {
+      childPlaylistItems.push(audioRendition);
+    }
+    if ( videoRendition ) {
+      childPlaylistItems.push(videoRendition);
+    }
+
+    for (let item of childPlaylistItems) {
+      const targetInfo = MCURL.parse(item.uri!);
+      const childPlaylist = this.mPlaylists.get(targetInfo.mediaId);
+      if ( childPlaylist ) await this.initializeMediasBy(childPlaylist);
+    }
   }
 
-  private async calculateCompleteness2(): Promise<number> {
-    if ( !this.mMasterPlaylist ) {
-      return 0;
+  private checkMediasCachedBy(playlist: HLSPlaylist | undefined): boolean {
+    if ( playlist === undefined ) {
+      return false;
     }
 
-    if ( this.mMasterPlaylist.variantStream === undefined ) {
-      return this.calculateCompletenessByPlaylist(this.mMasterPlaylist);
+    const allItems = playlist.allItems;
+    if ( !allItems || allItems.length === 0 ) {
+      return true;
     }
 
-    let denominator = 1;
-    if ( this.mMasterPlaylist.audioRendition ) denominator += 1;
-    if ( this.mMasterPlaylist.videoRendition ) denominator += 1;
-    if ( this.mMasterPlaylist.subtitlesRendition ) denominator += 1;
-
-    let numerator = 0;
-    if ( this.mVariantStreamPlaylist ) {
-      const playlists: [HLSPlaylist] = [this.mVariantStreamPlaylist];
-      if ( this.mAudioRenditionPlaylist ) playlists.push(this.mAudioRenditionPlaylist);
-      if ( this.mVideoRenditionPlaylist ) playlists.push(this.mVideoRenditionPlaylist);
-      playlists.map(playlist => this.calculateCompletenessByPlaylist(playlist));
+    for (let item of allItems) {
+      const targetInfo = MCURL.parse(item.uri!);
+      const media = this.mMedias.get(targetInfo.mediaId);
+      if ( !media || !media.isAssembled ) {
+        return false;
+      }
     }
 
-    //  TODO next 比例问题
-
-    return 0;
-  }
-
-  private async calculateCompletenessByPlaylist(playlist: HLSPlaylist): Promise<number> {
-    if (!playlist.allItems || playlist.allItems.length === 0) {
-      return 1;
+    const childPlaylistItems: HLSDefines.Item[] = [];
+    const variantStream = playlist.variantStream;
+    const audioRendition = playlist.audioRendition;
+    const videoRendition = playlist.videoRendition;
+    if ( variantStream ) {
+      childPlaylistItems.push(variantStream);
     }
-
-    if (playlist.segments) {
-      return this.calculateCompletenessBySegments(playlist.segments);
+    if ( audioRendition ) {
+      childPlaylistItems.push(audioRendition);
     }
-    return 0;
-  }
-
-  private async calculateCompletenessBySegments(segments: HLSDefines.SegmentItem[]): Promise<number> {
-    const promises = segments.map((item) => this.findMedia(MCURL.parse(item.uri!).mediaId).then((media) => media?.completeness ?? 0, () => 0));
-    return Promise.all(promises).then((progresses) => ((progresses.reduce((prev, cur) => prev + cur, 0)) / segments.length));
+    if ( videoRendition ) {
+      childPlaylistItems.push(videoRendition);
+    }
+    for (let item of childPlaylistItems) {
+      const targetInfo = MCURL.parse(item.uri!);
+      const childPlaylist = this.mPlaylists.get(targetInfo.mediaId);
+      const isCached = this.checkMediasCachedBy(childPlaylist);
+      if ( !isCached ) {
+        return false;
+      }
+    }
+    return true;
   }
 
   protected getInstance(): HLSAsset {
@@ -256,11 +227,39 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
     return this;
   }
 
-  get cacheSize(): number {
-    return Array.from(this.mMedias.entries()).reduce((prev, media) => prev + media[1].cacheSize, 0);
-  }
-
   async abort(error?: Error | undefined): Promise<void> {
     return this.mAbortController.abort(error);
   }
 }
+
+
+/// ----- master.m3u8
+/// #EXTM3U
+/// #EXT-X-VERSION:6
+/// #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio_group",NAME="English",DEFAULT=YES,AUTOSELECT=YES,LANGUAGE="en",URI="https://example.com/audio/english.m3u8"
+/// #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio_group",NAME="Spanish",DEFAULT=NO,AUTOSELECT=YES,LANGUAGE="es",URI="https://example.com/audio/spanish.m3u8"
+/// #EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subtitles_group",NAME="English",DEFAULT=NO,AUTOSELECT=YES,URI="https://example.com/subtitles/english.vtt"
+/// #EXT-X-STREAM-INF:BANDWIDTH=1280000,RESOLUTION=1280x720,AUDIO="audio_group"
+/// 720p_output.m3u8
+/// #EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=854x480,AUDIO="audio_group"
+/// 480p_output.m3u8
+///
+/// ----- variant_stream: 720p_output.m3u8
+/// 720p_output.m3u8
+/// #EXTM3U
+/// #EXT-X-VERSION:6
+/// #EXT-X-TARGETDURATION:10
+/// #EXT-X-MEDIA-SEQUENCE:0
+/// #EXT-X-INDEPENDENT-SEGMENTS
+/// #EXTINF:10.0,
+/// 720p_segment_000.ts
+/// #EXT-X-ENDLIST
+///
+/// ----- audio_rendition: english.m3u8
+/// #EXTM3U
+/// #EXT-X-VERSION:6
+/// #EXT-X-TARGETDURATION:10
+/// #EXT-X-MEDIA-SEQUENCE:0
+/// #EXTINF:10.0,
+/// english_segment_000.ts
+/// #EXT-X-ENDLIST

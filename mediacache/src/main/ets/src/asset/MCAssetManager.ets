@@ -88,7 +88,7 @@ namespace MCAssetManager {
     }
 
     if ( asset ) {
-      return asset.cacheSize;
+      return asset.currentCachedSize;
     }
 
     // 否则通过路径查询文件大小;

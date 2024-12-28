@@ -13,6 +13,7 @@ export interface IMCMedia extends IMCReadwriteReference<IMCMedia> {
 
   readonly isAssembled: boolean;
   readonly completeness: Promise<number>; // 完成度; [0, 1];
+  readonly currentCachedSize: number; // 当前已缓存的数据大小(单位: 字节);
 
   prepare(): Promise<void>;
   probe(request: IMCDataRequest, signal?: MCAbortSignal): Promise<IMCMediaMetadata>;
@@ -22,6 +23,5 @@ export interface IMCMedia extends IMCReadwriteReference<IMCMedia> {
   // 请谨慎使用, 该方法仅适合获取小文件的所有数据;
   readAllData(): Promise<ArrayBuffer | undefined>;
 
-  readonly cacheSize: number; // 返回当前缓存的数据大小;
   readonly abortSignal: MCAbortSignal; // 任务中止信号;
 }

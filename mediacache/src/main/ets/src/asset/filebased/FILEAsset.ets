@@ -25,8 +25,12 @@ export class FILEAsset extends MCReadwriteReference<FILEAsset> implements IMCAss
     return MCAssetType.FILE_BASED;
   }
 
-  get completeness(): Promise<number> {
-    return this.mMedia.completeness;
+  get isCached(): boolean {
+    return this.mMedia.isAssembled;
+  }
+
+  get currentCachedSize(): number {
+    return this.mMedia.currentCachedSize;
   }
 
   prepare(): Promise<void> {
@@ -45,10 +49,6 @@ export class FILEAsset extends MCReadwriteReference<FILEAsset> implements IMCAss
     super.readwriteRetain();
     MCAssetCacheManager.onAssetReadwrite(this);
     return this;
-  }
-
-  get cacheSize(): number {
-    return this.mMedia.cacheSize;
   }
 
   abort(error?: Error): Promise<void> {
