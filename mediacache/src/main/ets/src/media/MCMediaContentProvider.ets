@@ -36,7 +36,7 @@ export class MCMediaContentProvider {
       // 这些文件需要删除(元数据未就绪之前, 无法确定内容完整性);
       try {
         const fileNames = await fileIo.listFile(this.mDir);
-        const prefix = `${this.mContentFileNamePrefix}_`;
+        const prefix = `${this.mContentFileNamePrefix}_${this.mMediaId}`;
         const unavailableContents = fileNames.length > 0 ? fileNames.filter((fileName) => fileName.startsWith(prefix)) : undefined;
         if ( unavailableContents ) {
           for (let fileName of unavailableContents) {
@@ -96,7 +96,7 @@ export class MCMediaContentProvider {
   /** 加载目录下缓存的媒体内容; */
   async loadContents(): Promise<IMCMediaContent[] | undefined> {
     const fileNames = await fileIo.listFile(this.mDir);
-    const prefix = `${this.mContentFileNamePrefix}_`;
+    const prefix = `${this.mContentFileNamePrefix}_${this.mMediaId}`;
     const contentFileNames = fileNames.length > 0 ? fileNames.filter((fileName) => fileName.startsWith(prefix)) : undefined;
     return contentFileNames && contentFileNames.length > 0 ? Promise.all(contentFileNames.map(async (fileName) => {
       const filePath = `${this.mDir}/${fileName}`;
