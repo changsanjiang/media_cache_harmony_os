@@ -172,14 +172,19 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
         MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Keeping connection alive, closing after ${keepAlive.timeout}s.`);
 
         const timeoutID = setTimeout(() => {
-          MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Timeout reached, closing connection after ${keepAlive.timeout}s.`);
+          MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Keep-alive timeout reached (${keepAlive.timeout}s). Closing connection.`);
           this.mTimeoutIdMap.delete(connection.clientId);
           this.closeConnection(connection, 'timeout');
         }, keepAlive.timeout * 1000);
         this.mTimeoutIdMap.set(connection.clientId, timeoutID);
       }
+      else {
+        MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Keep-alive header present but timeout is not valid (${keepAlive.timeout}s). Closing connection immediately.`);
+        this.closeConnection(connection, 'invalid-keep-alive');
+      }
     }
     else {
+      MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${connection.clientId}] Connection header not set to keep-alive. Closing connection immediately.`);
       this.closeConnection(connection, 'immediately');
     }
   }
