@@ -89,23 +89,37 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       if (entries) {
         this.mMetadataFileSize = entries[0];
         this.mMetadata = entries[1];
-        MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Metadata loaded. ContentType: ${this.mMetadata?.contentType}, TotalLength: ${this.mMetadata?.totalLength}, ByteRangeAccessSupported: ${this.mMetadata?.byteRangeAccessSupported}.`);
+        MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Metadata successfully loaded. ContentType: ${this.mMetadata?.contentType}, TotalLength: ${this.mMetadata?.totalLength}, ByteRangeAccessSupported: ${this.mMetadata?.byteRangeAccessSupported}.`);
 
         if ( this.mMetadata.totalLength == 0 ) { // 空文件
           this.mAssembled = true;
           this.mFullyTrimmed = true;
+          MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Detected empty file. Marked as assembled and fully trimmed.`);
         }
         else {
           const contents = await this.mContentProvider.loadContents();
+          MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Loaded ${contents?.length || 0} content blocks from storage.`);
+
           contents?.forEach((content) => this.mNodeList.upsertNode(content.contentOffset, content));
           if (contents && contents.length > 0) {
-            await this.restructureContents(); // 重组内容, 删除冗余数据;
+            if ( contents.length === 1 ) {
+              if ( contents[0].length === this.mMetadata.totalLength ) {
+                this.mAssembled = true;
+                this.mFullyTrimmed = true;
+                MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Single content block matches total length. Marked as assembled and fully trimmed.`
+                );
+              }
+            }
+            else {
+              MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Multiple content blocks detected (${contents.length}). Starting restructuring to remove redundant data.`);
+              await this.restructureContents(); // 重组内容, 删除冗余数据;
+            }
           }
         }
       }
     }
     catch (error) {
-      MCLogger.error(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Error during preparation: ${error.message}\nStack: ${error.stack}`);
+      MCLogger.error(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Error during preparation: ${error.message}. Stack trace: ${error.stack}`);
       throw error as Error;
     }
   }
@@ -474,7 +488,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
         }
       }
       catch (error) {
-        MCLogger.error(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Error during content restructuring: ${error.message}\nStack: ${error.stack}`);
+        MCLogger.error(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Error during content restructuring: ${error.message}. Stack trace: ${error.stack}`);
         throw error as Error;
       }
     }
@@ -538,7 +552,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
         return true;
       }
       catch (error) {
-        MCLogger.error(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Error during merge: ${error.message}\nStack: ${error.stack}`);
+        MCLogger.error(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Error during merge: ${error.message}. Stack trace: ${error.stack}`);
         reader.close();
         writer.close();
         throw error as Error;
