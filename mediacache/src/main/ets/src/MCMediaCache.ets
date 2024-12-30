@@ -4,11 +4,14 @@ import HLSDefines from "./defines/HLSDefines";
 import { MCAssetCacheConfig } from "./defines/MCAssetCacheConfig";
 import { MCAssetPrefetchOptions } from "./defines/MCAssetPrefetchOptions";
 import { MCAssetType } from "./defines/MCAssetType";
+import { MCLogLevel } from "./defines/MCLogLevel";
+import { MCLogModule } from "./defines/MCLogModule";
 import MCAssetPrefetcher from "./prefetcher/MCAssetPrefetcher";
 import { MCHttpConnectionHandler } from "./server/MCHttpConnectionHandler";
 import { MCTcpSocketServer } from "./server/MCTcpSocketServer";
 import MCConfigs from "./utils/MCConfigs";
 import { MCDownloadRequest } from "./utils/MCDownloadRequest";
+import MCLogger from "./utils/MCLogger";
 import MCURL from "./utils/MCURL";
 
 namespace MCMediaCache {
@@ -92,22 +95,42 @@ namespace MCMediaCache {
     return MCAssetCacheManager.pinnedCacheSize();
   }
 
+  /** 是否开启控制台输出日志; */
+  export function setLogEnabled(isEnabled: boolean): void {
+    MCLogger.enabled = isEnabled;
+  }
+
+  /** 设置日志等级; */
+  export function setLogLevel(level: MCLogLevel): void {
+    MCLogger.logLevel = level;
+  }
+
+  /** 禁止哪些模块的日志; */
+  export function setLogBlockModules(modules: MCLogModule[]): void {
+    MCLogger.blacklist = modules;
+  }
+
+  /** 允许哪些模块的日志; */
+  export function setLogWhiteModules(modules: MCLogModule[]): void {
+    MCLogger.whitelist = modules;
+  }
+
   /**
    * 向远程服务器发起请求前回调; 可以在回调中修改请求, 添加请求头等;
    * */
-  export function setRequestHandler(block: (request: MCDownloadRequest) => void) {
+  export function setRequestHandler(block: (request: MCDownloadRequest) => void): void {
     MCConfigs.requestHandler = block;
   }
 
   /** 对缓存数据加密; 将缓存数据加密保存到本地; */
-  export function setDataEncryptHandler(block: (resUrl: string, offset: number, data: ArrayBuffer) => Promise<void>) {
+  export function setDataEncryptHandler(block: (resUrl: string, offset: number, data: ArrayBuffer) => Promise<void>): void {
     MCConfigs.dataEncryptHandler = (request, offset, data) => {
       return block(request.url, offset, data);
     }
   }
 
   /** 对缓存数据解密; */
-  export function setDataDecryptHandler(block: (resUrl: string, offset: number, data: ArrayBuffer) => Promise<void>) {
+  export function setDataDecryptHandler(block: (resUrl: string, offset: number, data: ArrayBuffer) => Promise<void>): void {
     MCConfigs.dataDecryptHandler = (request, offset, data) => {
       return block(MCURL.parseUrl(request.requestTarget), offset, data);
     };
@@ -122,7 +145,7 @@ namespace MCMediaCache {
    *
    * 返回 undefined 将采用默认处理;
    * */
-  export function setAssetTypeResolver(block: (resUrl: string) => Promise<MCAssetType | undefined>) {
+  export function setAssetTypeResolver(block: (resUrl: string) => Promise<MCAssetType | undefined>): void {
     MCConfigs.assetTypeResolver = block;
   }
 
@@ -132,17 +155,17 @@ namespace MCMediaCache {
    *
    * 返回 undefined 将采用默认处理;
    * */
-  export function setAssetIdentifierPreprocessor(block: (resUrl: string) => Promise<string | undefined>) {
+  export function setAssetIdentifierPreprocessor(block: (resUrl: string) => Promise<string | undefined>): void {
     MCConfigs.assetIdentifierPreprocessor = block;
   }
 
   /** hls variant stream 选择器; */
-  export function setVariantStreamSelectionHandler(block: HLSDefines.VariantStreamSelectionHandler) {
+  export function setVariantStreamSelectionHandler(block: HLSDefines.VariantStreamSelectionHandler): void {
     MCConfigs.variantStreamSelectionHandler = block;
   }
 
   /** hls rendition 选择器 */
-  export function setRenditionSelectionHandler(block: HLSDefines.RenditionSelectionHandler) {
+  export function setRenditionSelectionHandler(block: HLSDefines.RenditionSelectionHandler): void {
     MCConfigs.renditionSelectionHandler = block;
   }
 }

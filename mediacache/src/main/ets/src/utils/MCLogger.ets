@@ -6,12 +6,12 @@ namespace MCLogger {
   export let logLevel = MCLogLevel.DEBUG;
 
   /** 是否启用日志; */
-  export let enabled = true;
+  export let enabled = false;
 
   /** 禁止哪些模块的日志; */
   export let blacklist: MCLogModule[] | undefined = undefined;
   /** 允许哪些模块的日志; */
-  export let whitelist: MCLogModule[] | undefined;// = [MCLogModule.MCHttpResponse, MCLogModule.MCHttpConnectionHandler];
+  export let whitelist: MCLogModule[] | undefined = undefined;
 
   export function log(module: MCLogModule, level: MCLogLevel, messageFn: () => string): void {
     if ( enabled && level >= logLevel ) {
