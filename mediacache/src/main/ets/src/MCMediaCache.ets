@@ -15,6 +15,7 @@ namespace MCMediaCache {
 
   /** 生成代理播放地址, 播放器可以使用该地址播放; */
   export async function proxy(resUrl: string): Promise<string> {
+    getCacheManager(); // 激活缓存管理器
     const server = await getLocalServer();
     const port = await server.start();
     return MCAssetUtils.generateProxyUrl(resUrl, port);
@@ -22,24 +23,22 @@ namespace MCMediaCache {
 
   /** 预加载; 预先缓存一部分数据到本地; */
   export function prefetch(resUrl: string, options?: MCAssetPrefetchOptions): Promise<void> {
+    getCacheManager(); // 激活缓存管理器
     return MCAssetPrefetcher.prefetch(resUrl, options);
   }
 
   /** 标记是否"固定"; 缓存管理器会定期删除一些缓存, 如果你想要保留某些视频防止被删除可以提前将其设置为"固定"; */
   export async function setPinned(resUrl: string, isPinned: boolean): Promise<void> {
-    const mgr = await getCacheManager();
-    return mgr.setPinned(resUrl, isPinned);
+    return getCacheManager().then(mgr => mgr.setPinned(resUrl, isPinned));
   }
 
   export async function isPinned(resUrl: string): Promise<boolean> {
-    const mgr = await getCacheManager();
-    return mgr.isPinned(resUrl);
+    return getCacheManager().then(mgr => mgr.isPinned(resUrl));
   }
 
   /** 根据播放地址删除对应的缓存; */
   export async function removeCacheBy(resUrl: string): Promise<void> {
-    const mgr = await getCacheManager();
-    return mgr.removeCacheBy(resUrl);
+    return getCacheManager().then(mgr => mgr.removeCacheBy(resUrl));
   }
 
   /** 删除本地缓存;
@@ -50,20 +49,17 @@ namespace MCMediaCache {
    *
    * */
   export async function removeCaches(): Promise<void> {
-    const mgr = await getCacheManager();
-    return mgr.removeCaches();
+    return getCacheManager().then(mgr => mgr.removeCaches());
   }
 
-  /** 缓存大小; */
+  /** 所有缓存大小(包含被固定的缓存); */
   export async function countOfBytesAllCaches(): Promise<number> {
-    const mgr = await getCacheManager();
-    return mgr.countOfBytesAllCaches();
+    return getCacheManager().then(mgr => mgr.countOfBytesAllCaches());
   }
 
   /** 被固定的缓存大小; */
   export async function countOfBytesPinnedCaches(): Promise<number> {
-    const mgr = await getCacheManager();
-    return mgr.countOfBytesPinnedCaches();
+    return getCacheManager().then(mgr => mgr.countOfBytesPinnedCaches());
   }
 
   /** 对缓存数据加密; 将缓存数据加密保存到本地; */
