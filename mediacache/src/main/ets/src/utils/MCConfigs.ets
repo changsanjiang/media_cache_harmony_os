@@ -1,4 +1,5 @@
 import { rcp } from '@kit.RemoteCommunicationKit';
+import HLSDefines from '../defines/HLSDefines';
 import { IMCDataRequest } from '../defines/IMCDataRequest';
 import { MCAssetType } from '../defines/MCAssetType';
 import { MCDownloadRequest } from './MCDownloadRequest';
@@ -41,6 +42,10 @@ namespace MCConfigs {
    * @param data 数据内容, 将要保存到缓存中的数据;
    * */
   export let dataEncryptHandler: ((request: MCDownloadRequest, offset: number, data: ArrayBuffer) => Promise<void>) | undefined = undefined;
+
+  export let variantStreamSelectionHandler: HLSDefines.VariantStreamSelectionHandler | undefined = undefined;
+
+  export let renditionSelectionHandler: HLSDefines.RenditionSelectionHandler | undefined = undefined;
 }
 
 export default MCConfigs;

@@ -1,7 +1,8 @@
-import { HLSPlaylist, MCAssetUtils, MCUtils } from "../../../../../Index";
 import { FILEAsset } from "../asset/filebased/FILEAsset";
 import { HLSAsset } from "../asset/hls/HLSAsset";
+import { HLSPlaylist } from "../asset/hls/HLSPlaylist";
 import MCAssetManager from "../asset/MCAssetManager";
+import MCAssetUtils from "../asset/MCAssetUtils";
 import HLSDefines from "../defines/HLSDefines";
 import { IMCDataFetcher } from "../defines/IMCDataFetcher";
 import { IMCDataRequest } from "../defines/IMCDataRequest";
@@ -13,6 +14,7 @@ import { MCAssetPrefetchOptions } from "../defines/MCAssetPrefetchOptions";
 import { MCAssetType } from "../defines/MCAssetType";
 import { MCMediaDataFetcher } from "../media/MCMediaDataFetcher";
 import { MCAbortController, MCAbortSignal } from "../utils/MCAbortController";
+import MCUtils from "../utils/MCUtils";
 
 namespace MCAssetPrefetcher {
   let mPrefetchId = -1

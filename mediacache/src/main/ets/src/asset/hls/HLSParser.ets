@@ -1,8 +1,8 @@
 import { MCRange } from "../../utils/MCRange";
 import HLSDefines from "../../defines/HLSDefines";
-import { MCUtils } from "../../../../../../Index";
 import MCAssetUtils from '../MCAssetUtils';
 import { MCMediaKind } from "../../defines/MCMediaKind";
+import MCUtils from "../../utils/MCUtils";
 
 namespace HLSParser {
 

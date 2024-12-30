@@ -2,8 +2,8 @@ import { IMCMediaContent } from "../defines/IMCMediaContent";
 import { MCMediaContent } from "./MCMediaContent";
 import { fileIo } from "@kit.CoreFileKit";
 import { IMCMediaMetadata } from "../defines/IMCMediaMetadata";
-import { MCUtils } from "../../../../../Index";
 import { JSON } from "@kit.ArkTS";
+import MCUtils from "../utils/MCUtils";
 
 export class MCMediaContentProvider {
   private mMediaId: string;

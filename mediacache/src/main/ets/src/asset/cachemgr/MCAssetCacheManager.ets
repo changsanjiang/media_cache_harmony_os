@@ -73,7 +73,7 @@ namespace MCAssetCacheManager {
   }
 
   /** 获取缓存总大小 */
-  export async function countOfBytesAllCaches(): Promise<number> {
+  export async function totalCacheSize(): Promise<number> {
     try {
       const allIds = await MCAssetManager.queryAllAssetIds();
       const size = allIds.length > 0 ? await MCAssetManager.calculateCacheSizeForAssets(allIds) : 0;
@@ -85,8 +85,8 @@ namespace MCAssetCacheManager {
     }
   }
 
-  /** 获取固定缓存大小 */
-  export async function countOfBytesPinnedCaches(): Promise<number> {
+  /** 获取被固定的缓存大小 */
+  export async function pinnedCacheSize(): Promise<number> {
     try {
       const allIds = await MCAssetManager.queryAllAssetIds();
       const pinnedAssets = allIds.filter(assetId => MCAssetStateRepository.isPinned(assetId));

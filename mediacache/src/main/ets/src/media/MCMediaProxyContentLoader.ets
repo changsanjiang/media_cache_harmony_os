@@ -3,11 +3,9 @@ import { MCLogModule } from "../defines/MCLogModule";
 import { MCAbortController } from "../utils/MCAbortController";
 import MCDownload from "../utils/MCDownload";
 import { MCDownloadRequest } from "../utils/MCDownloadRequest";
-import { MCDownloadResponseHeaders } from "../utils/MCDownloadResponseHeaders";
 import MCLogger from "../utils/MCLogger";
 import { MCRange } from "../utils/MCRange";
 import { BusinessError } from "@kit.BasicServicesKit";
-import { MCUtils } from "../../../../../Index";
 import { MCMedia } from "./MCMedia";
 import { MCMediaContentLoader } from "./MCMediaContentLoader";
 

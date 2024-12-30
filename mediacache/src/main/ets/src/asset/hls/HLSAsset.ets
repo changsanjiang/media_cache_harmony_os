@@ -1,4 +1,3 @@
-import { HLSPlaylist, MCUtils } from "../../../../../../Index";
 import HLSDefines from "../../defines/HLSDefines";
 import { IMCAsset } from "../../defines/IMCAsset";
 import { IMCMedia } from "../../defines/IMCMedia";
@@ -6,10 +5,13 @@ import { MCAssetType } from "../../defines/MCAssetType";
 import { MCMediaKind } from "../../defines/MCMediaKind";
 import { MCMedia } from "../../media/MCMedia";
 import { MCAbortController } from "../../utils/MCAbortController";
+import MCConfigs from "../../utils/MCConfigs";
 import { MCReadwriteReference } from "../../utils/MCReadwriteReference";
 import MCURL from "../../utils/MCURL";
+import MCUtils from "../../utils/MCUtils";
 import MCAssetCacheManager from "../cachemgr/MCAssetCacheManager";
 import HLSParser from "./HLSParser";
+import { HLSPlaylist } from "./HLSPlaylist";
 
 export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset {
   /** HLS 会有多个媒体文件; */
@@ -117,8 +119,7 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
       // MCMedia 的内容下载完成后回调;
       proxyHandler = async (requestUrl, currentUrl, data) => {
         const content = MCUtils.bufferToString(data);
-        // variantStreamSelectionHandler?: HLSDefines.VariantStreamSelectionHandler, renditionSelectionHandler?: HLSDefines.RenditionSelectionHandler
-        const proxyContent = await HLSParser.proxy(this.id, content, requestUrl, currentUrl);
+        const proxyContent = await HLSParser.proxy(this.id, content, requestUrl, currentUrl, MCConfigs.variantStreamSelectionHandler, MCConfigs.renditionSelectionHandler);
         await this.initializePlaylist(mediaId, proxyContent);
         return MCUtils.stringToBuffer(proxyContent);
       }

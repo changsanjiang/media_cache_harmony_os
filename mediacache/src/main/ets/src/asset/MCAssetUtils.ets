@@ -1,8 +1,9 @@
 import { url } from '@kit.ArkTS';
-import { MCURL, MCUtils } from '../../../../../Index';
 import { MCAssetType } from '../defines/MCAssetType';
 import { MCMediaKind } from '../defines/MCMediaKind';
 import MCConfigs from '../utils/MCConfigs';
+import MCURL from '../utils/MCURL';
+import MCUtils from '../utils/MCUtils';
 
 namespace MCAssetUtils {
   /**

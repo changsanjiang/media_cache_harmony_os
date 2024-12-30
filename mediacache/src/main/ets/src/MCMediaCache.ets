@@ -1,5 +1,6 @@
 import MCAssetCacheManager from "./asset/cachemgr/MCAssetCacheManager";
 import MCAssetUtils from "./asset/MCAssetUtils";
+import HLSDefines from "./defines/HLSDefines";
 import { MCAssetCacheConfig } from "./defines/MCAssetCacheConfig";
 import { MCAssetPrefetchOptions } from "./defines/MCAssetPrefetchOptions";
 import { MCAssetType } from "./defines/MCAssetType";
@@ -73,7 +74,7 @@ namespace MCMediaCache {
    *
    * 通过`setPinned`被设置为"Pinned"的缓存不会被删除, 如需删除请通过`removeCacheBy`指定 url 来删除;
    *
-   * 可删除的缓存大小 = countOfBytesAllCaches() - countOfBytesPinnedCaches();
+   * 可删除的缓存大小 = totalCacheSize() - pinnedCacheSize();
    *
    * */
   export function removeCaches(): Promise<void> {
@@ -81,13 +82,13 @@ namespace MCMediaCache {
   }
 
   /** 所有缓存的大小(包含被固定的缓存); */
-  export function countOfBytesAllCaches(): Promise<number> {
-    return MCAssetCacheManager.countOfBytesAllCaches();
+  export function totalCacheSize(): Promise<number> {
+    return MCAssetCacheManager.totalCacheSize();
   }
 
-  /** 被固定的缓存大小; */
-  export function countOfBytesPinnedCaches(): Promise<number> {
-    return MCAssetCacheManager.countOfBytesPinnedCaches();
+  /** 获取被固定的缓存大小 */
+  export function pinnedCacheSize(): Promise<number> {
+    return MCAssetCacheManager.pinnedCacheSize();
   }
 
   /** 对缓存数据加密; 将缓存数据加密保存到本地; */
@@ -125,6 +126,16 @@ namespace MCMediaCache {
    * */
   export function setAssetIdentifierPreprocessor(block: (resUrl: string) => Promise<string | undefined>) {
     MCConfigs.assetIdentifierPreprocessor = block;
+  }
+
+  /** hls variant stream 选择器; */
+  export function setVariantStreamSelectionHandler(block: HLSDefines.VariantStreamSelectionHandler) {
+    MCConfigs.variantStreamSelectionHandler = block;
+  }
+
+  /** hls rendition 选择器 */
+  export function setRenditionSelectionHandler(block: HLSDefines.RenditionSelectionHandler) {
+    MCConfigs.renditionSelectionHandler = block;
   }
 }
 

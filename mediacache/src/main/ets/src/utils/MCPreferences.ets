@@ -1,6 +1,6 @@
 import { preferences } from '@kit.ArkData';
-import { MCUtils } from '../../../../../Index';
 import MCConfigs from './MCConfigs';
+import MCUtils from './MCUtils';
 
 export class MCPreferences<T extends preferences.ValueType> {
   private mPref: Promise<preferences.Preferences>;
