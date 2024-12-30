@@ -15,19 +15,21 @@ namespace MCAssetStateRepository {
       const record = await mPref.getAll();
       const map = MCUtils.recordToMap(record);
 
-      for (let element of Array.from(map.entries())) {
+      for ( let element of Array.from(map.entries()) ) {
         try {
           const assetId = element[0];
           const state = JSON.parse(element[1]) as MCAssetState;
           mStates.set(assetId, state);
           MCLogger.debug(MCLogModule.MCAssetState, () => `[AssetId: ${assetId}] Loaded state. IsPinned: ${state.isPinned}`);
-        } catch (ignored) {
+        }
+        catch (ignored) {
           MCLogger.warn(MCLogModule.MCAssetState, () => `[AssetId: ${element[0]}] Failed to parse state entry.`);
         }
       }
 
       MCLogger.info(MCLogModule.MCAssetState, () => `Asset states initialized. Total loaded: ${mStates.size}`);
-    } catch (error) {
+    }
+    catch (error) {
       MCLogger.error(MCLogModule.MCAssetState, () => `Failed to initialize asset states: ${error.message}`);
       throw error as Error;
     }
@@ -50,7 +52,8 @@ namespace MCAssetStateRepository {
       await mPref.set(assetId, JSON.stringify(state));
       await mPref.flush();
       MCLogger.debug(MCLogModule.MCAssetState, () => `[AssetId: ${assetId}] Pinned state saved to preferences.`);
-    } catch (error) {
+    }
+    catch (error) {
       MCLogger.error(MCLogModule.MCAssetState, () => `[AssetId: ${assetId}] Failed to set pinned state: ${error.message}`);
       throw error as Error;
     }
@@ -58,18 +61,20 @@ namespace MCAssetStateRepository {
 
   // 删除资产状态
   export async function onEvict(assetId: string): Promise<void> {
-    if (mStates.has(assetId)) {
+    if ( mStates.has(assetId) ) {
       try {
         mStates.delete(assetId);
         await mPref.delete(assetId);
         await mPref.flush();
         MCLogger.info(MCLogModule.MCAssetState, () => `[AssetId: ${assetId}] Evicted state and cleared preferences.`);
-      } catch (error) {
+      }
+      catch (error) {
         MCLogger.error(MCLogModule.MCAssetState, () => `[AssetId: ${assetId}] Failed to evict state: ${error.message}`);
         throw error as Error;
       }
-    } else {
-      MCLogger.warn(MCLogModule.MCAssetState, () => `[AssetId: ${assetId}] No state found to evict.`);
+    }
+    else {
+      MCLogger.debug(MCLogModule.MCAssetState, () => `[AssetId: ${assetId}] No state found to evict.`);
     }
   }
 }

@@ -28,12 +28,13 @@ namespace MCAssetCacheManager {
       await MCAssetAccessLogRepository.prepare();
 
       MCLogger.info(MCLogModule.MCAssetCacheManager, () => `Starting initial asset trimming.`);
-      await trimAssetsBy(Limit.COUNT);
-      await trimAssetsBy(Limit.DISK_AGE);
-      await trimAssetsBy(Limit.DISK_SIZE);
-      await trimAssetsBy(Limit.DISK_SPACE_WARNING);
+      try { await trimAssetsBy(Limit.COUNT); } catch (ignored) { }
+      try { await trimAssetsBy(Limit.DISK_AGE); } catch (ignored) { }
+      try { await trimAssetsBy(Limit.DISK_SIZE); } catch (ignored) { }
+      try { await trimAssetsBy(Limit.DISK_SPACE_WARNING); } catch (ignored) { }
       MCLogger.info(MCLogModule.MCAssetCacheManager, () => `Asset cache manager initialized.`);
-    } catch (error) {
+    }
+    catch (error) {
       MCLogger.error(MCLogModule.MCAssetCacheManager, () => `Failed to initialize asset cache manager: ${error.message}`);
       throw error as Error;
     }
