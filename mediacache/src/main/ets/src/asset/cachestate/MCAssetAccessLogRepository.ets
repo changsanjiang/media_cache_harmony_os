@@ -75,7 +75,7 @@ namespace MCAssetAccessLogRepository {
       }
     }
     else {
-      MCLogger.warn(MCLogModule.MCAssetAccessLogRepository, () => `[AssetId: ${assetId}] No access log found to evict.`);
+      MCLogger.debug(MCLogModule.MCAssetAccessLogRepository, () => `[AssetId: ${assetId}] No access log found to evict.`);
     }
   }
 
