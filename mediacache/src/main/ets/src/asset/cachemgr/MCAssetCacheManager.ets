@@ -130,6 +130,7 @@ namespace MCAssetCacheManager {
     }
 
     mPeriodTrimStarted = true;
+    MCLogger.info(MCLogModule.MCAssetCacheManager, () => `Periodic cache trimming started.`);
 
     // 定期检测
 
