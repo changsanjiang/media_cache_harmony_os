@@ -28,10 +28,10 @@ namespace MCAssetCacheManager {
       await MCAssetAccessLogRepository.prepare();
 
       MCLogger.info(MCLogModule.MCAssetCacheManager, () => `Starting initial asset trimming.`);
-      try { await trimAssetsBy(Limit.COUNT); } catch (ignored) { }
-      try { await trimAssetsBy(Limit.DISK_AGE); } catch (ignored) { }
-      try { await trimAssetsBy(Limit.DISK_SIZE); } catch (ignored) { }
-      try { await trimAssetsBy(Limit.DISK_SPACE_WARNING); } catch (ignored) { }
+      await trimAssetsBy(Limit.COUNT);
+      await trimAssetsBy(Limit.DISK_AGE);
+      await trimAssetsBy(Limit.DISK_SIZE);
+      await trimAssetsBy(Limit.DISK_SPACE_WARNING);
       MCLogger.info(MCLogModule.MCAssetCacheManager, () => `Asset cache manager initialized.`);
     }
     catch (error) {
@@ -136,15 +136,15 @@ namespace MCAssetCacheManager {
     // 定期检测
 
     // 每5分钟检测一次
-    setInterval(() => {
-      trimAssetsBy(Limit.COUNT);
-      trimAssetsBy(Limit.DISK_SIZE);
+    setInterval(async () => {
+      await trimAssetsBy(Limit.COUNT);
+      await trimAssetsBy(Limit.DISK_SIZE);
     }, 5 * 60 * 1000);
 
     // 每半小时检测一次
-    setInterval(() => {
-      trimAssetsBy(Limit.DISK_AGE);
-      trimAssetsBy(Limit.DISK_SPACE_WARNING);
+    setInterval(async () => {
+      await trimAssetsBy(Limit.DISK_AGE);
+      await trimAssetsBy(Limit.DISK_SPACE_WARNING);
     }, 30 * 60 * 1000);
   }
 
@@ -230,9 +230,8 @@ namespace MCAssetCacheManager {
           break;
       }
     }
-    catch (error) {
-      MCLogger.error(MCLogModule.MCAssetCacheManager, () => `Error trimming assets by ${Limit[limit]}: ${error.message}`);
-      throw error as Error;
+    catch (ignored) {
+      MCLogger.error(MCLogModule.MCAssetCacheManager, () => `Error trimming assets by ${Limit[limit]}: ${ignored.message}`);
     }
   }
 
