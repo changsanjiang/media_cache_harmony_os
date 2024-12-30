@@ -1,44 +1,72 @@
-import { MCAssetCacheManager } from "./asset/cachemgr/MCAssetCacheManager";
+import MCAssetCacheManager from "./asset/cachemgr/MCAssetCacheManager";
 import MCAssetUtils from "./asset/MCAssetUtils";
 import { MCAssetCacheConfig } from "./defines/MCAssetCacheConfig";
 import { MCAssetPrefetchOptions } from "./defines/MCAssetPrefetchOptions";
 import { MCAssetType } from "./defines/MCAssetType";
 import MCAssetPrefetcher from "./prefetcher/MCAssetPrefetcher";
 import { MCHttpConnectionHandler } from "./server/MCHttpConnectionHandler";
-import { IMCTcpSocketServer, MCTcpSocketServer } from "./server/MCTcpSocketServer";
+import { MCTcpSocketServer } from "./server/MCTcpSocketServer";
 import MCConfigs from "./utils/MCConfigs";
 import MCURL from "./utils/MCURL";
 
 namespace MCMediaCache {
+  const mTcpServer = new MCTcpSocketServer();
+  const mConnectionHandler = new MCHttpConnectionHandler();
+  let mPrepared = false;
+  let mPreparationPromise: Promise<void> | undefined = undefined;
+
   /** 缓存管理配置; 缓存管理器会根据这个配置定期检测并删除一些缓存; */
-  export const cacheConfig: MCAssetCacheConfig = new MCAssetCacheConfig();
+  export const cacheConfig: MCAssetCacheConfig = MCAssetCacheManager.config;
+
+  /** 启动代理服务器; */
+  export async function prepare(): Promise<void> {
+    if ( !mPrepared ) {
+      if ( mPreparationPromise === undefined ) {
+        mPreparationPromise = new Promise(async (resolve, reject) => {
+          try {
+            // 启动代理服务器
+            mTcpServer.on('connect', (connection) => mConnectionHandler.handleConnection(connection));
+            await mTcpServer.start();
+
+            // 初始化缓存管理器
+            await MCAssetCacheManager.prepare();
+            mPrepared = true;
+            resolve();
+          }
+          catch (error) {
+            reject(error);
+          }
+          finally {
+            mPreparationPromise = undefined;
+          }
+        });
+      }
+      await mPreparationPromise;
+    }
+  }
 
   /** 生成代理播放地址, 播放器可以使用该地址播放; */
   export async function proxy(resUrl: string): Promise<string> {
-    getCacheManager(); // 激活缓存管理器
-    const server = await getLocalServer();
-    const port = await server.start();
-    return MCAssetUtils.generateProxyUrl(resUrl, port);
+    return MCAssetUtils.generateProxyUrl(resUrl, await mTcpServer.start());
   }
 
   /** 预加载; 预先缓存一部分数据到本地; */
   export function prefetch(resUrl: string, options?: MCAssetPrefetchOptions): Promise<void> {
-    getCacheManager(); // 激活缓存管理器
     return MCAssetPrefetcher.prefetch(resUrl, options);
   }
 
   /** 标记是否"固定"; 缓存管理器会定期删除一些缓存, 如果你想要保留某些视频防止被删除可以提前将其设置为"固定"; */
-  export async function setPinned(resUrl: string, isPinned: boolean): Promise<void> {
-    return getCacheManager().then(mgr => mgr.setPinned(resUrl, isPinned));
+  export function setPinned(resUrl: string, isPinned: boolean): Promise<void> {
+    return MCAssetCacheManager.setPinned(resUrl, isPinned);
   }
 
-  export async function isPinned(resUrl: string): Promise<boolean> {
-    return getCacheManager().then(mgr => mgr.isPinned(resUrl));
+  export function isPinned(resUrl: string): Promise<boolean> {
+    return MCAssetCacheManager.isPinned(resUrl);
   }
 
   /** 根据播放地址删除对应的缓存; */
-  export async function removeCacheBy(resUrl: string): Promise<void> {
-    return getCacheManager().then(mgr => mgr.removeCacheBy(resUrl));
+  export function removeCacheBy(resUrl: string): Promise<void> {
+    return MCAssetCacheManager.removeCacheBy(resUrl);
   }
 
   /** 删除本地缓存;
@@ -48,18 +76,18 @@ namespace MCMediaCache {
    * 可删除的缓存大小 = countOfBytesAllCaches() - countOfBytesPinnedCaches();
    *
    * */
-  export async function removeCaches(): Promise<void> {
-    return getCacheManager().then(mgr => mgr.removeCaches());
+  export function removeCaches(): Promise<void> {
+    return MCAssetCacheManager.removeCaches();
   }
 
-  /** 所有缓存大小(包含被固定的缓存); */
-  export async function countOfBytesAllCaches(): Promise<number> {
-    return getCacheManager().then(mgr => mgr.countOfBytesAllCaches());
+  /** 所有缓存的大小(包含被固定的缓存); */
+  export function countOfBytesAllCaches(): Promise<number> {
+    return MCAssetCacheManager.countOfBytesAllCaches();
   }
 
   /** 被固定的缓存大小; */
-  export async function countOfBytesPinnedCaches(): Promise<number> {
-    return getCacheManager().then(mgr => mgr.countOfBytesPinnedCaches());
+  export function countOfBytesPinnedCaches(): Promise<number> {
+    return MCAssetCacheManager.countOfBytesPinnedCaches();
   }
 
   /** 对缓存数据加密; 将缓存数据加密保存到本地; */
@@ -97,30 +125,6 @@ namespace MCMediaCache {
    * */
   export function setAssetIdentifierPreprocessor(block: (resUrl: string) => Promise<string | undefined>) {
     MCConfigs.assetIdentifierPreprocessor = block;
-  }
-
-  let mLocalServerPromise: Promise<IMCTcpSocketServer> | undefined = undefined;
-  function getLocalServer(): Promise<IMCTcpSocketServer> {
-    if ( mLocalServerPromise === undefined ) {
-      mLocalServerPromise = new Promise<IMCTcpSocketServer>((resolve) => {
-        const tcpServer = new MCTcpSocketServer();
-        const connectionHandler = new MCHttpConnectionHandler();
-        tcpServer.on('connect', (connection) => connectionHandler.handleConnection(connection));
-        resolve(tcpServer);
-      });
-    }
-    return mLocalServerPromise;
-  }
-
-  let mCacheManagerPromise: Promise<MCAssetCacheManager> | undefined = undefined;
-  function getCacheManager(): Promise<MCAssetCacheManager> {
-    if ( mCacheManagerPromise === undefined ) {
-      mCacheManagerPromise = new Promise<MCAssetCacheManager>((resolve) => {
-        const cacheManager = new MCAssetCacheManager(cacheConfig);
-        resolve(cacheManager.prepare().then(() => cacheManager));
-      });
-    }
-    return mCacheManagerPromise;
   }
 }
 
