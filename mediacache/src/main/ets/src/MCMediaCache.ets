@@ -8,6 +8,7 @@ import MCAssetPrefetcher from "./prefetcher/MCAssetPrefetcher";
 import { MCHttpConnectionHandler } from "./server/MCHttpConnectionHandler";
 import { MCTcpSocketServer } from "./server/MCTcpSocketServer";
 import MCConfigs from "./utils/MCConfigs";
+import { MCDownloadRequest } from "./utils/MCDownloadRequest";
 import MCURL from "./utils/MCURL";
 
 namespace MCMediaCache {
@@ -89,6 +90,13 @@ namespace MCMediaCache {
   /** 获取被固定的缓存大小 */
   export function pinnedCacheSize(): Promise<number> {
     return MCAssetCacheManager.pinnedCacheSize();
+  }
+
+  /**
+   * 向远程服务器发起请求前回调; 可以在回调中修改请求, 添加请求头等;
+   * */
+  export function setRequestHandler(block: (request: MCDownloadRequest) => void) {
+    MCConfigs.requestHandler = block;
   }
 
   /** 对缓存数据加密; 将缓存数据加密保存到本地; */

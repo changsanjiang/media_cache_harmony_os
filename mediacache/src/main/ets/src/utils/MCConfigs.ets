@@ -19,6 +19,11 @@ namespace MCConfigs {
   export const context: Context = getContext('');
 
   /**
+   * 向远程服务器请求数据前回调; 可以在回调中修改请求, 添加请求头等;
+   * */
+  export let requestHandler: ((request: MCDownloadRequest) => void) | undefined = undefined;
+
+  /**
    * 媒体文件的数据一致性校验; 在调试阶段可以对返回给客户端的数据做一层校验, 判断本地缓存是否与媒体数据一致;
    *
    * @param offset 数据偏移量, 在媒体文件中的偏移量;

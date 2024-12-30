@@ -8,6 +8,7 @@ import { MCRange } from "../utils/MCRange";
 import { BusinessError } from "@kit.BasicServicesKit";
 import { MCMedia } from "./MCMedia";
 import { MCMediaContentLoader } from "./MCMediaContentLoader";
+import MCConfigs from "../utils/MCConfigs";
 
 /** 下载全部数据, 通过 media.applyProxy 生成代理内容后写入到content中; */
 export class MCMediaProxyContentLoader extends MCMediaContentLoader {
@@ -31,7 +32,10 @@ export class MCMediaProxyContentLoader extends MCMediaContentLoader {
 
     MCLogger.info(MCLogModule.MCMediaContentLoader, () => `[Proxy] Preparing loader for URL: ${this.mRequest.url}.`);
 
-    const downloadRequest = new MCDownload.Request(this.mRequest.url, this.mRequest.headers);
+    const downloadRequest = new MCDownloadRequest(this.mRequest.url, this.mRequest.headers);
+    if ( MCConfigs.requestHandler ) {
+      MCConfigs.requestHandler(downloadRequest);
+    }
     MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[Proxy] Download request created for URL: ${this.mRequest.url}.`);
 
     this.mAbortController = new MCAbortController();

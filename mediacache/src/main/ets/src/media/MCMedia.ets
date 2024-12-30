@@ -136,7 +136,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     const requestTarget = proxyRequest.requestTarget;
     const headers = proxyRequest.headers;
     const mediaUrl = MCURL.parseUrl(requestTarget);
-    const request = new MCDownload.Request(mediaUrl, headers);
+    const request = new MCDownloadRequest(mediaUrl, headers);
 
     return MCDownload.probe(request, signal).then(async (response) => {
       if ( this.mMetadata ) {

@@ -28,7 +28,10 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
   async prepare(): Promise<void> {
     MCLogger.info(MCLogModule.MCMediaContentLoader, () => `[Http] Preparing loader for URL: ${this.mRequest.url}.`);
 
-    const downloadRequest = new MCDownload.Request(this.mRequest.url, this.mRequest.headers);
+    const downloadRequest = new MCDownloadRequest(this.mRequest.url, this.mRequest.headers);
+    if ( MCConfigs.requestHandler ) {
+      MCConfigs.requestHandler(downloadRequest);
+    }
     MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[Http] Download request created for URL: ${this.mRequest.url} with range: ${this.mRequest.rangeHeader}.`);
 
     this.mAbortController = new MCAbortController();
