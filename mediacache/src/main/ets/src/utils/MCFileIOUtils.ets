@@ -50,7 +50,7 @@ namespace MCFileIOUtils {
       const promises = fileNames.map((fileName) => deleteAllFiles(`${path}/${fileName}`));
       await Promise.all(promises);
     }
-    await fileIo.unlink(path);
+    await fileIo.rmdir(path);
   }
 }
 

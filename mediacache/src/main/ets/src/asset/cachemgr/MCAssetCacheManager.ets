@@ -257,24 +257,31 @@ namespace MCAssetCacheManager {
 
   /** 移除资产 */
   async function evictAssets(assetIds: string[]): Promise<void> {
-    try {
-      if (assetIds.length > 0) {
-        MCLogger.info(MCLogModule.MCAssetCacheManager, () => `Evicting ${assetIds.length} assets: ${assetIds.join(', ')}`);
-        for (const assetId of assetIds) {
-          await MCAssetAccessLogRepository.onEvict(assetId);
-          await MCAssetStateRepository.onEvict(assetId);
-          await MCAssetManager.removeAssetBy(assetId);
-          MCLogger.debug(MCLogModule.MCAssetCacheManager, () => `[AssetId: ${assetId}] Evicted successfully.`);
-        }
+    if (assetIds.length === 0) {
+      MCLogger.debug(MCLogModule.MCAssetCacheManager, () => `No assets to evict.`);
+      return;
+    }
+
+    MCLogger.info(MCLogModule.MCAssetCacheManager, () => `Starting eviction of ${assetIds.length} asset(s).`);
+
+    for (const assetId of assetIds) {
+      MCLogger.info(MCLogModule.MCAssetCacheManager, () => `[AssetId: ${assetId}] Eviction started.`);
+      try {
+        await MCAssetAccessLogRepository.onEvict(assetId);
+        MCLogger.debug(MCLogModule.MCAssetCacheManager, () => `[AssetId: ${assetId}] Access log evicted.`);
+
+        await MCAssetStateRepository.onEvict(assetId);
+        MCLogger.debug(MCLogModule.MCAssetCacheManager, () => `[AssetId: ${assetId}] State evicted.`);
+
+        await MCAssetManager.removeAssetBy(assetId);
+        MCLogger.debug(MCLogModule.MCAssetCacheManager, () => `[AssetId: ${assetId}] Evicted successfully.`);
       }
-      else {
-        MCLogger.debug(MCLogModule.MCAssetCacheManager, () => `No assets to evict.`);
+      catch (error) {
+        MCLogger.warn(MCLogModule.MCAssetCacheManager, () => `[AssetId: ${assetId}] Failed to evict: ${error.message}`);
       }
     }
-    catch (error) {
-      MCLogger.error(MCLogModule.MCAssetCacheManager, () => `Error evicting assets: ${error.message}`);
-      throw error as Error;
-    }
+
+    MCLogger.info(MCLogModule.MCAssetCacheManager, () => `Eviction of assets completed.`);
   }
 
   function getDiskFreeSpace(): Promise<number> {
