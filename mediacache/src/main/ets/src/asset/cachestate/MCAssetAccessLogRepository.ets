@@ -19,15 +19,17 @@ namespace MCAssetAccessLogRepository {
           const assetId = element[0];
           const log = JSON.parse(element[1]) as MCAssetAccessLog;
           mLogs.set(assetId, log);
-          MCLogger.debug(MCLogModule.MCAssetAccess, () => `[AssetId: ${assetId}] Loaded access log. FirstAccessed: ${log.firstAccessed}, LastAccessed: ${log.lastAccessed}`);
+          MCLogger.debug(MCLogModule.MCAssetAccessLogRepository, () => `[AssetId: ${assetId}] Loaded access log. FirstAccessed: ${log.firstAccessed}, LastAccessed: ${log.lastAccessed}`);
         }
         catch (ignored) {
-          MCLogger.warn(MCLogModule.MCAssetAccess, () => `[AssetId: ${element[0]}] Failed to parse access log entry with content: ${element[1]}`);
+          MCLogger.warn(MCLogModule.MCAssetAccessLogRepository, () => `[AssetId: ${element[0]}] Failed to parse access log entry with content: ${element[1]}`);
         }
       }
+
+      MCLogger.info(MCLogModule.MCAssetAccessLogRepository, () => `Asset access logs initialized. Total loaded: ${mLogs.size}`);
     }
     catch (error) {
-      MCLogger.error(MCLogModule.MCAssetAccess, () => `[Error] Failed to prepare asset access logs: ${error.message}`);
+      MCLogger.error(MCLogModule.MCAssetAccessLogRepository, () => `[Error] Failed to prepare asset access logs: ${error.message}`);
       throw error as Error;
     }
   }
@@ -41,19 +43,19 @@ namespace MCAssetAccessLogRepository {
     if ( !log ) {
       log = { firstAccessed: now, lastAccessed: now }
       mLogs.set(assetId, log);
-      MCLogger.info(MCLogModule.MCAssetAccess, () => `[AssetId: ${assetId}] First access recorded at ${now}.`);
+      MCLogger.info(MCLogModule.MCAssetAccessLogRepository, () => `[AssetId: ${assetId}] First access recorded at ${now}.`);
     }
     else {
       log.lastAccessed = now;
-      MCLogger.info(MCLogModule.MCAssetAccess, () => `[AssetId: ${assetId}] Updated last accessed time to ${now}.`);
+      MCLogger.info(MCLogModule.MCAssetAccessLogRepository, () => `[AssetId: ${assetId}] Updated last accessed time to ${now}.`);
     }
 
     try {
       await mPref.set(assetId, JSON.stringify(log));
       await mPref.flush();
-      MCLogger.debug(MCLogModule.MCAssetAccess, () => `[AssetId: ${assetId}] Saved access log to preferences.`);
+      MCLogger.debug(MCLogModule.MCAssetAccessLogRepository, () => `[AssetId: ${assetId}] Saved access log to preferences.`);
     } catch (error) {
-      MCLogger.error(MCLogModule.MCAssetAccess, () => `[AssetId: ${assetId}] Failed to save access log: ${error.message}`);
+      MCLogger.error(MCLogModule.MCAssetAccessLogRepository, () => `[AssetId: ${assetId}] Failed to save access log: ${error.message}`);
       throw error as Error;
     }
   }
@@ -65,29 +67,29 @@ namespace MCAssetAccessLogRepository {
       try {
         await mPref.delete(assetId);
         await mPref.flush();
-        MCLogger.info(MCLogModule.MCAssetAccess, () => `[AssetId: ${assetId}] Evicted access log and cleared preferences.`);
+        MCLogger.info(MCLogModule.MCAssetAccessLogRepository, () => `[AssetId: ${assetId}] Evicted access log and cleared preferences.`);
       }
       catch (error) {
-        MCLogger.error(MCLogModule.MCAssetAccess, () => `[AssetId: ${assetId}] Failed to evict access log: ${error.message}`);
+        MCLogger.error(MCLogModule.MCAssetAccessLogRepository, () => `[AssetId: ${assetId}] Failed to evict access log: ${error.message}`);
         throw error as Error;
       }
     }
     else {
-      MCLogger.warn(MCLogModule.MCAssetAccess, () => `[AssetId: ${assetId}] No access log found to evict.`);
+      MCLogger.warn(MCLogModule.MCAssetAccessLogRepository, () => `[AssetId: ${assetId}] No access log found to evict.`);
     }
   }
 
   // 根据条件过滤访问日志
   export function filter(predicate: (pair: [string, MCAssetAccessLog]) => boolean): [string, MCAssetAccessLog][] {
     const filteredLogs = Array.from(mLogs.entries()).filter(predicate);
-    MCLogger.debug(MCLogModule.MCAssetAccess, () => `Filtered logs based on predicate. Result count: ${filteredLogs.length}`);
+    MCLogger.debug(MCLogModule.MCAssetAccessLogRepository, () => `Filtered logs based on predicate. Result count: ${filteredLogs.length}`);
     return filteredLogs;
   }
 
   // 获取日志条数
   export function getCount(): number {
     const count = mLogs.size;
-    MCLogger.debug(MCLogModule.MCAssetAccess, () => `Current access log count: ${count}`);
+    MCLogger.debug(MCLogModule.MCAssetAccessLogRepository, () => `Current access log count: ${count}`);
     return count;
   }
 }

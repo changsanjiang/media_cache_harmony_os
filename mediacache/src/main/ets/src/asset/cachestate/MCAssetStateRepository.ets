@@ -20,17 +20,17 @@ namespace MCAssetStateRepository {
           const assetId = element[0];
           const state = JSON.parse(element[1]) as MCAssetState;
           mStates.set(assetId, state);
-          MCLogger.debug(MCLogModule.MCAssetState, () => `[AssetId: ${assetId}] Loaded state. IsPinned: ${state.isPinned}`);
+          MCLogger.debug(MCLogModule.MCAssetStateRepository, () => `[AssetId: ${assetId}] Loaded state. IsPinned: ${state.isPinned}`);
         }
         catch (ignored) {
-          MCLogger.warn(MCLogModule.MCAssetState, () => `[AssetId: ${element[0]}] Failed to parse state entry.`);
+          MCLogger.warn(MCLogModule.MCAssetStateRepository, () => `[AssetId: ${element[0]}] Failed to parse state entry.`);
         }
       }
 
-      MCLogger.info(MCLogModule.MCAssetState, () => `Asset states initialized. Total loaded: ${mStates.size}`);
+      MCLogger.info(MCLogModule.MCAssetStateRepository, () => `Asset states initialized. Total loaded: ${mStates.size}`);
     }
     catch (error) {
-      MCLogger.error(MCLogModule.MCAssetState, () => `Failed to initialize asset states: ${error.message}`);
+      MCLogger.error(MCLogModule.MCAssetStateRepository, () => `Failed to initialize asset states: ${error.message}`);
       throw error as Error;
     }
   }
@@ -38,7 +38,7 @@ namespace MCAssetStateRepository {
   // 判断资产是否被固定
   export function isPinned(assetId: string): boolean {
     const pinned = mStates.get(assetId)?.isPinned ?? false;
-    MCLogger.debug(MCLogModule.MCAssetState, () => `[AssetId: ${assetId}] isPinned query result: ${pinned}`);
+    MCLogger.debug(MCLogModule.MCAssetStateRepository, () => `[AssetId: ${assetId}] isPinned query result: ${pinned}`);
     return pinned;
   }
 
@@ -47,14 +47,14 @@ namespace MCAssetStateRepository {
     try {
       const state: MCAssetState = { isPinned: isPinned };
       mStates.set(assetId, state);
-      MCLogger.info(MCLogModule.MCAssetState, () => `[AssetId: ${assetId}] Set pinned state to: ${isPinned}`);
+      MCLogger.info(MCLogModule.MCAssetStateRepository, () => `[AssetId: ${assetId}] Set pinned state to: ${isPinned}`);
 
       await mPref.set(assetId, JSON.stringify(state));
       await mPref.flush();
-      MCLogger.debug(MCLogModule.MCAssetState, () => `[AssetId: ${assetId}] Pinned state saved to preferences.`);
+      MCLogger.debug(MCLogModule.MCAssetStateRepository, () => `[AssetId: ${assetId}] Pinned state saved to preferences.`);
     }
     catch (error) {
-      MCLogger.error(MCLogModule.MCAssetState, () => `[AssetId: ${assetId}] Failed to set pinned state: ${error.message}`);
+      MCLogger.error(MCLogModule.MCAssetStateRepository, () => `[AssetId: ${assetId}] Failed to set pinned state: ${error.message}`);
       throw error as Error;
     }
   }
@@ -66,15 +66,15 @@ namespace MCAssetStateRepository {
         mStates.delete(assetId);
         await mPref.delete(assetId);
         await mPref.flush();
-        MCLogger.info(MCLogModule.MCAssetState, () => `[AssetId: ${assetId}] Evicted state and cleared preferences.`);
+        MCLogger.info(MCLogModule.MCAssetStateRepository, () => `[AssetId: ${assetId}] Evicted state and cleared preferences.`);
       }
       catch (error) {
-        MCLogger.error(MCLogModule.MCAssetState, () => `[AssetId: ${assetId}] Failed to evict state: ${error.message}`);
+        MCLogger.error(MCLogModule.MCAssetStateRepository, () => `[AssetId: ${assetId}] Failed to evict state: ${error.message}`);
         throw error as Error;
       }
     }
     else {
-      MCLogger.debug(MCLogModule.MCAssetState, () => `[AssetId: ${assetId}] No state found to evict.`);
+      MCLogger.debug(MCLogModule.MCAssetStateRepository, () => `[AssetId: ${assetId}] No state found to evict.`);
     }
   }
 }
