@@ -216,7 +216,7 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
       return;
     }
 
-    MCLogger.warn(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Aborting fetcher${error ? ` due to error: ${error.message}` : ""}.`);
+    MCLogger.warn(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Aborting fetcher${error ? ` due to error: ${error.message}` : ""}. Stack trace: ${error ? error.stack : 'None'}}`,);
 
     MCLogger.info(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Marking fetcher as aborted. response: ${this.mResponse}, currentLoader: ${this.mCurrentLoader}, loaders.length: ${this.mLoaders?.length}`);
 
@@ -256,11 +256,11 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
 
     if ( loaders ) {
       this.mLoaders = undefined;
-      MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Aborting remaining loaders. size: ${this.mLoaders!.length}.`);
-      loaders.forEach(async (loader) => {
+      MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Aborting remaining loaders. size: ${loaders!.length}.`);
+      for (let loader of loaders) {
         this.offLoaderEvents(loader);
         try { await loader.abort(error); } catch (_) { }
-      });
+      }
       MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Remaining loaders cleared.`);
     }
   }
