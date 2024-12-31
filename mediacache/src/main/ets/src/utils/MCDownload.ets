@@ -1,7 +1,6 @@
 import { MCAbortSignal } from './MCAbortController';
 import { rcp } from '@kit.RemoteCommunicationKit';
 import MCConfigs from './MCConfigs';
-import MCUtils from './MCUtils';
 import { MCDownloadResponseHeaders } from './MCDownloadResponseHeaders';
 import { MCDownloadRequest } from './MCDownloadRequest';
 
@@ -20,8 +19,6 @@ namespace MCDownload {
     readonly headers: MCDownloadResponseHeaders;
     readonly body?: ArrayBuffer;
   }
-
-  export let requestHandler: ((request: MCDownloadRequest) => void) | undefined = undefined;
 
   const session = rcp.createSession(MCConfigs.sessionConfiguration);
 
@@ -42,7 +39,6 @@ namespace MCDownload {
         }
       }
     };
-    requestHandler?.(request);
     const req = new rcp.Request(request.url, 'GET', request.headers, undefined, request.cookies, undefined, config);
     options.signal?.addEventListener('aborted', () => session.cancel(req));
     return session.fetch(req)
