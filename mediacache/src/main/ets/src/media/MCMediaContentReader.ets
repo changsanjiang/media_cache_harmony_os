@@ -3,30 +3,24 @@ import { fileIo, ReadOptions } from "@kit.CoreFileKit";
 import MCLogger from "../utils/MCLogger";
 import { MCLogModule } from "../defines/MCLogModule";
 import { MCMediaContent } from "./MCMediaContent";
+import { MCAbortSignal } from "../utils/MCAbortController";
 
 export class MCMediaContentReader implements IMCMediaContentReader {
-  readonly id: number;
   private mContent: MCMediaContent;
+  private mAbortSignal: MCAbortSignal
   private mFile?: fileIo.File | undefined = undefined;
   private mReading = false;
   private mClosed = false;
-  private mClosedCallback?: (reader: MCMediaContentReader) => void = undefined;
+  private mAbortedCallback = () => this.close();
 
-  constructor(id: number, content: MCMediaContent) {
-    this.id = id;
+  constructor(content: MCMediaContent, abortSignal: MCAbortSignal) {
     this.mContent = content;
+    this.mAbortSignal = abortSignal;
+    abortSignal.addEventListener('aborted', this.mAbortedCallback);
   }
 
   get isClosed(): boolean {
     return this.mClosed;
-  }
-
-  on(_: 'closed', callback: (reader: MCMediaContentReader) => void): void {
-    this.mClosedCallback = callback;
-  }
-
-  off(_: 'closed'): void {
-    this.mClosedCallback = undefined;
   }
 
   async readData(position: number, buffer: ArrayBuffer, length: number): Promise<number> {
@@ -47,10 +41,6 @@ export class MCMediaContentReader implements IMCMediaContentReader {
       if (buffer.byteLength === 0) {
         throw new Error("Buffer cannot be empty.");
       }
-
-      // if (this.mContent.isDestroyed) { // 有 reader 并且未关闭时, content 不会被销毁;
-      //   throw new Error("Content has been destroyed, cannot read data.");
-      // }
 
       if (this.mClosed) {
         throw new Error("Reader has been closed, cannot proceed with reading.");
@@ -111,16 +101,18 @@ export class MCMediaContentReader implements IMCMediaContentReader {
   }
 
   private async closeFile(): Promise<void> {
+    const file = this.mFile;
     const mediaId = this.mContent.mediaId;
     const contentOffset = this.mContent.contentOffset;
     const filePath = this.mContent.filePath;
+    this.mAbortSignal.removeEventListener('aborted', this.mAbortedCallback);
 
-    MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${mediaId}, offset: ${contentOffset}] Starting to close file: ${filePath}.`);
+    if ( file ) {
+      this.mFile = undefined;
+      MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${mediaId}, offset: ${contentOffset}] Starting to close file: ${filePath}.`);
 
-    if (this.mFile) {
       try {
-        await fileIo.close(this.mFile);
-        this.mFile = undefined;
+        await fileIo.close(file);
         MCLogger.info(MCLogModule.MCMediaContent, () => `[media: ${mediaId}, offset: ${contentOffset}] File closed successfully: ${filePath}.`);
       }
       catch (error) {
@@ -129,11 +121,6 @@ export class MCMediaContentReader implements IMCMediaContentReader {
     }
     else {
       MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${mediaId}, offset: ${contentOffset}] No file to close for: ${filePath}.`);
-    }
-
-    if ( !this.mReading && this.mClosedCallback ) {
-      MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${mediaId}, offset: ${contentOffset}] Triggering closed callback for reader.`);
-      this.mClosedCallback(this);
     }
   }
 }

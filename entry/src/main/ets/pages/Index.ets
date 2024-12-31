@@ -65,7 +65,7 @@ struct Index {
     //   console.error(`Failed to jump to the second page. Code is ${err.code}, message is ${err.message}`)
     // })
 
-    router.pushUrl({ url: 'pages/VideoPlayer' }).then(() => {
+    router.pushUrl({ url: 'pages/TestAVPlayer' }).then(() => {
       console.info('Succeeded in jumping to the second page.')
     }).catch((err: BusinessError) => {
       console.error(`Failed to jump to the second page. Code is ${err.code}, message is ${err.message}`)

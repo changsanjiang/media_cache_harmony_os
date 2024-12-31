@@ -3,41 +3,39 @@ import { MCMediaContent } from "./MCMediaContent";
 import { fileIo } from "@kit.CoreFileKit";
 import MCLogger from "../utils/MCLogger";
 import { MCLogModule } from "../defines/MCLogModule";
+import { MCAbortSignal } from "../utils/MCAbortController";
 
 export class MCMediaContentWriter implements IMCMediaContentWriter {
   private mContent: MCMediaContent;
+  private mAbortSignal: MCAbortSignal;
   private mFile?: fileIo.File | undefined = undefined;
   private mWriting = false;
   private mClosed = false;
   private mDataWrittenCallback?: (writer: MCMediaContentWriter, length: number) => void = undefined;
-  private mClosedCallback?: (writer: MCMediaContentWriter) => void = undefined;
+  private mAbortedCallback = () => this.close();
 
-  constructor(content: MCMediaContent) {
+  constructor(content: MCMediaContent, abortSignal: MCAbortSignal) {
     this.mContent = content;
+    this.mAbortSignal = abortSignal;
+    abortSignal.addEventListener('aborted', this.mAbortedCallback);
   }
 
   get isClosed(): boolean {
     return this.mClosed;
   }
 
-  on(event: 'dataWritten' | 'closed', callback: Function): void {
+  on(event: 'dataWritten', callback: Function): void {
     switch (event) {
       case 'dataWritten':
         this.mDataWrittenCallback = callback as (writer: MCMediaContentWriter, length: number) => void;
         break;
-      case 'closed':
-        this.mClosedCallback = callback as (reader: MCMediaContentWriter) => void;
-        break;
     }
   }
 
-  off(event: 'dataWritten' | 'closed'): void {
+  off(event: 'dataWritten'): void {
     switch (event) {
       case 'dataWritten':
         this.mDataWrittenCallback = undefined;
-        break;
-      case 'closed':
-        this.mClosedCallback = undefined;
         break;
     }
   }
@@ -59,10 +57,6 @@ export class MCMediaContentWriter implements IMCMediaContentWriter {
       if (data.byteLength < length) {
         throw new Error("Data length mismatch: provided data is smaller than expected length.");
       }
-
-      // if (this.mDestroyed) { // 有 writer 并且未关闭时, content 不会被销毁;
-      //   throw new Error("Content has been destroyed. Cannot write data.");
-      // }
 
       if (this.mClosed) {
         throw new Error("Writer has been closed, cannot proceed with writing.");
@@ -116,16 +110,18 @@ export class MCMediaContentWriter implements IMCMediaContentWriter {
   }
 
   private async closeFile(): Promise<void> {
+    const file = this.mFile;
     const mediaId = this.mContent.mediaId;
     const contentOffset = this.mContent.contentOffset;
     const filePath = this.mContent.filePath;
+    this.mAbortSignal.removeEventListener('aborted', this.mAbortedCallback);
 
-    MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${mediaId}, offset: ${contentOffset}] Starting to close file: ${filePath}.`);
+    if (file) {
+      this.mFile = undefined;
+      MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${mediaId}, offset: ${contentOffset}] Starting to close file: ${filePath}.`);
 
-    if (this.mFile) {
       try {
-        await fileIo.close(this.mFile);
-        this.mFile = undefined;
+        await fileIo.close(file);
         MCLogger.info(MCLogModule.MCMediaContent, () => `[media: ${mediaId}, offset: ${contentOffset}] File closed successfully: ${filePath}.`);
       }
       catch (error) {
@@ -134,11 +130,6 @@ export class MCMediaContentWriter implements IMCMediaContentWriter {
     }
     else {
       MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${mediaId}, offset: ${contentOffset}] No file to close for: ${filePath}.`);
-    }
-
-    if ( !this.mWriting && this.mClosedCallback ) {
-      MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${mediaId}, offset: ${contentOffset}] Triggering closed callback for writer.`);
-      this.mClosedCallback(this);
     }
   }
 }

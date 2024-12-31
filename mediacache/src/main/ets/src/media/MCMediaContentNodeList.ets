@@ -158,7 +158,7 @@ export class MCMediaContentNodeList {
     const wasMiddle = this.mMiddle === node;
     // 如果中间节点被删除，重新设置
     if (wasMiddle) {
-      this.mMiddle = nextNode || prevNode;
+      this.mMiddle = this.mNodes.size % 2 === 0 ? nextNode : prevNode;
     }
     // 如果前面的节点被删除了
     else if ( node.placement < this.mMiddle!.placement ) {

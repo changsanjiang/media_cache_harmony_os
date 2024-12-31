@@ -507,7 +507,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   // 合并数据; 被合并后返回 true;
   // writer.contentOffset <= reader.contentOffset;
   private async mergeData(writerContent: IMCMediaContent, readerContent: IMCMediaContent): Promise<boolean> {
-    MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Attempting to merge data between writer at offset ${writerContent.contentOffset} and reader at offset ${readerContent.contentOffset}.`);
+    MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Attempting to merge data. Writer range: offset ${writerContent.contentOffset} to ${writerContent.contentOffset + writerContent.length}, Reader range: offset ${readerContent.contentOffset} to ${readerContent.contentOffset + readerContent.length}.`);
     if ( writerContent.contentOffset > readerContent.contentOffset ) {
       // writer的内容偏移量 必须在 reader 的前面, 这样才能在存在交集时合并数据;
       const errorMsg = `Invalid offsets: writer offset (${writerContent.contentOffset}) must be less than or equal to reader offset (${readerContent.contentOffset}).`;
