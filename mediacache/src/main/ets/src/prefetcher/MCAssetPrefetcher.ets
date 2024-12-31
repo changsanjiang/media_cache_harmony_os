@@ -26,9 +26,9 @@ namespace MCAssetPrefetcher {
       throw new Error(`Invalid parameter with prefetchSize: ${prefetchSize}.`); // prefetchSize 无效, 必须大于0;
     }
 
-    const prefetchFileCount = options?.prefetchFileCount;
-    if ( prefetchFileCount !== undefined && prefetchFileCount <= 0 ) {
-      throw new Error(`Invalid parameter with prefetchFileCount: ${prefetchFileCount}.`); // prefetchFileCount 无效, 必须大于0;
+    const prefetchSegmentCount = options?.prefetchSegmentCount;
+    if ( prefetchSegmentCount !== undefined && prefetchSegmentCount <= 0 ) {
+      throw new Error(`Invalid parameter with prefetchSegmentCount: ${prefetchSegmentCount}.`); // prefetchSegmentCount 无效, 必须大于0;
     }
 
     const signal = options?.signal;
@@ -176,8 +176,8 @@ namespace MCAssetPrefetcher {
       return prefetchHLSAssetMediasBySpecifiedSize(asset, playlist, options.prefetchSize, options.onProgress, options.signal)
     }
 
-    if ( options?.prefetchFileCount ) {
-      return prefetchHLSAssetMediasBySpecifiedSegmentCount(asset, playlist, options.prefetchFileCount, options.concurrentPrefetchCount, options.onProgress, options.signal)
+    if ( options?.prefetchSegmentCount ) {
+      return prefetchHLSAssetMediasBySpecifiedSegmentCount(asset, playlist, options.prefetchSegmentCount, options.concurrentPrefetchCount, options.onProgress, options.signal)
     }
 
     return prefetchHLSAssetAllMedias(asset, playlist, options?.concurrentPrefetchCount, options?.onProgress, options?.signal)
@@ -296,7 +296,7 @@ namespace MCAssetPrefetcher {
 
       if ( item !== subtitlesRendition ) {
         await prefetchByRequestTarget(uri, {
-          prefetchFileCount: specifiedSegmentCount,
+          prefetchSegmentCount: specifiedSegmentCount,
           concurrentPrefetchCount: concurrentPrefetchCount,
           onProgress: fetchProgressCallback,
           signal: signal

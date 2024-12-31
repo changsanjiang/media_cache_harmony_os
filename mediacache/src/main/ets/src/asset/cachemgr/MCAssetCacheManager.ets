@@ -154,13 +154,13 @@ namespace MCAssetCacheManager {
       switch (limit) {
         case Limit.COUNT: {
           MCLogger.info(MCLogModule.MCAssetCacheManager, () => `Trimming assets by count.`);
-          if ( config.assetCountLimit === 0 ) {
+          if ( config.countLimit === 0 ) {
             MCLogger.debug(MCLogModule.MCAssetCacheManager, () => `Asset count limit is 0, skipping trimming by count.`);
             return;
           }
 
           const sortedByAccess = MCAssetAccessLogRepository.filter(pair => !MCAssetStateRepository.isPinned(pair[0])).sort((a, b) => a[1].lastAccessed - b[1].lastAccessed);
-          const count = sortedByAccess.length - config.assetCountLimit;
+          const count = sortedByAccess.length - config.countLimit;
           if ( count > 0 ) {
             const assetsToEvict = sortedByAccess.slice(0, count).map(pair => pair[0]);
             MCLogger.info(MCLogModule.MCAssetCacheManager, () => `Evicting ${assetsToEvict.length} assets due to count limit.`);
@@ -173,13 +173,13 @@ namespace MCAssetCacheManager {
           break;
         case Limit.DISK_AGE: {
           MCLogger.info(MCLogModule.MCAssetCacheManager, () => `Trimming assets by disk age.`);
-          if ( config.assetMaxDiskAge === 0 ) {
+          if ( config.maxAge === 0 ) {
             MCLogger.debug(MCLogModule.MCAssetCacheManager, () => `Asset max disk age is 0, skipping trimming by disk age.`);
             return;
           }
 
           const now = Date.now();
-          const expiredAssets = MCAssetAccessLogRepository.filter(pair => !MCAssetStateRepository.isPinned(pair[0]) && ((now - pair[1].firstAccessed) > config.assetMaxDiskAge)).map(pair => pair[0]);
+          const expiredAssets = MCAssetAccessLogRepository.filter(pair => !MCAssetStateRepository.isPinned(pair[0]) && ((now - pair[1].firstAccessed) > config.maxAge)).map(pair => pair[0]);
           if ( expiredAssets.length > 0 ) {
             MCLogger.info(MCLogModule.MCAssetCacheManager, () => `Evicting ${expiredAssets.length} expired assets.`);
             await evictAssets(expiredAssets);
@@ -190,15 +190,15 @@ namespace MCAssetCacheManager {
           break;
         case Limit.DISK_SIZE: {
           MCLogger.info(MCLogModule.MCAssetCacheManager, () => `Trimming assets by disk size.`);
-          if ( config.assetsMaxDiskSize === 0 ) {
+          if ( config.maxDiskSize === 0 ) {
             MCLogger.debug(MCLogModule.MCAssetCacheManager, () => `Assets max disk size is 0, skipping trimming by disk size.`);
             return;
           }
 
           const sortedByAccess = MCAssetAccessLogRepository.filter(pair => !MCAssetStateRepository.isPinned(pair[0])).sort((a, b) => a[1].lastAccessed - b[1].lastAccessed).map(pair => pair[0]);
           const totalSize = await MCAssetManager.calculateCacheSizeForAssets(sortedByAccess);
-          if ( totalSize > config.assetsMaxDiskSize ) {
-            const sizeToEvict = totalSize - config.assetsMaxDiskSize;
+          if ( totalSize > config.maxDiskSize ) {
+            const sizeToEvict = totalSize - config.maxDiskSize;
             MCLogger.info(MCLogModule.MCAssetCacheManager, () => `Exceeding max disk size by ${sizeToEvict} bytes. Evicting assets.`);
             await evictAssetsBySize(sizeToEvict);
           }

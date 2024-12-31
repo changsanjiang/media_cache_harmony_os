@@ -1,9 +1,18 @@
 {
   "name": "@sj/mediacache",
   "version": "1.0.0",
-  "description": "Please describe the basic information.",
+  "description": "主要用于支持音视频的边播放边缓存; 旨在代理媒体数据请求并优先提供缓存数据, 从而减少网络流量并提高播放流畅度.",
   "main": "Index.ets",
-  "author": "",
-  "license": "Apache-2.0",
+  "author": "csj",
+  "license": "MIT",
+  "repository": "https://gitee.com/changsanjiang/media_cache_harmony_os.git",
+  "homepage": "https://gitee.com/changsanjiang/media_cache_harmony_os",
+  "keywords": [
+    "边播放边缓存",
+    "cache",
+    "video cache",
+    "audio cache",
+    "media cache",
+  ],
   "dependencies": {}
 }
