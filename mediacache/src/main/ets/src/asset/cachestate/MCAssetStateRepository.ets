@@ -30,7 +30,7 @@ namespace MCAssetStateRepository {
       MCLogger.info(MCLogModule.MCAssetStateRepository, () => `Asset states initialized. Total loaded: ${mStates.size}`);
     }
     catch (error) {
-      MCLogger.error(MCLogModule.MCAssetStateRepository, () => `Failed to initialize asset states: ${error.message}`);
+      MCLogger.error(MCLogModule.MCAssetStateRepository, () => `Failed to initialize asset states: ${error.message}. Stack trace: ${error.stack}`);
       throw error as Error;
     }
   }
@@ -54,7 +54,7 @@ namespace MCAssetStateRepository {
       MCLogger.debug(MCLogModule.MCAssetStateRepository, () => `[AssetId: ${assetId}] Pinned state saved to preferences.`);
     }
     catch (error) {
-      MCLogger.error(MCLogModule.MCAssetStateRepository, () => `[AssetId: ${assetId}] Failed to set pinned state: ${error.message}`);
+      MCLogger.error(MCLogModule.MCAssetStateRepository, () => `[AssetId: ${assetId}] Failed to set pinned state: ${error.message}. Stack trace: ${error.stack}`);
       throw error as Error;
     }
   }
@@ -69,7 +69,7 @@ namespace MCAssetStateRepository {
         MCLogger.info(MCLogModule.MCAssetStateRepository, () => `[AssetId: ${assetId}] Evicted state and cleared preferences.`);
       }
       catch (error) {
-        MCLogger.error(MCLogModule.MCAssetStateRepository, () => `[AssetId: ${assetId}] Failed to evict state: ${error.message}`);
+        MCLogger.error(MCLogModule.MCAssetStateRepository, () => `[AssetId: ${assetId}] Failed to evict state: ${error.message}. Stack trace: ${error.stack}`);
         throw error as Error;
       }
     }

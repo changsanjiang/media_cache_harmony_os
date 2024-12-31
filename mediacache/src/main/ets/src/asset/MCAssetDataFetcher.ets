@@ -51,7 +51,7 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
       this.mMediaDataFetcher.prepare();
     }
     catch (error) {
-      MCLogger.error(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Error during asset reader preparation: ${error.message}`);
+      MCLogger.error(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Error during asset reader preparation: ${error.message}. Stack trace: ${error.stack}`);
       this.abort(error);
       throw error as Error;
     }
@@ -121,7 +121,7 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
       return;
     }
 
-    MCLogger.warn(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Aborting fetcher${error ? ` due to error: ${error.message}` : ""}.`);
+    MCLogger.debug(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Aborting fetcher${error ? ` due to error: ${error.message}` : ""}. Stack trace: ${error?.stack || 'none'}`);
 
     MCLogger.info(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Marking fetcher as aborted.`);
 

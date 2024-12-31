@@ -416,15 +416,15 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
 
   // 该方法被回调时, 不仅仅当前 media 的读写计数为 0, 所有的 content 的读写计数也都为 0;
   protected async onReadwriteZeroReferences(): Promise<void> {
-    if ( !this.mRestructurePromise ) this.mRestructurePromise = new Promise(async (resolve) => {
+    if ( !this.mRestructurePromise ) {
+      this.mRestructurePromise = this.restructureContents();
       try {
-        await this.restructureContents();
+        await this.mRestructurePromise;
       }
       finally {
         this.mRestructurePromise = undefined;
-        resolve();
       }
-    });
+    }
   }
 
   // 重组内容. 合并数据并移除多余内容;

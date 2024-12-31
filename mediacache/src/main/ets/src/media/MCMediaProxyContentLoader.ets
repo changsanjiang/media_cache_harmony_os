@@ -95,7 +95,7 @@ export class MCMediaProxyContentLoader extends MCMediaContentLoader {
       this.onPrepared(this.mContent, range); // 临时内容下载完成, 通知父类 contentReady;
     }
     catch (error) {
-      MCLogger.error(MCLogModule.MCMediaContentLoader, () => `[Proxy] Error during onComplete for URL: ${this.mRequest.url} - ${error.message}`);
+      MCLogger.error(MCLogModule.MCMediaContentLoader, () => `[Proxy] Error during onComplete for URL: ${this.mRequest.url} - ${error.message}. Stack trace: ${error.stack}`);
       this.onError(error)
       throw error as Error;
     }
@@ -124,7 +124,7 @@ export class MCMediaProxyContentLoader extends MCMediaContentLoader {
         MCLogger.debug(MCLogModule.MCMediaContentLoader, () => '[Proxy] Content writer closed successfully.');
       }
       catch (error) {
-        MCLogger.warn(MCLogModule.MCMediaContentLoader, () => `[Proxy] Error closing writer for request: ${this.mRequest.url} - ${(error as Error).message}`);
+        MCLogger.warn(MCLogModule.MCMediaContentLoader, () => `[Proxy] Error closing writer for request: ${this.mRequest.url} - ${(error as Error).message}. Stack trace: ${error.stack}`);
       }
 
       if ( content.isTemp ) {
@@ -134,7 +134,7 @@ export class MCMediaProxyContentLoader extends MCMediaContentLoader {
           MCLogger.debug(MCLogModule.MCMediaContentLoader, () => '[Proxy] Temporary content destroyed successfully.');
         }
         catch (error) {
-          MCLogger.warn(MCLogModule.MCMediaContentLoader, () => `[Proxy] Error destroying temporary content for request: ${this.mRequest.url} - ${(error as Error).message}`);
+          MCLogger.warn(MCLogModule.MCMediaContentLoader, () => `[Proxy] Error destroying temporary content for request: ${this.mRequest.url} - ${(error as Error).message}. Stack trace: ${error.stack}`);
         }
       }
     }

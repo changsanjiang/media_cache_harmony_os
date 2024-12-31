@@ -35,7 +35,7 @@ namespace MCAssetCacheManager {
       MCLogger.info(MCLogModule.MCAssetCacheManager, () => `Asset cache manager initialized.`);
     }
     catch (error) {
-      MCLogger.error(MCLogModule.MCAssetCacheManager, () => `Failed to initialize asset cache manager: ${error.message}`);
+      MCLogger.error(MCLogModule.MCAssetCacheManager, () => `Failed to initialize asset cache manager: ${error.message}. Stack trace: ${error.stack}`);
       throw error as Error;
     }
   }
@@ -53,8 +53,9 @@ namespace MCAssetCacheManager {
       const assetId = await MCAssetUtils.generateAssetId(resUrl);
       await MCAssetStateRepository.setPinned(assetId, isPinned);
       MCLogger.info(MCLogModule.MCAssetCacheManager, () => `[AssetId: ${assetId}] Set pinned state to: ${isPinned}`);
-    } catch (error) {
-      MCLogger.error(MCLogModule.MCAssetCacheManager, () => `Failed to set pinned state for [ResUrl: ${resUrl}]: ${error.message}`);
+    }
+    catch (error) {
+      MCLogger.error(MCLogModule.MCAssetCacheManager, () => `Failed to set pinned state for [ResUrl: ${resUrl}]: ${error.message}. Stack trace: ${error.stack}`);
       throw error as Error;
     }
   }
@@ -66,8 +67,9 @@ namespace MCAssetCacheManager {
       const pinned = MCAssetStateRepository.isPinned(assetId);
       MCLogger.debug(MCLogModule.MCAssetCacheManager, () => `[AssetId: ${assetId}] isPinned query result: ${pinned}`);
       return pinned;
-    } catch (error) {
-      MCLogger.error(MCLogModule.MCAssetCacheManager, () => `Failed to check pinned state for [ResUrl: ${resUrl}]: ${error.message}`);
+    }
+    catch (error) {
+      MCLogger.error(MCLogModule.MCAssetCacheManager, () => `Failed to check pinned state for [ResUrl: ${resUrl}]: ${error.message}. Stack trace: ${error.stack}`);
       throw error as Error;
     }
   }
@@ -79,8 +81,9 @@ namespace MCAssetCacheManager {
       const size = allIds.length > 0 ? await MCAssetManager.calculateCacheSizeForAssets(allIds) : 0;
       MCLogger.debug(MCLogModule.MCAssetCacheManager, () => `Total cache size calculated: ${size} bytes.`);
       return size;
-    } catch (error) {
-      MCLogger.error(MCLogModule.MCAssetCacheManager, () => `Failed to calculate total cache size: ${error.message}`);
+    }
+    catch (error) {
+      MCLogger.error(MCLogModule.MCAssetCacheManager, () => `Failed to calculate total cache size: ${error.message}. Stack trace: ${error.stack}`);
       throw error as Error;
     }
   }
@@ -93,8 +96,9 @@ namespace MCAssetCacheManager {
       const size = pinnedAssets.length > 0 ? await MCAssetManager.calculateCacheSizeForAssets(pinnedAssets) : 0;
       MCLogger.debug(MCLogModule.MCAssetCacheManager, () => `Pinned cache size calculated: ${size} bytes.`);
       return size;
-    } catch (error) {
-      MCLogger.error(MCLogModule.MCAssetCacheManager, () => `Failed to calculate pinned cache size: ${error.message}`);
+    }
+    catch (error) {
+      MCLogger.error(MCLogModule.MCAssetCacheManager, () => `Failed to calculate pinned cache size: ${error.message}. Stack trace: ${error.stack}`);
       throw error as Error;
     }
   }
@@ -105,8 +109,9 @@ namespace MCAssetCacheManager {
       const assetId = await MCAssetUtils.generateAssetId(resUrl);
       await evictAssets([assetId]);
       MCLogger.info(MCLogModule.MCAssetCacheManager, () => `[AssetId: ${assetId}] Cache removed successfully.`);
-    } catch (error) {
-      MCLogger.error(MCLogModule.MCAssetCacheManager, () => `Failed to remove cache for [ResUrl: ${resUrl}]: ${error.message}`);
+    }
+    catch (error) {
+      MCLogger.error(MCLogModule.MCAssetCacheManager, () => `Failed to remove cache for [ResUrl: ${resUrl}]: ${error.message}. Stack trace: ${error.stack}`);
       throw error as Error;
     }
   }
@@ -118,8 +123,9 @@ namespace MCAssetCacheManager {
       const assetsToEvict = allIds.filter(assetId => !MCAssetStateRepository.isPinned(assetId));
       await evictAssets(assetsToEvict);
       MCLogger.info(MCLogModule.MCAssetCacheManager, () => `All non-pinned caches removed successfully.`);
-    } catch (error) {
-      MCLogger.error(MCLogModule.MCAssetCacheManager, () => `Failed to remove caches: ${error.message}`);
+    }
+    catch (error) {
+      MCLogger.error(MCLogModule.MCAssetCacheManager, () => `Failed to remove caches: ${error.message}. Stack trace: ${error.stack}`);
       throw error as Error;
     }
   }
@@ -277,7 +283,7 @@ namespace MCAssetCacheManager {
         MCLogger.debug(MCLogModule.MCAssetCacheManager, () => `[AssetId: ${assetId}] Evicted successfully.`);
       }
       catch (error) {
-        MCLogger.warn(MCLogModule.MCAssetCacheManager, () => `[AssetId: ${assetId}] Failed to evict: ${error.message}`);
+        MCLogger.warn(MCLogModule.MCAssetCacheManager, () => `[AssetId: ${assetId}] Failed to evict: ${error.message}. Stack trace: ${error.stack}`);
       }
     }
 

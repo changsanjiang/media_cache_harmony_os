@@ -129,7 +129,7 @@ export class MCMediaContentWriter implements IMCMediaContentWriter {
         MCLogger.info(MCLogModule.MCMediaContent, () => `[media: ${mediaId}, offset: ${contentOffset}] File closed successfully: ${filePath}.`);
       }
       catch (error) {
-        MCLogger.error(MCLogModule.MCMediaContent, () => `[media: ${mediaId}, offset: ${contentOffset}] Failed to close file: ${filePath}. Error: ${error.message}.`);
+        MCLogger.error(MCLogModule.MCMediaContent, () => `[media: ${mediaId}, offset: ${contentOffset}] Failed to close file: ${filePath}. Error: ${error.message}. Stack trace: ${error.stack}`);
       }
     }
     else {

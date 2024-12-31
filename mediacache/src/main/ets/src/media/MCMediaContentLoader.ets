@@ -143,12 +143,12 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
     }
 
     this._mAborted = true;
-    MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Aborting loader. Error provided: ${error?.message || 'None'}, Stack trace: ${error?.stack}}.`);
+    MCLogger.info(MCLogModule.MCMediaContentLoader, () => `Aborting loader. Error provided: ${error?.message || 'none'}, Stack trace: ${error?.stack}}.`);
 
     await this.clear();
 
     if ( this._mAbortedCallback ) {
-      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Executing aborted callback with error: ${error?.message || 'None'}`);
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Executing aborted callback with error: ${error?.message || 'none'}`);
 
       this._mAbortedCallback(this, error);
     }
@@ -170,7 +170,7 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
         MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `Content reader successfully closed.`);
       }
       catch (error) {
-        MCLogger.error(MCLogModule.MCMediaContentLoader, () => `Error closing content reader: ${error}`);
+        MCLogger.error(MCLogModule.MCMediaContentLoader, () => `Error closing content reader: ${error}. Stack trace: ${error.stack}`);
       }
     }
 
@@ -178,7 +178,7 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
       await this.onClear();
     }
     catch (error) {
-      MCLogger.error(MCLogModule.MCMediaContentLoader, () => `Error during onClear execution: ${error.message}`);
+      MCLogger.error(MCLogModule.MCMediaContentLoader, () => `Error during onClear execution: ${error.message}. Stack trace: ${error.stack}`);
     }
   }
 

@@ -168,7 +168,7 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
           MCLogger.info(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Data successfully processed by receive callback. Offset: ${offset}, Bytes: ${data.byteLength}.`);
         }
         catch (error) {
-          MCLogger.error(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Error in dataReceive callback: ${error.message}`);
+          MCLogger.error(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Error in dataReceive callback: ${error.message}. Stack trace: ${error.stack}`);
           this.onError(error);
           throw error as Error;
         }
@@ -178,7 +178,7 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
       nextLoader.prepare();
     }
     catch (error) {
-      MCLogger.error(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Error preparing next loader. ${error.message}`);
+      MCLogger.error(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Error preparing next loader. ${error.message}. Stack trace: ${error.stack}`);
       this.onError(error);
       throw error as Error;
     }
@@ -216,7 +216,7 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
       return;
     }
 
-    MCLogger.warn(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Aborting fetcher${error ? ` due to error: ${error.message}` : ""}. Stack trace: ${error ? error.stack : 'None'}}`,);
+    MCLogger.warn(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Aborting fetcher${error ? ` due to error: ${error.message}` : ""}. Stack trace: ${error?.stack || 'none'}}`,);
 
     MCLogger.info(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Marking fetcher as aborted. response: ${this.mResponse}, currentLoader: ${this.mCurrentLoader}, loaders.length: ${this.mLoaders?.length}`);
 

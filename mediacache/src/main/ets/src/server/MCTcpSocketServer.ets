@@ -49,7 +49,7 @@ export class MCTcpSocketServer implements IMCTcpSocketServer {
             resolve(this.mPort);
           }
           catch (error) {
-            MCLogger.error(MCLogModule.MCTcpSocketServer, () => `Failed to start server due to error: ${(error as Error).message}`);
+            MCLogger.error(MCLogModule.MCTcpSocketServer, () => `Failed to start server due to error: ${(error as Error).message}. Stack trace: ${error.stack}`);
             reject(error);
           }
           finally {

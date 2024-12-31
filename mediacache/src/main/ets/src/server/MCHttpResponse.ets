@@ -44,7 +44,7 @@ export class MCHttpResponse implements IMCHttpResponse {
       this.mFetcher.prepare();
     }
     catch (error) {
-      MCLogger.error(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Error during asset reader preparation: ${error.message}`);
+      MCLogger.error(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Error during asset reader preparation: ${error.message}. Stack trace: ${error.stack}`);
       this.onError(error);
       throw error as Error;
     }
@@ -118,8 +118,9 @@ export class MCHttpResponse implements IMCHttpResponse {
         // 发送 chunked 数据的结束块
         await this.mDataReceiveCallback?.(this, buffer.from('0\r\n\r\n', 'utf-8').buffer);
         MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Sent chunked data end block.`);
-      } catch (error) {
-        MCLogger.error(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Failed to send chunked data end block: ${error}`);
+      }
+      catch (error) {
+        MCLogger.error(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Failed to send chunked data end block: ${error}. Stack trace: ${error.stack}`);
         this.onError(error);
         return;
       }
@@ -151,14 +152,14 @@ export class MCHttpResponse implements IMCHttpResponse {
       return;
     }
 
-    MCLogger.warn(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Aborting MCHttpResponse${error ? ` due to error: ${error.message}` : ''}`);
+    MCLogger.warn(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Aborting MCHttpResponse${error ? ` due to error: ${error.message}` : ''}. Stack trace: ${error?.stack || 'none'}`);
 
     this.mAborted = true;
 
     await this.clear(error);
 
     if ( this.mAbortedCallback ) {
-      MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Executing aborted callback with error: ${error?.message || 'None'}.`);
+      MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Executing aborted callback with error: ${error?.message || 'none'}.`);
       this.mAbortedCallback(this, error);
     }
   }
@@ -166,7 +167,7 @@ export class MCHttpResponse implements IMCHttpResponse {
   private async clear(error?: Error): Promise<void> {
     const fetcher = this.mFetcher;
     if ( fetcher ) {
-      MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Clearing fetcher. Error: ${error?.message || 'none'}.`);
+      MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Clearing fetcher. Error: ${error?.message || 'none'}. Stack trace: ${error?.stack || 'none'}`);
       this.mFetcher = undefined;
       fetcher.off('responseReceive');
       fetcher.off('dataReceive');

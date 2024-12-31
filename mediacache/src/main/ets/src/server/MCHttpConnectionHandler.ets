@@ -35,7 +35,7 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
         MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Parsed request: ${JSON.stringify(request)}`);
       }
       catch (error) {
-        MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Error while parsing request: ${(error as Error).message}. Closing connection.`);
+        MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Error while parsing request: ${error.message}. Closing connection. Stack trace: ${error.stack}}`);
         try { await this.sendWithTimeout(connection, "HTTP/1.1 400 Bad Request\r\n\r\n"); } catch (_) { }
         connection.close();
       }
@@ -60,7 +60,7 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
             MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Headers sent: \n${headers}`);
           }
           catch (error) {
-            MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Error sending Headers: ${error.message}`);
+            MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Error sending Headers: ${error.message}. Stack trace: ${error.stack}`);
             isClosed = true;
             this.closeConnection(connection, 'Send headers failed');
             return;
@@ -77,15 +77,15 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
             MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Data sent, size: ${data.byteLength}`);
           }
           catch (error) {
-            MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Error sending data: ${error.message}`);
+            MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Error sending data: ${error.message}. Stack trace: ${error.stack}`);
             isClosed = true;
             this.closeConnection(connection, 'Send data failed');
             return;
           }
         }
       });
-      response.on('aborted', async (response: IMCHttpResponse, _?: Error) => {
-        MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Response aborted.`);
+      response.on('aborted', async (response: IMCHttpResponse, error?: Error) => {
+        MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Response aborted: ${error?.message || 'none'}, Stack trace: ${error?.stack || 'none'}`);
 
         this.clearResponseEvents(response);
         if ( this.mResponseMap.get(clientId) === response ) {

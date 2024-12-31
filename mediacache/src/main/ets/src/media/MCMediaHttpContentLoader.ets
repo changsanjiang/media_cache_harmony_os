@@ -91,7 +91,7 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
         }
       }
       catch (error) {
-        MCLogger.error(MCLogModule.MCMediaContentLoader, () => `[Http] Error processing headers for URL: ${this.mRequest.url} - ${(error as Error).message}`);
+        MCLogger.error(MCLogModule.MCMediaContentLoader, () => `[Http] Error processing headers for URL: ${this.mRequest.url} - ${(error as Error).message}. Stack trace: ${error.stack}`);
         this.onError(error);
         throw error as Error;
       }
@@ -133,7 +133,7 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
       MCLogger.info(MCLogModule.MCMediaContentLoader, () => `[Http] Written ${data.byteLength} bytes to content for URL: ${this.mRequest.url}. Offset: ${offset}.`);
     }
     catch (error) {
-      MCLogger.error(MCLogModule.MCMediaContentLoader, () => `[Http] Error writing data for URL: ${this.mRequest.url} - ${(error as Error).message}`);
+      MCLogger.error(MCLogModule.MCMediaContentLoader, () => `[Http] Error writing data for URL: ${this.mRequest.url} - ${(error as Error).message}. Stack trace: ${error.stack}`);
       this.onError(error);
       throw error as Error;
     }
@@ -169,7 +169,7 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
       this.onPrepared(this.mContent, range); // 临时内容下载完成, 通知父类 onPrepared;
     }
     catch (error) {
-      MCLogger.error(MCLogModule.MCMediaContentLoader, () => `[Http] Error during onComplete for URL: ${this.mRequest.url} - ${error.message}`);
+      MCLogger.error(MCLogModule.MCMediaContentLoader, () => `[Http] Error during onComplete for URL: ${this.mRequest.url} - ${error.message}. Stack trace: ${error.stack}`);
       this.onError(error);
       throw error as Error;
     }
@@ -198,7 +198,7 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
         MCLogger.debug(MCLogModule.MCMediaContentLoader, () => '[Http] Content writer closed successfully.');
       }
       catch (error) {
-        MCLogger.warn(MCLogModule.MCMediaContentLoader, () => `[Http] Error closing writer for request: ${this.mRequest.url} - ${(error as Error).message}`);
+        MCLogger.warn(MCLogModule.MCMediaContentLoader, () => `[Http] Error closing writer for request: ${this.mRequest.url} - ${(error as Error).message}. Stack trace: ${error.stack}`);
       }
 
       if (content.isTemp) {
@@ -208,7 +208,7 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
           MCLogger.debug(MCLogModule.MCMediaContentLoader, () => '[Http] Temporary content destroyed successfully.');
         }
         catch (error) {
-          MCLogger.warn(MCLogModule.MCMediaContentLoader, () => `[Http] Error destroying temporary content for request: ${this.mRequest.url} - ${(error as Error).message}`);
+          MCLogger.warn(MCLogModule.MCMediaContentLoader, () => `[Http] Error destroying temporary content for request: ${this.mRequest.url} - ${(error as Error).message}. Stack trace: ${error.stack}`);
         }
       }
     }

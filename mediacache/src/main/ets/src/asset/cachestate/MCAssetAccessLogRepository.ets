@@ -29,7 +29,7 @@ namespace MCAssetAccessLogRepository {
       MCLogger.info(MCLogModule.MCAssetAccessLogRepository, () => `Asset access logs initialized. Total loaded: ${mLogs.size}`);
     }
     catch (error) {
-      MCLogger.error(MCLogModule.MCAssetAccessLogRepository, () => `[Error] Failed to prepare asset access logs: ${error.message}`);
+      MCLogger.error(MCLogModule.MCAssetAccessLogRepository, () => `[Error] Failed to prepare asset access logs: ${error.message}. Stack trace: ${error.stack}`);
       throw error as Error;
     }
   }
@@ -54,8 +54,9 @@ namespace MCAssetAccessLogRepository {
       await mPref.set(assetId, JSON.stringify(log));
       await mPref.flush();
       MCLogger.debug(MCLogModule.MCAssetAccessLogRepository, () => `[AssetId: ${assetId}] Saved access log to preferences.`);
-    } catch (error) {
-      MCLogger.error(MCLogModule.MCAssetAccessLogRepository, () => `[AssetId: ${assetId}] Failed to save access log: ${error.message}`);
+    }
+    catch (error) {
+      MCLogger.error(MCLogModule.MCAssetAccessLogRepository, () => `[AssetId: ${assetId}] Failed to save access log: ${error.message}. Stack trace: ${error.stack}`);
       throw error as Error;
     }
   }
@@ -70,7 +71,7 @@ namespace MCAssetAccessLogRepository {
         MCLogger.info(MCLogModule.MCAssetAccessLogRepository, () => `[AssetId: ${assetId}] Evicted access log and cleared preferences.`);
       }
       catch (error) {
-        MCLogger.error(MCLogModule.MCAssetAccessLogRepository, () => `[AssetId: ${assetId}] Failed to evict access log: ${error.message}`);
+        MCLogger.error(MCLogModule.MCAssetAccessLogRepository, () => `[AssetId: ${assetId}] Failed to evict access log: ${error.message}. Stack trace: ${error.stack}`);
         throw error as Error;
       }
     }
