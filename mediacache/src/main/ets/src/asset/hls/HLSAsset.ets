@@ -93,22 +93,19 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
     const playlist = new HLSPlaylist(proxyContent);
     this.mPlaylists.set(mediaId, playlist);
 
-    const isMaster = (mediaId === this.id);
-    if ( isMaster ) {
-      if ( playlist.variantStream ) {
-        const targetInfo = MCURL.parse(playlist.variantStream.uri!);
-        await this.loadPlaylists(targetInfo.mediaId); // 尝试加载 variant stream playlist
-      }
+    if ( playlist.variantStream ) {
+      const targetInfo = MCURL.parse(playlist.variantStream.uri!);
+      await this.loadPlaylists(targetInfo.mediaId); // 尝试加载 variant stream playlist
+    }
 
-      if ( playlist.audioRendition ) {
-        const targetInfo = MCURL.parse(playlist.audioRendition.uri!);
-        await this.loadPlaylists(targetInfo.mediaId); // 尝试加载 audio rendition playlist
-      }
+    if ( playlist.audioRendition ) {
+      const targetInfo = MCURL.parse(playlist.audioRendition.uri!);
+      await this.loadPlaylists(targetInfo.mediaId); // 尝试加载 audio rendition playlist
+    }
 
-      if ( playlist.videoRendition ) {
-        const targetInfo = MCURL.parse(playlist.videoRendition.uri!);
-        await this.loadPlaylists(targetInfo.mediaId);  // 尝试加载 video rendition playlist
-      }
+    if ( playlist.videoRendition ) {
+      const targetInfo = MCURL.parse(playlist.videoRendition.uri!);
+      await this.loadPlaylists(targetInfo.mediaId);  // 尝试加载 video rendition playlist
     }
   }
 

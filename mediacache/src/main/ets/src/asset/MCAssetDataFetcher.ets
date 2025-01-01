@@ -78,10 +78,6 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
       return;
     }
 
-    if ( this.mAborted ) {
-      return;
-    }
-
     try {
       if ( this.mDataReceiveCallback ) {
         await this.mDataReceiveCallback(this, offset, data);
@@ -152,7 +148,8 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
           MCLogger.debug(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Aborting fetcher.`);
           await fetcher.abort(error);
           MCLogger.info(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Fetcher aborted successfully.`);
-        } catch (abortError) {
+        }
+        catch (abortError) {
           MCLogger.warn(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Failed to abort fetcher for request: ${this.mRequest}. Error: ${(abortError as Error)?.message || 'unknown'}`);
         }
       }

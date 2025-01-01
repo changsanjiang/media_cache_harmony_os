@@ -97,7 +97,8 @@ namespace MCAssetManager {
       try {
         const assetDir = await queryAssetDirBy(assetId);
         size = assetDir ? await MCFileIOUtils.calculateTotalBytes(assetDir) : 0;
-      } catch (ignored) {
+      }
+      catch (ignored) {
         size = 0;
       }
       mSizes.set(assetId, size);
@@ -138,6 +139,7 @@ namespace MCAssetManager {
     let assetDir: string | undefined = undefined;
     if ( asset ) {
       await asset.abort(new Error(`Asset will be removed!`));
+      assetDir = `${mRootDir}/${generateAssetDirName(assetId, asset.type)}`;
     }
     else {
       assetDir = await queryAssetDirBy(assetId);
