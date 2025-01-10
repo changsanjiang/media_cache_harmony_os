@@ -3,6 +3,7 @@
     "pages/Index",
     "pages/VideoPlayer",
     "pages/TestAVPlayer",
-    "pages/TestIJKPlayer"
+    "pages/TestIJKPlayer",
+    "pages/TestDASH"
   ]
 }

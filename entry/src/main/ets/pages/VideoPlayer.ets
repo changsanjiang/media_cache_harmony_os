@@ -6,7 +6,7 @@ struct VideoPlayer {
   private controller: VideoController | undefined;
   private previewUris: Resource = $r ('app.media.background');
 
-  private videoSrc: string = 'http://devimages.apple.com/iphone/samples/bipbop/bipbopall.m3u8' // 使用时请替换为实际视频加载网址
+  private videoSrc: string = 'https://xy2.v.netease.com/2020/dhp/eqokwojw16.mp4' // 使用时请替换为实际视频加载网址
   @State
   private proxyUrl: string = this.videoSrc;
 

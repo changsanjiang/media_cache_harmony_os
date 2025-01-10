@@ -55,6 +55,16 @@ struct Index {
           middle: { anchor: '__container__', align: HorizontalAlign.Center }
         })
         .onClick(() => this.testPrefetch())
+
+      Text("Test DASH")
+        .id('Test DASH')
+        .fontSize(50)
+        .fontWeight(FontWeight.Bold)
+        .alignRules({
+          center: { anchor: '__container__', align: VerticalAlign.Center },
+          middle: { anchor: '__container__', align: HorizontalAlign.Center }
+        })
+        .onClick(() => this.testDash())
     }
   }
 
@@ -65,7 +75,7 @@ struct Index {
     //   console.error(`Failed to jump to the second page. Code is ${err.code}, message is ${err.message}`)
     // })
 
-    router.pushUrl({ url: 'pages/TestAVPlayer' }).then(() => {
+    router.pushUrl({ url: 'pages/VideoPlayer' }).then(() => {
       console.info('Succeeded in jumping to the second page.')
     }).catch((err: BusinessError) => {
       console.error(`Failed to jump to the second page. Code is ${err.code}, message is ${err.message}`)
@@ -78,5 +88,13 @@ struct Index {
       prefetchSegmentCount: 10,
       onProgress: (progress) => console.log(`[progress] ${progress}`)
     });
+  }
+
+  testDash() {
+    router.pushUrl({ url: 'pages/TestDASH' }).then(() => {
+      console.info('Succeeded in jumping to the second page.')
+    }).catch((err: BusinessError) => {
+      console.error(`Failed to jump to the second page. Code is ${err.code}, message is ${err.message}`)
+    })
   }
 }
