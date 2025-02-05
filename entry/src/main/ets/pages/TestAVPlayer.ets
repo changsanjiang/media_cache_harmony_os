@@ -1,6 +1,6 @@
 import { media } from '@kit.MediaKit';
 import { BusinessError } from '@kit.BasicServicesKit';
-import { MCMediaCache } from '@sj/mediacache';
+import { router } from '@kit.ArkUI';
 
 class CustomXComponentController extends XComponentController {
   onSurfaceCreated(surfaceId: string): void {
@@ -21,14 +21,9 @@ class CustomXComponentController extends XComponentController {
 @Component
 struct VideoPlayer2 {
   xComponentController: XComponentController = new CustomXComponentController();
-  private videoSrc: string = 'http://devimages.apple.com/iphone/samples/bipbop/bipbopall.m3u8' // 使用时请替换为实际视频加载网址
-  private proxyUrl: string = this.videoSrc;
+  private url: string =  (router.getParams() as Record<string, string>)['url'];
   avPlayer?: media.AVPlayer = undefined;
   @State progressValue: number = 0    // 设置进度条初始值为0
-
-  async aboutToAppear(): Promise<void> {
-    this.proxyUrl = await MCMediaCache.proxy(this.videoSrc);
-  }
 
   aboutToDisappear(): void {
     this.avPlayer?.stop();
@@ -157,7 +152,7 @@ struct VideoPlayer2 {
         this.progressValue = time / this.avPlayer!.duration * 100;
       });
 
-      this.avPlayer.url = this.proxyUrl;
+      this.avPlayer.url = this.url;
     }
     else {
       this.avPlayer.play();

@@ -58,14 +58,17 @@ struct Index {
     }
   }
 
-  testPlay() {
+  async testPlay() {
     // router.pushUrl({ url: 'pages/VideoPlayer' }).then(() => {
     //   console.info('Succeeded in jumping to the second page.')
     // }).catch((err: BusinessError) => {
     //   console.error(`Failed to jump to the second page. Code is ${err.code}, message is ${err.message}`)
     // })
 
-    router.pushUrl({ url: 'pages/TestAVPlayer' }).then(() => {
+    let url = 'https://consumer.huawei.com/content/dam/huawei-cbg-site/cn/mkt/pdp/phones/nova-flip/new/video/design-intro-popup.mp4';
+    let proxyUrl = await MCMediaCache.proxy(url);
+
+    router.pushUrl({ url: 'pages/VideoPlayer', params: { url: proxyUrl } }).then(() => {
       console.info('Succeeded in jumping to the second page.')
     }).catch((err: BusinessError) => {
       console.error(`Failed to jump to the second page. Code is ${err.code}, message is ${err.message}`)

@@ -1,19 +1,14 @@
-import { MCMediaCache } from '@sj/mediacache';
 import { IjkMediaPlayer } from "@ohos/ijkplayer";
 import type { OnCompletionListener } from "@ohos/ijkplayer";
+import { router } from "@kit.ArkUI";
 
 @Entry
 @Component
 struct VideoPlayer3 {
-  private videoSrc: string = 'http://devimages.apple.com/iphone/samples/bipbop/bipbopall.m3u8' // 使用时请替换为实际视频加载网址
-  private proxyUrl: string = this.videoSrc;
+  private url: string =  (router.getParams() as Record<string, string>)['url'];
 
   player?: IjkMediaPlayer = undefined;
   @State progressValue: number = 0    // 设置进度条初始值为0
-
-  async aboutToAppear(): Promise<void> {
-    this.proxyUrl = await MCMediaCache.proxy(this.videoSrc);
-  }
 
   aboutToDisappear(): void {
     this.player?.stop();
@@ -95,7 +90,7 @@ struct VideoPlayer3 {
         this.player.setContext(this.mContext, 'xcomponentId');
         this.player.setDebug(false);
         this.player.native_setup();
-        this.player.setDataSource(this.proxyUrl);
+        this.player.setDataSource(this.url);
         this.player.setScreenOnWhilePlaying(true);
 
         const self = this;

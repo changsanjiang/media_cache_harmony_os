@@ -1,4 +1,4 @@
-import { MCMediaCache } from '@sj/mediacache';
+import { router } from '@kit.ArkUI';
 
 @Entry
 @Component
@@ -6,13 +6,7 @@ struct VideoPlayer {
   private controller: VideoController | undefined;
   private previewUris: Resource = $r ('app.media.background');
 
-  private videoSrc: string = 'http://devimages.apple.com/iphone/samples/bipbop/bipbopall.m3u8' // 使用时请替换为实际视频加载网址
-  @State
-  private proxyUrl: string = this.videoSrc;
-
-  async aboutToAppear(): Promise<void> {
-    this.proxyUrl = await MCMediaCache.proxy(this.videoSrc);
-  }
+  private url: string =  (router.getParams() as Record<string, string>)['url'];
 
   build(){
     Column() {
@@ -26,7 +20,7 @@ struct VideoPlayer {
         })
 
       Video({
-        src: this.proxyUrl,
+        src: this.url,
         previewUri: this.previewUris,
         controller: this.controller
       })
