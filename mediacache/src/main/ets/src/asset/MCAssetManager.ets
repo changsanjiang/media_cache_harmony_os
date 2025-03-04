@@ -4,7 +4,6 @@ import { FILEAsset } from './filebased/FILEAsset';
 import { HLSAsset } from './hls/HLSAsset';
 import { fileIo } from '@kit.CoreFileKit';
 import MCURL from '../utils/MCURL';
-import MCConfigs from '../utils/MCConfigs';
 import MCArrayUtils from '../utils/MCArrayUtils';
 import MCFileIOUtils from '../utils/MCFileIOUtils';
 
@@ -17,7 +16,11 @@ namespace MCAssetManager {
   const mInitPromises: Map<string, Promise<IMCAsset>> = new Map();
   const mRemovePromises: Map<string, Promise<void>> = new Map();
   const mSizes: Map<string, number> = new Map();
-  const mRootDir = MCConfigs.context.filesDir + '/mc_media_cache';
+  let mRootDir: string;
+
+  export function prepare(context: Context) {
+    mRootDir = context.filesDir + '/mc_media_cache';
+  }
 
   export async function getAssetByRequestTarget(requestTarget: string): Promise<IMCAsset> {
     const targetInfo = MCURL.parse(requestTarget);

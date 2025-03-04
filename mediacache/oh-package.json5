@@ -1,6 +1,6 @@
 {
   "name": "@sj/mediacache",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "主要用于支持音视频的边播放边缓存; 旨在代理媒体数据请求并优先提供缓存数据, 从而减少网络流量并提高播放流畅度.",
   "main": "Index.ets",
   "author": "csj",

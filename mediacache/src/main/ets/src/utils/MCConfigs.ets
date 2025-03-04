@@ -16,8 +16,6 @@ namespace MCConfigs {
   /** 发送给客户端数据块时等待的超时时间; */
   export let socketDataSendTimeoutInterval = 60 * 1000;
 
-  export const context: Context = getContext('');
-
   /**
    * 向远程服务器请求数据前回调; 可以在回调中修改请求, 添加请求头等;
    * */

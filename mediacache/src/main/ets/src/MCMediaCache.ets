@@ -17,37 +17,16 @@ import MCURL from "./utils/MCURL";
 namespace MCMediaCache {
   const mTcpServer = new MCTcpSocketServer();
   const mConnectionHandler = new MCHttpConnectionHandler();
-  let mPrepared = false;
-  let mPreparationPromise: Promise<void> | undefined = undefined;
 
   /** 缓存管理配置; 缓存管理器会根据这个配置定期检测并删除一些缓存; */
   export const cacheConfig: MCAssetCacheConfig = MCAssetCacheManager.config;
 
-  /** 启动代理服务器; */
-  export async function prepare(): Promise<void> {
-    if ( !mPrepared ) {
-      if ( mPreparationPromise === undefined ) {
-        mPreparationPromise = new Promise(async (resolve, reject) => {
-          try {
-            // 启动代理服务器
-            mTcpServer.on('connect', (connection) => mConnectionHandler.handleConnection(connection));
-            await mTcpServer.start();
-
-            // 初始化缓存管理器
-            await MCAssetCacheManager.prepare();
-            mPrepared = true;
-            resolve();
-          }
-          catch (error) {
-            reject(error);
-          }
-          finally {
-            mPreparationPromise = undefined;
-          }
-        });
-      }
-      await mPreparationPromise;
-    }
+  /** 初始化; */
+  export async function prepare(context: Context): Promise<void> {
+    mTcpServer.on('connect', (connection) => mConnectionHandler.handleConnection(connection));
+    // 初始化缓存管理器
+    // 启动代理服务器
+    await Promise.all([MCAssetCacheManager.prepare(context), mTcpServer.start()]);
   }
 
   /** 生成代理播放地址, 播放器可以使用该地址播放; */

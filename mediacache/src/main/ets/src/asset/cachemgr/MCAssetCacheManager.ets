@@ -1,5 +1,4 @@
 import { IMCAsset } from "../../defines/IMCAsset";
-import MCConfigs from '../../utils/MCConfigs';
 import MCAssetManager from "../MCAssetManager";
 import MCFileIOUtils from "../../utils/MCFileIOUtils";
 import MCAssetStateRepository from "../cachestate/MCAssetStateRepository";
@@ -19,13 +18,16 @@ namespace MCAssetCacheManager {
 
   export const config = new MCAssetCacheConfig();
   let mPeriodTrimStarted = false;
+  let mContext: Context;
 
   /** 初始化缓存管理器 */
-  export async function prepare(): Promise<void> {
+  export async function prepare(context: Context): Promise<void> {
+    MCLogger.info(MCLogModule.MCAssetCacheManager, () => `Initializing asset cache manager.`);
     try {
-      MCLogger.info(MCLogModule.MCAssetCacheManager, () => `Initializing asset cache manager.`);
-      await MCAssetStateRepository.prepare();
-      await MCAssetAccessLogRepository.prepare();
+      mContext = context;
+      MCAssetManager.prepare(context);
+      await MCAssetStateRepository.prepare(context);
+      await MCAssetAccessLogRepository.prepare(context);
 
       MCLogger.info(MCLogModule.MCAssetCacheManager, () => `Starting initial asset trimming.`);
       await trimAssetsBy(Limit.COUNT);
@@ -291,7 +293,7 @@ namespace MCAssetCacheManager {
   }
 
   function getDiskFreeSpace(): Promise<number> {
-    return MCFileIOUtils.getFreeSize(MCConfigs.context.filesDir)
+    return MCFileIOUtils.getFreeSize(mContext.filesDir)
       .then(space => {
         MCLogger.debug(MCLogModule.MCAssetCacheManager, () => `Disk free space: ${space} bytes.`);
         return space;

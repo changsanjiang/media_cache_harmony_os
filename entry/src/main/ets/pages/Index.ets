@@ -31,7 +31,7 @@ struct Index {
     // MCMediaCache.setDataEncryptHandler(async (resUrl, dataOffset, data) => {
     //   // xxx
     // });
-    MCMediaCache.prepare();
+    MCMediaCache.prepare(getContext());
   }
 
   build() {

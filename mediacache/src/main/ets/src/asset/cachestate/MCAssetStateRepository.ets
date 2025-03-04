@@ -7,11 +7,12 @@ import { MCAssetState } from "./MCAssetState";
 /** 记录资源状态; 例如是否固定; */
 namespace MCAssetStateRepository {
   const mStates = new Map<string, MCAssetState>();
-  const mPref = new MCPreferences<string>('mc_asset_state_pref');
+  let mPref: MCPreferences<string>;
 
   // 初始化加载资产状态
-  export async function prepare(): Promise<void> {
+  export async function prepare(context: Context): Promise<void> {
     try {
+      mPref = new MCPreferences<string>(context, 'mc_asset_state_pref');
       const record = await mPref.getAll();
       const map = MCUtils.recordToMap(record);
 

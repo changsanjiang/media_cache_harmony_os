@@ -19,7 +19,7 @@ ohpm i @sj/mediacache
 ```json
 {
   "dependencies": {
-    "@sj/mediacache": "^1.0.2"
+    "@sj/mediacache": "^1.0.3"
   }
 }
 ```
@@ -84,7 +84,7 @@ ohpm i @sj/mediacache
 
 在开始代理请求之前, 请通过以下方法进行初始化工作以启动代理服务器等;
 ```ts
-await MCMediaCache.prepare();
+await MCMediaCache.prepare(getContext());
 ```
 
 #### 播放

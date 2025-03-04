@@ -7,11 +7,12 @@ import { MCAssetAccessLog } from "./MCAssetAccessLog";
 /** 记录访问日志; 例如最后一次的访问时间; */
 namespace MCAssetAccessLogRepository {
   const mLogs = new Map<string, MCAssetAccessLog>();
-  const mPref = new MCPreferences<string>('mc_asset_access_pref');
+  let mPref: MCPreferences<string>;
 
   // 初始化和加载访问日志
-  export async function prepare(): Promise<void> {
+  export async function prepare(context: Context): Promise<void> {
     try {
+      mPref = new MCPreferences<string>(context, 'mc_asset_access_pref');
       const record = await mPref.getAll();
       const map = MCUtils.recordToMap(record);
       for (let element of Array.from(map.entries())) {

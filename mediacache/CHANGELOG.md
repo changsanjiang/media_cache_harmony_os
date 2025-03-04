@@ -1,3 +1,6 @@
+#### [v1.0.3] 2025/03
+- 调整初始化方法, 由外部传入`context`;
+
 #### [v1.0.2] 2025/01
 - 修复`cannot find record '&@sj/mediacache/xxx'`;
 
