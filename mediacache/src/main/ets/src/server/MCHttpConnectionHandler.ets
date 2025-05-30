@@ -38,6 +38,7 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
         MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] Error while parsing request: ${error.message}. Closing connection. Stack trace: ${error.stack}}`);
         try { await this.sendWithTimeout(connection, "HTTP/1.1 400 Bad Request\r\n\r\n"); } catch (_) { }
         connection.close();
+        return;
       }
 
       if ( !request ) {

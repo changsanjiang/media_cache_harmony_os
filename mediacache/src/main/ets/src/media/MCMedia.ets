@@ -383,6 +383,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   }
 
   // 生成代理内容;
+  // 原始 m3u8 文件中记录着的各个媒体片段, 它们都需要代理请求, 通过该方法将原始 m3u8 的文件内容替换成代理内容;
   applyProxy(requestUrl: string, currentUrl: string, contentData: ArrayBuffer): Promise<ArrayBuffer> {
     return this.mProxyHandler!(requestUrl, currentUrl, contentData);
   }
