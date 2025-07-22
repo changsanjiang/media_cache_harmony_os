@@ -1,17 +1,25 @@
 export interface IMCHttpResponse {
-  prepare(): Promise<void>;
+  /** 是否已准备就绪, 可以开始读取数据了; */
+  readonly isReady: boolean;
+  /** 是否已读取结束或 aborted; */
+  readonly isCompleted: boolean;
 
-  abort(error?: Error): Promise<void>;
+  readonly isDone: boolean;
 
-  on(event: 'headersReceive', callback: (response: IMCHttpResponse, headers: string) => void | Promise<void>): void;
-  off(event: 'headersReceive'): void;
+  /** 返回响应头 headers; */
+  prepare(): Promise<string>;
 
-  on(event: 'dataReceive', callback: (response: IMCHttpResponse, data: ArrayBuffer) => void | Promise<void>): void;
-  off(event: 'dataReceive'): void;
+  /** 拉取数据，或 undefined 表示当前不可读或结束; */
+  read(capacity: number): Promise<ArrayBuffer | undefined>;
 
-  on(event: 'dataEnd', callback: (response: IMCHttpResponse) => void | Promise<void>): void;
-  off(event: 'dataEnd'): void;
+  abort(error?: Error): void;
 
-  on(event: 'aborted', callback: (response: IMCHttpResponse, error?: Error) => void | Promise<void>): void; // 内部执行出错时也会调用 abort;
+  /** 有新数据可读取时回调; */
+  on(event: 'newDataReadable', callback: (response: IMCHttpResponse) => void): void;
+  on(event: 'aborted', callback: (response: IMCHttpResponse, error?: Error) => void): void;
+  on(event: 'done', callback: (response: IMCHttpResponse) => void): void;
+
+  off(event: 'newDataReadable'): void;
   off(event: 'aborted'): void;
+  off(event: 'done'): void;
 }

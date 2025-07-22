@@ -5,6 +5,7 @@ export interface IMCMediaContent {
 
   createReader(): IMCMediaContentReader; // reader 可以创建多个, 可以读取数据;
   createWriter(): IMCMediaContentWriter; // writer 只能创建一个, 可以写入数据;
+  readonly hasWriter: boolean;
 
   finalize(): void; // 临时内容转为正式内容;
   destroy(): Promise<void>; // 销毁内容; 删除本地文件; 如果内容正在被读写时, 则会等待读写操作完成后才会销毁;

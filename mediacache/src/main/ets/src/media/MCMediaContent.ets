@@ -81,6 +81,10 @@ export class MCMediaContent implements IMCMediaContent {
     return this.mWriter;
   }
 
+  get hasWriter(): boolean {
+    return this.mWriter == undefined || this.mWriter.isClosed;
+  }
+
   finalize(): void {
     this.mTemp = false;
   }
