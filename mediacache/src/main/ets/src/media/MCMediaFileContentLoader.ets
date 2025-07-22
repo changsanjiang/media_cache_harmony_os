@@ -23,7 +23,7 @@ export class MCMediaFileContentLoader extends MCMediaContentLoader {
     MCLogger.info(MCLogModule.MCMediaContentLoader, () => `[File] Preparing loader with range [${readStart}, ${readEnd}) and content range [${contentStart}, ${contentEnd}).`);
 
     if (readStart < contentStart || readEnd > contentEnd) {
-      this.abort(new Error(`Read range [${readStart}, ${readEnd}) is out of bounds for content range [${contentStart}, ${contentEnd}).`));
+      this.onError(new Error(`Read range [${readStart}, ${readEnd}) is out of bounds for content range [${contentStart}, ${contentEnd}).`));
       return;
     }
 

@@ -154,6 +154,7 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
     }
   }
 
+  /** 读取结束或者abort时执行清理工作 */
   private async clear(): Promise<void> {
     const content = this._mContent;
     const reader = this._mContentReader;

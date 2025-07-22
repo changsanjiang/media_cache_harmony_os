@@ -14,7 +14,7 @@ import MCConfigs from "../utils/MCConfigs";
 export class MCMediaProxyContentLoader extends MCMediaContentLoader {
   private mMedia: MCMedia;
   private mRequest: MCDownloadRequest;
-  private mAbortController?: MCAbortController = undefined;
+  private mDownloadAbortController?: MCAbortController = undefined;
   private mContent?: IMCMediaContent = undefined;
   private mWriter?: IMCMediaContentWriter = undefined;
 
@@ -26,7 +26,7 @@ export class MCMediaProxyContentLoader extends MCMediaContentLoader {
 
   async prepare(): Promise<void> {
     if ( this.mRequest.rangeHeader ) {
-      this.abort(new Error(`[Proxy] Range requests are not supported. URL: ${this.mRequest.url}`)); // 目前仅处理200请求, request 的 Headers 中不能包含 Range;
+      this.onError(new Error(`[Proxy] Range requests are not supported. URL: ${this.mRequest.url}`)); // 目前仅处理200请求, request 的 Headers 中不能包含 Range;
       return;
     }
 
@@ -38,18 +38,18 @@ export class MCMediaProxyContentLoader extends MCMediaContentLoader {
     }
     MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[Proxy] Download request created for URL: ${this.mRequest.url}.`);
 
-    this.mAbortController = new MCAbortController();
+    this.mDownloadAbortController = new MCAbortController();
     MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[Http] Starting download for URL: ${this.mRequest.url}.`);
     MCDownload.download(downloadRequest, {
-      signal: this.mAbortController.signal,
+      signal: this.mDownloadAbortController.signal,
     }).then((res) => {
-      this.mAbortController = undefined;
+      this.mDownloadAbortController = undefined;
       MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[Proxy] Download completed for URL: ${this.mRequest.url}, Response: ${JSON.stringify(res.headers)}`);
       this.onComplete(res);
     }).catch((error: Error) => {
-      this.mAbortController = undefined;
+      this.mDownloadAbortController = undefined;
       MCLogger.error(MCLogModule.MCMediaContentLoader, () => `[Proxy] Error during download for URL: ${this.mRequest.url} - ${(error as Error).message ?? ((error as BusinessError).code)}`);
-      if ( this.mAbortController ) this.mAbortController = undefined;
+      if ( this.mDownloadAbortController ) this.mDownloadAbortController = undefined;
       this.onError(error);
     });
   }
@@ -102,12 +102,12 @@ export class MCMediaProxyContentLoader extends MCMediaContentLoader {
   }
 
   protected async onClear(): Promise<void> { // 父类在清理资源时调用;
-    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[Proxy] Starting onClear for request: ${this.mRequest.url}. AbortController: ${this.mAbortController}, Content: ${this.mContent}, ContentWriter: ${this.mWriter}.`);
+    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[Proxy] Starting onClear for request: ${this.mRequest.url}. AbortController: ${this.mDownloadAbortController}, Content: ${this.mContent}, ContentWriter: ${this.mWriter}.`);
 
-    if ( this.mAbortController ) {
+    if ( this.mDownloadAbortController ) {
       MCLogger.debug(MCLogModule.MCMediaContentLoader, () => '[Proxy] Aborting download.');
-      this.mAbortController.abort();
-      this.mAbortController = undefined;
+      this.mDownloadAbortController.abort();
+      this.mDownloadAbortController = undefined;
       MCLogger.debug(MCLogModule.MCMediaContentLoader, () => '[Proxy] Download aborted.');
     }
 
