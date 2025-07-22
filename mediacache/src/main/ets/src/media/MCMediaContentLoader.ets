@@ -121,7 +121,7 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
     }
   }
 
-  protected onError(error?: Error) {
+  protected onError(error?: Error): void {
     MCLogger.error(MCLogModule.MCMediaContentLoader, () => `Handling error: ${(error as Error).message ?? ((error as BusinessError).code)}, Stack trace: ${error?.stack}`);
 
     if (!this._mAborted) {

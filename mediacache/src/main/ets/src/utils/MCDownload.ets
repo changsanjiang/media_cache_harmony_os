@@ -7,7 +7,7 @@ import { MCDownloadRequest } from './MCDownloadRequest';
 namespace MCDownload {
   export interface Options {
     headersReceive?: (headers: MCDownloadResponseHeaders) => void;
-    dataReceive?: (data: ArrayBuffer) => void | Promise<void>;
+    dataReceive?: (data: ArrayBuffer) => void;
     dataEnd?: () => void;
     signal?: MCAbortSignal;
   }

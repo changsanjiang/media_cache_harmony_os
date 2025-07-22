@@ -5,13 +5,13 @@
         "name": "default",
         "type": "HarmonyOS",
         "material": {
-          "certpath": "/Users/db/.ohos/config/default_mediacache_1HgZf1D8UV7D_YQuSRiE9neiUQxA4GRlnenFib5-CPc=.cer",
-          "storePassword": "0000001B43FFF7121177DEEFADAF924034CB54FD117112422813EF3B2113DA4C2AE052032E9008FE75091D",
+          "certpath": "/Users/db/.ohos/config/default_media_cache_harmony_os_XMY0fl7IodkQF1D9ADZzbept6OaLjY38P4eXdyJsYEw=.cer",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001B448BE786875C9FEE63D76334D7849E4C18D3BA95E85A2F776C8F6A46C53FA3C5AAB4D53EE59806",
-          "profile": "/Users/db/.ohos/config/default_mediacache_1HgZf1D8UV7D_YQuSRiE9neiUQxA4GRlnenFib5-CPc=.p7b",
+          "keyPassword": "0000001BB74351E2048009F21F20BE401A7CC31E9707B66D7A4E27E8D5D78EDF5763A42067BCD9F12852AF",
+          "profile": "/Users/db/.ohos/config/default_media_cache_harmony_os_XMY0fl7IodkQF1D9ADZzbept6OaLjY38P4eXdyJsYEw=.p7b",
           "signAlg": "SHA256withECDSA",
-          "storeFile": "/Users/db/.ohos/config/default_mediacache_1HgZf1D8UV7D_YQuSRiE9neiUQxA4GRlnenFib5-CPc=.p12"
+          "storeFile": "/Users/db/.ohos/config/default_media_cache_harmony_os_XMY0fl7IodkQF1D9ADZzbept6OaLjY38P4eXdyJsYEw=.p12",
+          "storePassword": "0000001BF045CC7E0223024FEC015FB36384ADA2D93EBC7E4311B85EAB9131556EC881CF404BB1FB8CD694"
         }
       }
     ],
