@@ -7,6 +7,7 @@ import BuildProfile from "BuildProfile";
 @Component
 struct Index {
   @State message: string = 'Hello World';
+  @State prefetchState: string = 'Test Prefetch';
 
   aboutToAppear() {
     // Asset 个数限制; 0 表示不限制;
@@ -24,7 +25,7 @@ struct Index {
     // 详细配置请查看 README.md
     MCMediaCache.setLogEnabled(BuildProfile.DEBUG); // 是否开启日志;
     MCMediaCache.setLogLevel(MCLogLevel.DEBUG); // 设置日志等级;
-    MCMediaCache.setLogWhiteModules([MCLogModule.MCHttpConnectionHandler, MCLogModule.MCHttpResponse]) // 允许打印哪些模块的日志;
+    MCMediaCache.setLogWhiteModules([MCLogModule.MCHttpConnectionHandler, MCLogModule.MCHttpResponse, MCLogModule.MCMediaContentLoader, MCLogModule.MCMediaDataFetcher]) // 允许打印哪些模块的日志;
     // MCMediaCache.setRequestHandler((request) => {
     //   request.setHeader('key', 'value');
     // });
@@ -46,7 +47,7 @@ struct Index {
         })
         .onClick(() => this.testPlay())
 
-      Text("Test prefetch")
+      Text(this.prefetchState)
         .id('Test prefetch')
         .fontSize(50)
         .fontWeight(FontWeight.Bold)
@@ -79,7 +80,10 @@ struct Index {
     const videoSrc: string = 'http://devimages.apple.com/iphone/samples/bipbop/bipbopall.m3u8';
     MCMediaCache.prefetch(videoSrc, {
       prefetchSegmentCount: 10,
-      onProgress: (progress) => console.log(`[progress] ${progress}`)
+      onProgress: (progress) => {
+        this.prefetchState = progress.toFixed(2);
+        console.log(`[progress] ${progress}`);
+      }
     });
   }
 }

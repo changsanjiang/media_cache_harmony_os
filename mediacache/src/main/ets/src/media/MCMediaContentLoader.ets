@@ -165,6 +165,8 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
   on(event: 'stateChange', callback: (loader: IMCMediaContentLoader, state: MCMediaContentLoaderState) => void): void;
   on(event: 'newDataReadable', callback: (loader: IMCMediaContentLoader) => void): void;
   on(event: string, callback: Object): void {
+    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.mClientId}] ${event} callback registered`);
+
     switch (event) {
       case "stateChange":
         this._mOnStateChange = callback as (loader: IMCMediaContentLoader, state: MCMediaContentLoaderState) => void;
@@ -178,6 +180,8 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
   off(event: 'stateChange'): void;
   off(event: 'newDataReadable'): void;
   off(event: string): void {
+    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.mClientId}] ${event} callback removed`);
+
     switch (event) {
       case "stateChange":
         this._mOnStateChange = undefined;
@@ -276,14 +280,14 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
 
   private notifyStateChange() {
     setTimeout(() => {
-      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] notifyStateChange() triggered. New state: ${MCMediaContentLoaderState[this._mState]}`);
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] notifyStateChange() triggered. New state: ${MCMediaContentLoaderState[this._mState]}, Callback: ${this._mOnStateChange}`);
       this._mOnStateChange?.(this, this._mState);
     });
   }
 
   private notifyNewDataReadable(): void {
     setTimeout(() => {
-      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] notifyNewDataReadable() triggered. Offset: ${this._mReadOffset}, ReadableLength: ${this.readableLength}`);
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] notifyNewDataReadable() triggered. Offset: ${this._mReadOffset}, ReadableLength: ${this.readableLength}, Callback: ${this._mOnNewDataReadable}`);
       this._mOnNewDataReadable?.(this);
     })
   }

@@ -12,7 +12,7 @@ namespace MCConfigs {
   export let ignoredHeaders = ['host', "user-agent"];
 
   /** 发送给客户端的数据块大小; */
-  export let socketDataBufferSize = 8 * 1024;
+  export let socketDataBufferSize = 256 * 1024;
   /** 发送给客户端数据块时等待的超时时间; */
   export let socketDataSendTimeoutInterval = 60 * 1000;
 

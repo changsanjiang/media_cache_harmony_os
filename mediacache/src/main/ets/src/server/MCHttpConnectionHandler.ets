@@ -149,6 +149,8 @@ class MCHttpConnectionResponseHandler implements IMCHttpConnectionResponseHandle
 
   /** 有新数据可响应 */
   private onResponseNewDataReadable(response: IMCHttpResponse): void {
+    MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Received newDataReadable event`);
+
     if ( !this.isActive(response) || !this.mHeadersSent ) {
       return;
     }
@@ -208,36 +210,60 @@ class MCHttpConnectionResponseHandler implements IMCHttpConnectionResponseHandle
   }
 
   private consumeData(response: IMCHttpResponse): void {
-    if ( this.mConsuming ) {
+    if (this.mConsuming) {
+      MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Already consuming, skip re-entry.`);
       return;
     }
 
     this.mConsuming = true;
+    MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Starting consumeData`);
+
     this.enqueueTask(async () => {
       if ( !this.isActive(response) ) {
+        MCLogger.warn(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Response is inactive. Abort consuming`);
         return;
       }
 
-      const buffer = await response.read(MCConfigs.socketDataBufferSize);
-      if ( buffer ) {
+      try {
+        MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Reading response data`);
+        const buffer = await response.read(MCConfigs.socketDataBufferSize);
+        MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Read ${buffer?.byteLength ?? 0} bytes`);
+        if ( !buffer ) {
+          this.mConsuming = false;
+          return;
+        }
+
+        MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Starting send ${buffer?.byteLength} bytes`);
         await this.mConnection.send({ data: buffer });
-        MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Sent response chunk of ${buffer.byteLength} bytes`);
+        MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Sent ${buffer.byteLength} bytes`);
 
-        if ( !response.isDone ) {
-          setTimeout(() => this.forceConsumeData(response), 0); // 延迟后继续读取, 防止大数据读取递归调用频繁, 大量占用cpu的问题;
-        }
-        else {
+        if ( response.isDone ) {
+          MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Response fully sent. Finalizing`);
           this.onResponseDone(response);
+          this.mConsuming = false;
+          return;
         }
-        return;
-      }
 
-      this.mConsuming = false;
+        MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Response not done, scheduling next consume`);
+        this.scheduleNextConsume(response);
+      }
+      catch (e) {
+        this.mConsuming = false;
+        this.onError(e);
+      }
+    });
+  }
+
+  private scheduleNextConsume(response: IMCHttpResponse): void {
+    // 避免递归堆栈增长
+    // 延迟后继续读取, 防止大数据读取递归调用频繁, 大量占用cpu的问题;
+    setTimeout(() => {
+      if ( this.isActive(response) ) this.forceConsumeData(response);
     });
   }
 
   private forceConsumeData(response: IMCHttpResponse): void {
-    this.mConsuming = false;
+    this.mConsuming = false; // 明确释放 consuming 状态
     this.consumeData(response);
   }
 

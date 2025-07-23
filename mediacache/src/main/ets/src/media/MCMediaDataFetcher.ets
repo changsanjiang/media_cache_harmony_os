@@ -226,6 +226,8 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
   on(event: 'newDataReadable', callback: (fetcher: IMCDataFetcher) => void): void;
   on(event: 'aborted', callback: (fetcher: IMCDataFetcher, error: Error) => void): void;
   on(event: string, callback: Object): void {
+    MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] ${event} callback registered`);
+
     switch (event) {
       case 'newDataReadable':
         this.mOnNewDataReadable = callback as (fetcher: IMCDataFetcher) => void;
@@ -239,6 +241,8 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
   off(event: 'newDataReadable'): void;
   off(event: 'aborted'): void;
   off(event: string): void {
+    MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] ${event} callback removed`);
+
     switch (event) {
       case 'newDataReadable':
         this.mOnNewDataReadable = undefined;
@@ -285,7 +289,7 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
   private prepareNextLoader(): void {
     MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Preparing next loader. Remaining loaders: ${this.mLoaders?.length}`);
 
-    if ( this.isCompleted ) { // ended or aborted
+    if ( this.isCompleted || (this.mCurrentLoader && this.mCurrentLoader.state != MCMediaContentLoaderState.Ended) ) {
       return;
     }
 
@@ -334,7 +338,9 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
   }
 
   private onLoaderNewDataReadable(loader: IMCMediaContentLoader): void {
+    MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Recived newDataReadable event`);
     if ( loader != this.mCurrentLoader ) return;
+
     MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] newDataReadable triggered. Invoking callback`);
 
     this.mOnNewDataReadable?.(this);
