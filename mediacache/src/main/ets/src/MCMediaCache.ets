@@ -1,19 +1,18 @@
-import MCAssetCacheManager from "./asset/cachemgr/MCAssetCacheManager";
-import MCAssetUtils from "./asset/MCAssetUtils";
-import HLSDefines from "./defines/HLSDefines";
-import { IMCDataRequest } from "./defines/IMCDataRequest";
-import { MCAssetCacheConfig } from "./defines/MCAssetCacheConfig";
-import { MCAssetPrefetchOptions } from "./defines/MCAssetPrefetchOptions";
-import { MCAssetType } from "./defines/MCAssetType";
-import { MCLogLevel } from "./defines/MCLogLevel";
-import { MCLogModule } from "./defines/MCLogModule";
-import { MCAssetPrefetcher } from "./prefetcher/MCAssetPrefetcher";
-import { MCHttpConnectionHandler } from "./server/MCHttpConnectionHandler";
-import { MCTcpSocketServer } from "./server/MCTcpSocketServer";
-import MCConfigs from "./utils/MCConfigs";
-import { MCDownloadRequest } from "./utils/MCDownloadRequest";
-import MCLogger from "./utils/MCLogger";
-import MCURL from "./utils/MCURL";
+import MCAssetCacheManager from './asset/cachemgr/MCAssetCacheManager';
+import MCAssetUtils from './asset/MCAssetUtils';
+import HLSDefines from './defines/HLSDefines';
+import { MCAssetCacheConfig } from './defines/MCAssetCacheConfig';
+import { MCAssetPrefetchOptions } from './defines/MCAssetPrefetchOptions';
+import { MCAssetType } from './defines/MCAssetType';
+import { MCLogLevel } from './defines/MCLogLevel';
+import { MCLogModule } from './defines/MCLogModule';
+import { MCAssetPrefetcher } from './prefetcher/MCAssetPrefetcher';
+import { MCHttpConnectionHandler } from './server/MCHttpConnectionHandler';
+import { MCTcpSocketServer } from './server/MCTcpSocketServer';
+import MCConfigs from './utils/MCConfigs';
+import { MCDownloadRequest } from './utils/MCDownloadRequest';
+import MCLogger from './utils/MCLogger';
+import MCURL from './utils/MCURL';
 
 namespace MCMediaCache {
   const mTcpServer = new MCTcpSocketServer();

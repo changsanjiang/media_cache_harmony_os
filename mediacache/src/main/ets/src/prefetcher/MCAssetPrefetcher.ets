@@ -463,6 +463,11 @@ class MCMediaDataPrefetcher implements IMCMediaDataPrefetcher {
         return;
       }
 
+      // 数据读取完毕
+      if ( fetcher.isDataEnd ) {
+        this.onComplete();
+      }
+
       const readableLength = fetcher.readableLength;
       if ( readableLength == 0 ) {
         return;
@@ -512,13 +517,13 @@ class MCMediaDataPrefetcher implements IMCMediaDataPrefetcher {
   // 确保操作按顺序串行执行
   private enqueueTask(task: () => void | Promise<void>): void {
     this.mSerialPromise = this.mSerialPromise
-      .catch((e: Error) => this.onComplete(e)) // 捕获上一个任务的异常，防止链断裂
       .then(async () => {
         if ( this.mCompleted ) {
           return;
         }
         return task(); // 执行新任务
-      });
+      })
+      .catch((e: Error) => this.onComplete(e)) // 捕获异常
   }
 
   private checkSignal(): void {
@@ -636,13 +641,13 @@ class MCMediaDataReader implements IMCMediaDataReader {
   // 确保操作按顺序串行执行
   private enqueueTask(task: () => void | Promise<void>): void {
     this.mSerialPromise = this.mSerialPromise
-      .catch((e: Error) => this.onComplete(e)) // 捕获上一个任务的异常，防止链断裂
       .then(async () => {
         if ( this.mCompleted ) {
           return;
         }
         return task(); // 执行新任务
-      });
+      })
+      .catch((e: Error) => this.onComplete(e)) // 捕获异常
   }
 
   private checkSignal(): void {

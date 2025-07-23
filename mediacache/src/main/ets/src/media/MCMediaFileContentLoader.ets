@@ -20,14 +20,14 @@ export class MCMediaFileContentLoader extends MCMediaContentLoader {
     const contentStart = this.content.contentOffset;
     const contentEnd = this.content.contentOffset + this.content.length;
 
-    MCLogger.info(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [File] Preparing loader with range [${readStart}, ${readEnd}) and content range [${contentStart}, ${contentEnd}).`);
+    MCLogger.info(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [File] Preparing loader with range [${readStart}, ${readEnd}) and content range [${contentStart}, ${contentEnd})`);
 
     if (readStart < contentStart || readEnd > contentEnd) {
-      this.onError(new Error(`Read range [${readStart}, ${readEnd}) is out of bounds for content range [${contentStart}, ${contentEnd}).`));
+      this.onError(new Error(`Read range [${readStart}, ${readEnd}) is out of bounds for content range [${contentStart}, ${contentEnd})`));
       return;
     }
 
-    MCLogger.info(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [File] Read range is valid. Invoking onPrepared.`);
+    MCLogger.info(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [File] Read range is valid. Invoking onPrepared`);
     this.onPrepared(this.content, this.readRange);
   }
 }

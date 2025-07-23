@@ -22,16 +22,20 @@ export class MCHttpConnectionHandler implements IMCHttpConnectionHandler {
   private mResponseHandlers: HashMap<number, IMCHttpConnectionResponseHandler> = new HashMap();
 
   constructor() {
-    MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `Instance created.`);
+    MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `MCHttpConnectionHandler instance created`);
   }
 
   handleConnection(cnt: socket.TCPSocketConnection): void {
     const clientId: number = cnt.clientId;
-    MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] New connection established.`);
+    MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] New TCP connection established`);
 
     const responseHandler = new MCHttpConnectionResponseHandler(cnt);
     this.mResponseHandlers.set(clientId, responseHandler);
-    responseHandler.on("disconnect", () => this.mResponseHandlers.remove(clientId));
+
+    responseHandler.on("disconnect", () => {
+      MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${clientId}] TCP connection handler removed from active map`);
+      this.mResponseHandlers.remove(clientId);
+    });
   }
 }
 
@@ -52,6 +56,8 @@ class MCHttpConnectionResponseHandler implements IMCHttpConnectionResponseHandle
     cnt.on('message', (msgInfo: socket.SocketMessageInfo) => this.onConnectionMessage(msgInfo));
     cnt.on('error', (e: Error) => this.onError(e));
     cnt.on('close', () => this.onConnectionDisconnect());
+
+    MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Response handler initialized`);
   }
 
   on(_: "disconnect", callback: (handler: IMCHttpConnectionResponseHandler) => void): void {
@@ -63,13 +69,13 @@ class MCHttpConnectionResponseHandler implements IMCHttpConnectionResponseHandle
   }
 
   private onConnectionMessage(msgInfo: socket.SocketMessageInfo): void {
-    MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] New message received.`);
+    MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] New message received`);
 
     // 取消之前的响应;
     this.abortResponse(new Error('Request is cancelled'));
 
     // 处理新消息
-    MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Starting to parse incoming request`);
+    MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Parsing incoming request...`);
     let request: IMCHttpRequest;
     try {
       request = this.parseHttpRequest(msgInfo)
@@ -100,7 +106,7 @@ class MCHttpConnectionResponseHandler implements IMCHttpConnectionResponseHandle
 
   /** 中止响应以及断开连接; */
   private onError(error: Error): void {
-    MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] On error: ${error.message}. Stack trace: ${error.stack}`);
+    MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Error occurred: ${error.message}. Stack trace: ${error.stack}`);
 
     this.abortResponse(error);
     this.enqueueTask(() => this.close());
@@ -113,8 +119,9 @@ class MCHttpConnectionResponseHandler implements IMCHttpConnectionResponseHandle
       return;
     }
 
-    MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Connection disconnect`);
+    MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] TCP connection closed.`);
 
+    this.abortResponse(new Error('Request is cancelled'));
     this.mDisconnected = true;
     this.mConnection.off('message');
     this.mConnection.off('error');
@@ -127,7 +134,13 @@ class MCHttpConnectionResponseHandler implements IMCHttpConnectionResponseHandle
     this.enqueueTask(async () => {
       if ( this.isActive(response) ) {
         this.mHeadersSent = true;
+        MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Starting send response headers`);
         await this.mConnection.send({ data: headers });
+        MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Response headers sent`);
+
+        if ( response.isDone ) {
+          this.onResponseDone(response);
+        }
       }
     });
 
@@ -149,6 +162,8 @@ class MCHttpConnectionResponseHandler implements IMCHttpConnectionResponseHandle
     response.off("aborted");
 
     if ( this.isActive(response) ) {
+      MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Response aborted. HeadersSent: ${this.mHeadersSent}. Reason: ${error.message}`);
+
       // header 消息已发送, 此时 response 是在读取过程中被中止了;
       if ( this.mHeadersSent ) {
         this.onError(error);
@@ -176,6 +191,7 @@ class MCHttpConnectionResponseHandler implements IMCHttpConnectionResponseHandle
       this.mCurrentResponse = undefined;
       this.mHeadersSent = false;
       this.mConsuming = false;
+      MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Response finished.`);
     }
   }
 
@@ -203,22 +219,33 @@ class MCHttpConnectionResponseHandler implements IMCHttpConnectionResponseHandle
       }
 
       const buffer = await response.read(MCConfigs.socketDataBufferSize);
-      await this.mConnection.send({ data: buffer });
-      if ( !response.isDone ) {
-        setTimeout(() => {
-          this.mConsuming = false;
-          this.consumeData(response);
-        }, 100); // 延迟后继续读取, 防止大数据读取递归调用频繁, 大量占用cpu的问题;
+      if ( buffer ) {
+        await this.mConnection.send({ data: buffer });
+        MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Sent response chunk of ${buffer.byteLength} bytes`);
+
+        if ( !response.isDone ) {
+          setTimeout(() => this.forceConsumeData(response), 0); // 延迟后继续读取, 防止大数据读取递归调用频繁, 大量占用cpu的问题;
+        }
+        else {
+          this.onResponseDone(response);
+        }
+        return;
       }
-      else {
-        this.onResponseDone(response);
-      }
+
+      this.mConsuming = false;
     });
   }
 
-  private abortResponse(error?: Error): void {
+  private forceConsumeData(response: IMCHttpResponse): void {
+    this.mConsuming = false;
+    this.consumeData(response);
+  }
+
+  private abortResponse(error: Error): void {
     const response = this.mCurrentResponse;
     if ( response ) {
+      MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Aborting current response due to: ${error.message}`);
+
       response.off("newDataReadable");
       response.off("aborted");
       this.mCurrentResponse = undefined;
@@ -226,7 +253,6 @@ class MCHttpConnectionResponseHandler implements IMCHttpConnectionResponseHandle
       this.mConsuming = false;
 
       if ( !response.isCompleted ) {
-        MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Aborting current response`);
         response.abort(error);
       }
     }
@@ -246,12 +272,13 @@ class MCHttpConnectionResponseHandler implements IMCHttpConnectionResponseHandle
   // 确保操作按顺序串行执行
   private enqueueTask(task: () => (void | Promise<void>)): void {
     this.mSerialPromise = this.mSerialPromise
-      .catch((e: Error) => this.onError(e)) // 捕获上一个任务的异常，防止链断裂
       .then(async () => {
         if ( this.mDisconnected ) {
           return;
         }
+        MCLogger.debug(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Executing serial task`);
         return task(); // 执行新任务
-      });
+      })
+      .catch((e: Error) => this.onError(e)) // 捕获异常
   }
 }

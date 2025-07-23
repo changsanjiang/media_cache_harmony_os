@@ -27,7 +27,7 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
 
     asset.readwriteRetain();
 
-    MCLogger.info(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Instance created for request: ${JSON.stringify(this.mRequest)}}`);
+    MCLogger.info(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Created fetcher for asset. Request: ${JSON.stringify(this.mRequest)}`);
   }
 
   get isReady(): boolean {
@@ -55,20 +55,32 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
   }
 
   async prepare(): Promise<IMCHttpResponseHeaders> {
-    MCLogger.info(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Preparing asset reader for request: ${JSON.stringify(this.mRequest)}}`);
+    MCLogger.info(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Starting preparation for asset request: ${JSON.stringify(this.mRequest)}`);
+
     try {
       const media = await this.mAsset.getMediaBy(this.mRequest.requestTarget);
       if ( this.mAborted ) {
-        MCLogger.debug(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Cannot prepare as the fetcher has been aborted.`);
+        MCLogger.info(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Cannot prepare as the fetcher has been aborted`);
         throw this.mError!;
       }
-      this.mMediaDataFetcher = new MCMediaDataFetcher(this.mClientId, media, this.mRequest);
+
+      const fetcher = new MCMediaDataFetcher(this.mClientId, media, this.mRequest);
+      this.mMediaDataFetcher = fetcher;
+      MCLogger.debug(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Instantiated media fetcher`);
+
       this.mMediaDataFetcher.on('newDataReadable', () => this.onNewDataReadable());
       this.mMediaDataFetcher.on('aborted', (_, error) => this.onError(error));
-      return this.mMediaDataFetcher.prepare();
+      const responseHeaders = await this.mMediaDataFetcher.prepare();
+
+      MCLogger.info(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Preparation complete. Response headers: ${JSON.stringify(responseHeaders)}`);
+
+      if ( fetcher.isDataEnd ) {
+        this.done();
+      }
+      return responseHeaders;
     }
     catch (error) {
-      MCLogger.error(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Error during asset reader preparation: ${error.message}. Stack trace: ${error.stack}`);
+      MCLogger.error(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Error during preparation: ${error.message}. Stack: ${error.stack}`);
       this.onError(error);
       throw this.mError ?? error as Error;
     }
@@ -76,35 +88,48 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
 
   async read(capacity: number): Promise<ArrayBuffer | undefined> {
     const fetcher = this.mMediaDataFetcher;
-    if ( fetcher ) {
-      const result = await fetcher.read(capacity);
-      MCLogger.debug(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Read ${result?.byteLength ?? 0} bytes.`);
-
-      if ( fetcher.isDataEnd ) {
-        this.done();
-      }
-      return result;
+    if ( !fetcher ) {
+      MCLogger.warn(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Attempted to read but no media fetcher available`);
+      return undefined;
     }
-    return undefined;
+
+    MCLogger.debug(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Starting read data. Offset: ${fetcher.offset}, Readable: ${fetcher.readableLength}`);
+
+    const result = await fetcher.read(capacity);
+    MCLogger.debug(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Read ${result?.byteLength ?? 0} bytes`);
+
+    if ( fetcher.isDataEnd ) {
+      this.done();
+    }
+    return result;
   }
 
   seek(offset: number): boolean {
-    const result = this.mMediaDataFetcher?.seek(offset) ?? false;
-    MCLogger.debug(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Seek to offset ${offset} ${result ? "succeeded" : "failed"}.`);
+    const fetcher = this.mMediaDataFetcher;
+    if ( !fetcher ) {
+      MCLogger.warn(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Attempted to seek but no media fetcher available`);
+      return false;
+    }
+
+    const result = fetcher.seek(offset);
+    MCLogger.debug(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Seek to offset ${offset} ${result ? "succeeded" : "failed"}`);
+
+    if ( result && fetcher.isDataEnd ) {
+      this.done();
+    }
     return result;
   }
 
   abort(error?: Error | undefined): void {
     if ( this.isCompleted ) {
+      MCLogger.debug(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Abort called but fetcher is already completed`);
       return;
     }
 
-    MCLogger.debug(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Aborting fetcher${error ? ` due to error: ${error.message}` : ""}. Stack trace: ${error?.stack || 'none'}`);
-
-    MCLogger.info(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Marking fetcher as aborted.`);
-
     this.mAborted = true;
     this.mError = error ?? new Error(`Fetcher was aborted`);
+
+    MCLogger.info(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Aborting fetcher. Reason: ${this.mError!.message}, Stack: ${this.mError!.stack}`);
 
     const fetcher = this.mMediaDataFetcher;
     if ( fetcher ) {
@@ -117,7 +142,7 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
     this.mAsset.readwriteRelease();
 
     setTimeout(() => {
-      MCLogger.debug(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Executing aborted callback with error: ${this.mError?.message}.`);
+      MCLogger.debug(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Executing aborted callback with error: ${this.mError?.message}`);
       this.mOnAborted?.(this, this.mError!);
     })
   }
@@ -128,13 +153,16 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
     }
 
     this.mDataEnd = true;
-    MCLogger.info(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Marking fetcher as done.`);
     this.mAsset.readwriteRelease();
+
+    MCLogger.info(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Data fetching complete. Marking as done`);
   }
 
   on(event: 'newDataReadable', callback: (fetcher: IMCDataFetcher) => void): void;
   on(event: 'aborted', callback: (fetcher: IMCDataFetcher, error: Error) => void): void;
   on(event: string, callback: Object): void {
+    MCLogger.debug(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] ${event} callback registered`);
+
     switch (event) {
       case 'newDataReadable':
         this.mOnNewDataReadable = callback as (fetcher: IMCDataFetcher) => void;
@@ -148,6 +176,8 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
   off(event: 'newDataReadable'): void;
   off(event: 'aborted'): void;
   off(event: string): void {
+    MCLogger.debug(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] ${event} callback removed`);
+
     switch (event) {
       case 'newDataReadable':
         this.mOnNewDataReadable = undefined;
@@ -163,11 +193,12 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
       return;
     }
 
+    MCLogger.error(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Error encountered. Triggering abort. Error: ${error?.message}`);
     this.abort(error);
   }
 
   private onNewDataReadable(): void {
-    MCLogger.debug(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Executing newDataReadable callback.`);
+    MCLogger.debug(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] newDataReadable triggered. Invoking callback`);
     this.mOnNewDataReadable?.(this);
   }
 }
