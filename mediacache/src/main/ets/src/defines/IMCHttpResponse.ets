@@ -16,10 +16,8 @@ export interface IMCHttpResponse {
 
   /** 有新数据可读取时回调; */
   on(event: 'newDataReadable', callback: (response: IMCHttpResponse) => void): void;
-  on(event: 'aborted', callback: (response: IMCHttpResponse, error?: Error) => void): void;
-  on(event: 'done', callback: (response: IMCHttpResponse) => void): void;
+  on(event: 'aborted', callback: (response: IMCHttpResponse, error: Error) => void): void;
 
   off(event: 'newDataReadable'): void;
   off(event: 'aborted'): void;
-  off(event: 'done'): void;
 }

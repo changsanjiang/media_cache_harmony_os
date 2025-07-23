@@ -18,37 +18,37 @@ export class MCMediaProxyContentLoader extends MCMediaContentLoader {
   private mContent?: IMCMediaContent = undefined;
   private mWriter?: IMCMediaContentWriter = undefined;
 
-  constructor(media: MCMedia, request: MCDownloadRequest) {
-    super();
+  constructor(clientId: number, loaderId: number, media: MCMedia, request: MCDownloadRequest) {
+    super(clientId, loaderId);
     this.mMedia = media;
     this.mRequest = request;
   }
 
   async prepare(): Promise<void> {
     if ( this.mRequest.rangeHeader ) {
-      this.onError(new Error(`[Proxy] Range requests are not supported. URL: ${this.mRequest.url}`)); // 目前仅处理200请求, request 的 Headers 中不能包含 Range;
+      this.onError(new Error(`[clientId: ${this.clientId}_${this.loaderId}] [Proxy] Range requests are not supported. URL: ${this.mRequest.url}`)); // 目前仅处理200请求, request 的 Headers 中不能包含 Range;
       return;
     }
 
-    MCLogger.info(MCLogModule.MCMediaContentLoader, () => `[Proxy] Preparing loader for URL: ${this.mRequest.url}.`);
+    MCLogger.info(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Proxy] Preparing loader for URL: ${this.mRequest.url}.`);
 
     const downloadRequest = new MCDownloadRequest(this.mRequest.url, this.mRequest.headers);
     if ( MCConfigs.requestHandler ) {
       MCConfigs.requestHandler(downloadRequest);
     }
-    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[Proxy] Download request created for URL: ${this.mRequest.url}.`);
+    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Proxy] Download request created for URL: ${this.mRequest.url}.`);
 
     this.mDownloadAbortController = new MCAbortController();
-    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[Http] Starting download for URL: ${this.mRequest.url}.`);
+    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Http] Starting download for URL: ${this.mRequest.url}.`);
     MCDownload.download(downloadRequest, {
       signal: this.mDownloadAbortController.signal,
     }).then((res) => {
       this.mDownloadAbortController = undefined;
-      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[Proxy] Download completed for URL: ${this.mRequest.url}, Response: ${JSON.stringify(res.headers)}`);
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Proxy] Download completed for URL: ${this.mRequest.url}, Response: ${JSON.stringify(res.headers)}`);
       this.onComplete(res);
     }).catch((error: Error) => {
       this.mDownloadAbortController = undefined;
-      MCLogger.error(MCLogModule.MCMediaContentLoader, () => `[Proxy] Error during download for URL: ${this.mRequest.url} - ${(error as Error).message ?? ((error as BusinessError).code)}`);
+      MCLogger.error(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Proxy] Error during download for URL: ${this.mRequest.url} - ${(error as Error).message ?? ((error as BusinessError).code)}`);
       if ( this.mDownloadAbortController ) this.mDownloadAbortController = undefined;
       this.onError(error);
     });
@@ -56,7 +56,7 @@ export class MCMediaProxyContentLoader extends MCMediaContentLoader {
 
   private async onComplete(res: MCDownload.Response): Promise<void> { // 下载完成后调用
     if ( this.isAborted ) {
-      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[Proxy] Download aborted for URL: ${this.mRequest.url}. Completion process skipped.`);
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Proxy] Download aborted for URL: ${this.mRequest.url}. Completion process skipped.`);
       return;
     }
 
@@ -88,27 +88,27 @@ export class MCMediaProxyContentLoader extends MCMediaContentLoader {
       if ( this.isAborted ) {
         throw new Error(`Loader aborted after copying temporary content.`);
       }
-      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[Proxy] Temporary content finalized and stored for URL: ${this.mRequest.url}.`);
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Proxy] Temporary content finalized and stored for URL: ${this.mRequest.url}.`);
 
       // content ready to read
       const range = new MCRange(this.mContent.contentOffset, this.mContent.length);
       this.onPrepared(this.mContent, range); // 临时内容下载完成, 通知父类 contentReady;
     }
     catch (error) {
-      MCLogger.error(MCLogModule.MCMediaContentLoader, () => `[Proxy] Error during onComplete for URL: ${this.mRequest.url} - ${error.message}. Stack trace: ${error.stack}`);
+      MCLogger.error(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Proxy] Error during onComplete for URL: ${this.mRequest.url} - ${error.message}. Stack trace: ${error.stack}`);
       this.onError(error)
       throw error as Error;
     }
   }
 
   protected async onClear(): Promise<void> { // 父类在清理资源时调用;
-    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[Proxy] Starting onClear for request: ${this.mRequest.url}. AbortController: ${this.mDownloadAbortController}, Content: ${this.mContent}, ContentWriter: ${this.mWriter}.`);
+    MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Proxy] Starting onClear for request: ${this.mRequest.url}. AbortController: ${this.mDownloadAbortController}, Content: ${this.mContent}, ContentWriter: ${this.mWriter}.`);
 
     if ( this.mDownloadAbortController ) {
-      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => '[Proxy] Aborting download.');
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Proxy] Aborting download.`);
       this.mDownloadAbortController.abort();
       this.mDownloadAbortController = undefined;
-      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => '[Proxy] Download aborted.');
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Proxy] Download aborted.`);
     }
 
     const content = this.mContent;
@@ -118,23 +118,23 @@ export class MCMediaProxyContentLoader extends MCMediaContentLoader {
       this.mContent = undefined;
       this.mWriter = undefined;
 
-      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => '[Proxy] Closing content writer.');
+      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Proxy] Closing content writer.`);
       try {
         await writer?.close();
-        MCLogger.debug(MCLogModule.MCMediaContentLoader, () => '[Proxy] Content writer closed successfully.');
+        MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Proxy] Content writer closed successfully.`);
       }
       catch (error) {
-        MCLogger.warn(MCLogModule.MCMediaContentLoader, () => `[Proxy] Error closing writer for request: ${this.mRequest.url} - ${(error as Error).message}. Stack trace: ${error.stack}`);
+        MCLogger.warn(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Proxy] Error closing writer for request: ${this.mRequest.url} - ${(error as Error).message}. Stack trace: ${error.stack}`);
       }
 
       if ( content.isTemp ) {
-        MCLogger.debug(MCLogModule.MCMediaContentLoader, () => '[Proxy] Destroying temporary content.');
+        MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Proxy] Destroying temporary content.`);
         try {
           await this.mMedia.destroy(content);
-          MCLogger.debug(MCLogModule.MCMediaContentLoader, () => '[Proxy] Temporary content destroyed successfully.');
+          MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Proxy] Temporary content destroyed successfully.`);
         }
         catch (error) {
-          MCLogger.warn(MCLogModule.MCMediaContentLoader, () => `[Proxy] Error destroying temporary content for request: ${this.mRequest.url} - ${(error as Error).message}. Stack trace: ${error.stack}`);
+          MCLogger.warn(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Proxy] Error destroying temporary content for request: ${this.mRequest.url} - ${(error as Error).message}. Stack trace: ${error.stack}`);
         }
       }
     }

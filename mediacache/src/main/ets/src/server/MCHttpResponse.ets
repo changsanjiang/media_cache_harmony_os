@@ -25,8 +25,7 @@ export class MCHttpResponse implements IMCHttpResponse {
   private mError?: Error = undefined;
 
   private mOnNewDataReadable?: (response: IMCHttpResponse) => void = undefined;
-  private mOnAborted?: (response: IMCHttpResponse, error?: Error | undefined) => void = undefined;
-  private mOnDone?: (response: IMCHttpResponse) => void = undefined;
+  private mOnAborted?: (response: IMCHttpResponse, error: Error) => void = undefined;
 
   constructor(clientId: number, request: IMCHttpRequest) {
     this.mClientId = clientId;
@@ -47,7 +46,7 @@ export class MCHttpResponse implements IMCHttpResponse {
   }
 
   async prepare(): Promise<string> {
-    MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Preparing response.`);
+    MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Preparing response`);
     try {
       const asset = await MCAssetManager.getAssetByRequestTarget(this.mRequest.requestTarget);
       if ( this.mAborted ) {
@@ -60,7 +59,6 @@ export class MCHttpResponse implements IMCHttpResponse {
       });
       this.mFetcher.on('newDataReadable', () => this.onNewDataReadable());
       this.mFetcher.on('aborted', (_, error) => this.onError(error));
-      this.mFetcher.on('dataEnd', (_) => this.onDataEnd());
 
       const responseHeaders = await this.mFetcher.prepare();
       if ( this.mAborted ) {
@@ -69,6 +67,8 @@ export class MCHttpResponse implements IMCHttpResponse {
 
       this.mChunked = responseHeaders.statusCode === 200 && (responseHeaders as IMCHttpOkResponseHeaders).chunked === true;
       const rawHeaders = this.generateResponseHeaders(responseHeaders);
+
+      MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Finished preparation. Chunked: ${this.mChunked}, RawHeaders: ${rawHeaders}`);
       return rawHeaders;
     }
     catch (error) {
@@ -79,11 +79,19 @@ export class MCHttpResponse implements IMCHttpResponse {
   }
 
   async read(capacity: number): Promise<ArrayBuffer | undefined> {
+    MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Starting read data`);
+
     const fetcher = this.mFetcher;
     if ( fetcher == undefined ) return undefined;
     const data = await fetcher.read(capacity);
-    if ( this.mChunked ) {
-      if ( data ) {
+    if ( data ) {
+      MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Finished read data, size: ${data.byteLength} bytes, offset: ${fetcher.offset}, readable: ${fetcher.readableLength} bytes`);
+
+      if ( fetcher.isDataEnd ) {
+        this.mDataEnd = true;
+      }
+
+      if ( this.mChunked ) {
         // 拼接 chunk 数据：头部 + 数据 + 尾部
         //
         // 处理 chunked 编码的数据
@@ -102,10 +110,15 @@ export class MCHttpResponse implements IMCHttpResponse {
         dataView.set(chunkFooter, chunkHeader.byteLength + data.byteLength);
         return chunkedData;
       }
+    }
+    // no data read
+    else {
+      MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] No data read in current attempt`);
 
-      if ( fetcher.isDataEnd && !this.mChunkReadEnd ) {
+      if ( this.mDataEnd && this.mChunked && !this.mChunkReadEnd ) {
+        MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Chunk readed end`);
+
         this.mChunkReadEnd = true;
-        this.notifyDone();
         return buffer.from('0\r\n\r\n', 'utf-8').buffer;
       }
     }
@@ -117,7 +130,7 @@ export class MCHttpResponse implements IMCHttpResponse {
       return;
     }
 
-    MCLogger.warn(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Aborting MCHttpResponse${error ? ` due to error: ${error.message}` : ''}. Stack trace: ${error?.stack || 'none'}`);
+    MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Aborting MCHttpResponse${error ? ` due to error: ${error.message}` : ''}. Stack trace: ${error?.stack || 'none'}`);
 
     this.mAborted = true;
     this.mError = error ?? new Error('Response was aborted');
@@ -126,49 +139,31 @@ export class MCHttpResponse implements IMCHttpResponse {
     if ( fetcher ) {
       this.mFetcher = undefined;
       fetcher.off('newDataReadable');
-      fetcher.off('dataEnd');
       fetcher.off('aborted');
       if ( !fetcher.isCompleted ) fetcher.abort(this.mError);
     }
 
-    Promise.resolve().then(() => {
+    setTimeout(() => {
       MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Executing aborted callback with error: ${this.mError?.message}.`);
-      this.mOnAborted?.(this, this.mError);
+      this.mOnAborted?.(this, this.mError!);
     });
   }
 
-  private onDataEnd(): void {
-    if ( this.isCompleted ) {
-      return;
-    }
-
-    this.mDataEnd = true;
-
-    if ( !this.mChunked ) {
-      this.notifyDone();
-    }
-  }
-
   on(event: "newDataReadable", callback: (response: IMCHttpResponse) => void): void;
-  on(event: "aborted", callback: (response: IMCHttpResponse, error?: Error | undefined) => void): void;
-  on(event: "done", callback: (response: IMCHttpResponse) => void): void;
+  on(event: "aborted", callback: (response: IMCHttpResponse, error: Error) => void): void;
   on(event: string, callback: Object): void {
     switch (event) {
       case 'newDataReadable':
         this.mOnNewDataReadable = callback as (response: IMCHttpResponse) => void;
         break;
       case 'aborted':
-        this.mOnAborted = callback as (response: IMCHttpResponse, error?: Error | undefined) => void;
-        break;
-      case 'done':
-        this.mOnDone = callback as (response: IMCHttpResponse) => void;;
+        this.mOnAborted = callback as (response: IMCHttpResponse, error: Error) => void;
         break;
     }
   }
 
   off(event: "newDataReadable"): void;
   off(event: "aborted"): void;
-  off(event: "done"): void;
   off(event: string): void {
     switch (event) {
       case 'newDataReadable':
@@ -176,9 +171,6 @@ export class MCHttpResponse implements IMCHttpResponse {
         break;
       case 'aborted':
         this.mOnAborted = undefined;
-        break;
-      case 'done':
-        this.mOnDone = undefined;
         break;
     }
   }
@@ -193,15 +185,6 @@ export class MCHttpResponse implements IMCHttpResponse {
     }
 
     this.abort(error);
-  }
-
-  private notifyDone(): void {
-    MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Marking response as done.`);
-
-    Promise.resolve().then(() => {
-      MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Executing dataEnd callback.`);
-      this.mOnDone?.(this);
-    });
   }
 
   private generateResponseHeaders(responseHeaders: IMCHttpResponseHeaders): string {

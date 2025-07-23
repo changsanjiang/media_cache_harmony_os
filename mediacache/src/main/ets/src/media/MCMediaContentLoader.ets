@@ -236,13 +236,17 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
 
     this._mContent = content;
     this._mContentReader = content.createReader();
-    this._mContent.on('dataWritten', (_) => this.onDataWritten());
+    this._mContent.on('dataWritten', (_) => this.notifyNewDataReadable());
     this._mReadRange = readRange;
     this._mReadOffset = readRange.location;
     this._mState = MCMediaContentLoaderState.Ready;
 
     MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] Finished prepare. Loader marked as Ready.`);
     this.notifyStateChange();
+
+    if ( this.readableLength > 0 ) {
+      this.notifyNewDataReadable();
+    }
   }
 
   protected onError(error?: Error): void {
@@ -257,13 +261,6 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
 
   protected async onClear(): Promise<void> { }
 
-  private onDataWritten(): void {
-    if ( this.isAborted ) {
-      return;
-    }
-    this._mOnNewDataReadable?.(this);
-  }
-
   private onReachedEnd(): void {
     this._mState = MCMediaContentLoaderState.Ended;
     MCLogger.info(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] Reached end of read range at offset ${this._mReadOffset}. Loader marked as Ended.`);
@@ -272,9 +269,15 @@ export class MCMediaContentLoader implements IMCMediaContentLoader {
   }
 
   private notifyStateChange() {
-    Promise.resolve().then(() => {
+    setTimeout(() => {
       this._mOnStateChange?.(this, this._mState);
     });
+  }
+
+  private notifyNewDataReadable(): void {
+    setTimeout(() => {
+      this._mOnNewDataReadable?.(this);
+    })
   }
 
   // 确保读取操作按顺序串行执行

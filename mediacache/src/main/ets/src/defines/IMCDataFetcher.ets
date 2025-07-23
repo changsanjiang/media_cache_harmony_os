@@ -26,10 +26,8 @@ export interface IMCDataFetcher {
 
   /** 有新数据可读取时回调; */
   on(event: 'newDataReadable', callback: (fetcher: IMCDataFetcher) => void): void;
-  on(event: 'aborted', callback: (fetcher: IMCDataFetcher, error?: Error) => void): void;
-  on(event: 'dataEnd', callback: (fetcher: IMCDataFetcher) => void): void;
+  on(event: 'aborted', callback: (fetcher: IMCDataFetcher, error: Error) => void): void;
 
   off(event: 'newDataReadable'): void;
   off(event: 'aborted'): void;
-  off(event: 'dataEnd'): void;
 }

@@ -12,8 +12,7 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
   private mAsset: IMCAsset;
 
   private mOnNewDataReadable?: (fetcher: IMCDataFetcher) => void = undefined;
-  private mOnAborted?: (fetcher: IMCDataFetcher, error?: Error | undefined) => void = undefined;
-  private mOnDataEnd?: (fetcher: IMCDataFetcher) => void = undefined;
+  private mOnAborted?: (fetcher: IMCDataFetcher, error: Error) => void = undefined;
 
   private mDataEnd = false;
   private mAborted = false;
@@ -66,7 +65,6 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
       this.mMediaDataFetcher = new MCMediaDataFetcher(this.mClientId, media, this.mRequest);
       this.mMediaDataFetcher.on('newDataReadable', () => this.onNewDataReadable());
       this.mMediaDataFetcher.on('aborted', (_, error) => this.onError(error));
-      this.mMediaDataFetcher.on('dataEnd', () => this.done());
       return this.mMediaDataFetcher.prepare();
     }
     catch (error) {
@@ -77,9 +75,17 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
   }
 
   async read(capacity: number): Promise<ArrayBuffer | undefined> {
-    const result = await this.mMediaDataFetcher?.read(capacity) ?? undefined;
-    MCLogger.debug(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Read ${result?.byteLength ?? 0} bytes.`);
-    return result;
+    const fetcher = this.mMediaDataFetcher;
+    if ( fetcher ) {
+      const result = await fetcher.read(capacity);
+      MCLogger.debug(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Read ${result?.byteLength ?? 0} bytes.`);
+
+      if ( fetcher.isDataEnd ) {
+        this.done();
+      }
+      return result;
+    }
+    return undefined;
   }
 
   seek(offset: number): boolean {
@@ -105,15 +111,14 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
       this.mMediaDataFetcher = undefined;
       fetcher.off("newDataReadable");
       fetcher.off("aborted");
-      fetcher.off("dataEnd");
       if ( !fetcher.isCompleted ) fetcher.abort(error);
     }
 
     this.mAsset.readwriteRelease();
 
-    Promise.resolve().then(() => {
+    setTimeout(() => {
       MCLogger.debug(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Executing aborted callback with error: ${this.mError?.message}.`);
-      this.mOnAborted?.(this, this.mError);
+      this.mOnAborted?.(this, this.mError!);
     })
   }
 
@@ -125,33 +130,23 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
     this.mDataEnd = true;
     MCLogger.info(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Marking fetcher as done.`);
     this.mAsset.readwriteRelease();
-
-    Promise.resolve().then(() => {
-      MCLogger.debug(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Executing dataEnd callback.`);
-      this.mOnDataEnd?.(this);
-    })
   }
 
   on(event: 'newDataReadable', callback: (fetcher: IMCDataFetcher) => void): void;
-  on(event: 'aborted', callback: (fetcher: IMCDataFetcher, error?: Error) => void): void;
-  on(event: 'dataEnd', callback: (fetcher: IMCDataFetcher) => void): void;
+  on(event: 'aborted', callback: (fetcher: IMCDataFetcher, error: Error) => void): void;
   on(event: string, callback: Object): void {
     switch (event) {
       case 'newDataReadable':
         this.mOnNewDataReadable = callback as (fetcher: IMCDataFetcher) => void;
         break;
       case 'aborted':
-        this.mOnAborted = callback as (fetcher: IMCDataFetcher, error?: Error | undefined) => void;
-        break;
-      case 'dataEnd':
-        this.mOnDataEnd = callback as (fetcher: IMCDataFetcher) => void;;
+        this.mOnAborted = callback as (fetcher: IMCDataFetcher, error: Error) => void;
         break;
     }
   }
 
   off(event: 'newDataReadable'): void;
   off(event: 'aborted'): void;
-  off(event: 'dataEnd'): void;
   off(event: string): void {
     switch (event) {
       case 'newDataReadable':
@@ -159,9 +154,6 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
         break;
       case 'aborted':
         this.mOnAborted = undefined;
-        break;
-      case 'dataEnd':
-        this.mOnDataEnd = undefined;
         break;
     }
   }

@@ -16,7 +16,7 @@ import { MCMediaDataFetcher } from "../media/MCMediaDataFetcher";
 import { MCAbortController, MCAbortSignal } from "../utils/MCAbortController";
 import MCUtils from "../utils/MCUtils";
 
-namespace MCAssetPrefetcher {
+export namespace MCAssetPrefetcher {
   let mPrefetchId = -1
 
   export async function prefetch(resUrl: string, options?: MCAssetPrefetchOptions): Promise<void> {
@@ -367,142 +367,16 @@ namespace MCAssetPrefetcher {
   }
 
   function fetch(clientId: number, media: IMCMedia, request: IMCDataRequest, onProgress?: (receivedLength: number, expectedLength: number) => void, signal?: MCAbortSignal): Promise<void> {
-    return new Promise(async (resolve, reject) => {
-      if ( signal && signal.isAborted ) {
-        reject(signal.reason!);  // reject
-        return;
-      }
-
-      const fetcher = new MCMediaDataFetcher(clientId, media, request);
-
-      let contentLength: number | undefined = undefined;
-      fetcher.on('responseReceive', (fetcher: IMCDataFetcher, responseHeaders: IMCHttpResponseHeaders) => {
-        if ( signal && signal.isAborted ) {
-          return;
-        }
-
-        switch (responseHeaders.statusCode) {
-          case 200:
-            contentLength = (responseHeaders as IMCHttpOkResponseHeaders).contentLength;
-            break;
-          case 206:
-            contentLength = (responseHeaders as IMCHttpPartialContentResponseHeaders).contentRange.length;
-            break;
-          default: {
-            const error = new Error(`Invalid response with code: ${responseHeaders.statusCode}}`);
-            fetcher.abort(error);
-            break;
-          }
-        }
-      });
-
-      let receivedLength = 0;
-      fetcher.on("dataReceive", (_: IMCDataFetcher, __: number, data: ArrayBuffer) => {
-        if ( signal && signal.isAborted ) {
-          return;
-        }
-
-        receivedLength += data.byteLength;
-        if ( contentLength && onProgress ) { // contentLength 不一定有值, 当数据以 chunked 形式响应时, 无法获取所请求的数据长度;
-          onProgress(receivedLength, contentLength);
-        }
-      });
-
-      fetcher.on("dataEnd", (fetcher: IMCDataFetcher) => {
-        if ( signal && signal.isAborted ) {
-          return;
-        }
-
-        if ( onProgress && contentLength === undefined ) {
-          onProgress(receivedLength, receivedLength);
-        }
-
-        clearFetcherEvents(fetcher);
-        resolve();
-      });
-
-      fetcher.on("aborted", (fetcher: IMCDataFetcher, error: Error) => {
-        if ( signal && signal.isAborted ) {
-          return;
-        }
-
-        clearFetcherEvents(fetcher);
-        reject(error); // reject
-      });
-
-      const signalAbortedCallback: ((error: Error) => void) | undefined = signal ? (error) => {
-        clearFetcherEvents(fetcher);
-        fetcher.abort(error);
-        reject(error); // reject
-      } : undefined;
-
-      signal?.addEventListener('aborted', signalAbortedCallback!);
-
-      try {
-        // prepare
-        await fetcher.prepare();
-      }
-      catch (error) {
-        reject(error); // reject
-      }
-      finally {
-        signal?.removeEventListener('aborted', signalAbortedCallback!);
-      }
+    return new Promise<void>((resolve, reject) => {
+      const prefecher: IMCMediaDataPrefetcher = new MCMediaDataPrefetcher(clientId, media, request, onProgress, signal);
+      prefecher.prefetch((e) => e == undefined ? resolve() : reject(e));
     });
   }
 
   function read(clientId: number, media: IMCMedia, request: IMCDataRequest, signal?: MCAbortSignal): Promise<ArrayBuffer | undefined> {
     return new Promise(async (resolve, reject) => {
-      if ( signal && signal.isAborted ) {
-        reject(signal.reason!);  // reject
-        return;
-      }
-
-      const fetcher = new MCMediaDataFetcher(clientId, media, request);
-      let buffer: ArrayBuffer | undefined = undefined
-      fetcher.on("dataReceive", (_: IMCDataFetcher, __: number, data: ArrayBuffer) => {
-        if ( signal && signal.isAborted ) {
-          return;
-        }
-        buffer = buffer ? MCUtils.mergeArrayBuffers(buffer, data) : data;
-      });
-
-      fetcher.on("dataEnd", (fetcher: IMCDataFetcher) => {
-        if ( signal && signal.isAborted ) {
-          return;
-        }
-
-        clearFetcherEvents(fetcher);
-        resolve(buffer);
-      });
-
-      fetcher.on("aborted", (fetcher: IMCDataFetcher, error: Error) => {
-        if ( signal && signal.isAborted ) {
-          return;
-        }
-
-        clearFetcherEvents(fetcher);
-        reject(error); // reject
-      });
-
-      const signalAbortedCallback: ((error: Error) => void) | undefined = signal ? (error) => {
-        clearFetcherEvents(fetcher);
-        fetcher.abort(error);
-        reject(error); // reject
-      } : undefined;
-
-      signal?.addEventListener('aborted', signalAbortedCallback!);
-
-      try {
-        // prepare
-        await fetcher.prepare();
-      }
-      catch (error) {
-        reject(error); // reject
-      }
-      finally {
-        signal?.removeEventListener('aborted', signalAbortedCallback!);
-      }
+      const reader: IMCMediaDataReader = new MCMediaDataReader(clientId, media, request, signal);
+      reader.read((data, e) => e == undefined ? resolve(data) : reject(e));
     });
   }
 
@@ -510,13 +384,6 @@ namespace MCAssetPrefetcher {
     if ( signal && signal.isAborted ) {
       throw signal.reason!;
     }
-  }
-
-  function clearFetcherEvents(fetcher: IMCDataFetcher) {
-    fetcher.off('responseReceive');
-    fetcher.off('dataReceive');
-    fetcher.off('dataEnd');
-    fetcher.off('aborted');
   }
 
   function generatePrefetchId(): number {
@@ -528,4 +395,259 @@ namespace MCAssetPrefetcher {
   }
 }
 
-export default MCAssetPrefetcher;
+interface IMCMediaDataPrefetcher {
+  prefetch(complete: (error?: Error) => void): void;
+}
+
+class MCMediaDataPrefetcher implements IMCMediaDataPrefetcher {
+  private mClientId: number;
+  private mMedia: IMCMedia;
+  private mRequest: IMCDataRequest;
+  private mOnProgress?: (receivedLength: number, expectedLength: number) => void;
+  private mSignal?: MCAbortSignal;
+
+  private mDataFetcher?: IMCDataFetcher;
+  private mSerialPromise = Promise.resolve();
+
+  private mCompleted = false;
+  private mOnComplete?: (error?: Error) => void = undefined;
+
+  private mReceivedLength: number = 0;
+  private mExpectedLength: number = 0;
+
+  constructor(clientId: number, media: IMCMedia, request: IMCDataRequest, onProgress?: (receivedLength: number, expectedLength: number) => void, signal?: MCAbortSignal) {
+    this.mClientId = clientId;
+    this.mMedia = media;
+    this.mRequest = request;
+    this.mOnProgress = onProgress;
+    this.mSignal = signal;
+  }
+
+  async prefetch(complete: (error?: Error) => void): Promise<void> {
+   this.mOnComplete = complete;
+
+   try {
+     this.checkSignal();
+
+     const fetcher = new MCMediaDataFetcher(this.mClientId, this.mMedia, this.mRequest);
+     this.mDataFetcher = fetcher;
+
+     fetcher.on("newDataReadable", (fetcher) => this.readData(fetcher));
+     fetcher.on("aborted", (_, e) => this.onFetcherAborted(e));
+
+     this.mSignal?.addEventListener("aborted", (e) => fetcher.abort(e));
+
+     const responseHeaders = await fetcher.prepare();
+     switch (responseHeaders.statusCode) {
+       case 200:
+         // mExpectedLength 不一定有值, 当数据以 chunked 形式响应时, 无法获取所请求的数据长度;
+         this.mExpectedLength = (responseHeaders as IMCHttpOkResponseHeaders).contentLength ?? 0;
+         break;
+       case 206:
+         this.mExpectedLength = (responseHeaders as IMCHttpPartialContentResponseHeaders).contentRange.length;
+         break;
+       default:
+         throw new Error(`Invalid response with code: ${responseHeaders.statusCode}}`);
+     }
+
+     this.readData(fetcher);
+   }
+   catch (e) {
+     this.onComplete(e);
+   }
+ }
+
+  private readData(fetcher: IMCDataFetcher): void {
+    this.enqueueTask(() => {
+      if ( this.mCompleted ) {
+        return;
+      }
+
+      const readableLength = fetcher.readableLength;
+      if ( readableLength == 0 ) {
+        return;
+      }
+
+      if ( fetcher.seek(fetcher.offset + readableLength) ) {
+        this.mReceivedLength += readableLength;
+
+        // mExpectedLength 不一定有值, 当数据以 chunked 形式响应时, 无法获取所请求的数据长度;
+        if ( this.mExpectedLength > 0 ) {
+          this.mOnProgress?.(this.mReceivedLength, this.mExpectedLength);
+        }
+
+        // 数据读取完毕
+        if ( fetcher.isDataEnd ) {
+          this.onComplete();
+        }
+      }
+    });
+  }
+
+  private onFetcherAborted(e: Error): void {
+    this.onComplete(e);
+  }
+
+  private onComplete(error?: Error): void {
+    if ( this.mCompleted ) {
+      return;
+    }
+
+    const fetcher = this.mDataFetcher;
+    if ( fetcher ) {
+      this.mDataFetcher = undefined;
+
+      fetcher.off('newDataReadable');
+      fetcher.off('aborted');
+
+      if ( !fetcher.isCompleted ) {
+        fetcher.abort(error);
+      }
+    }
+
+    this.mCompleted = true;
+    this.mOnComplete?.(error);
+  }
+
+  // 确保操作按顺序串行执行
+  private enqueueTask(task: () => void | Promise<void>): void {
+    this.mSerialPromise = this.mSerialPromise
+      .catch((e: Error) => this.onComplete(e)) // 捕获上一个任务的异常，防止链断裂
+      .then(async () => {
+        if ( this.mCompleted ) {
+          return;
+        }
+        return task(); // 执行新任务
+      });
+  }
+
+  private checkSignal(): void {
+    if ( this.mSignal && this.mSignal.isAborted ) {
+      throw this.mSignal.reason!;
+    }
+  }
+}
+
+/** 注意数据读取量不能过大, 仅适合小文件; */
+interface IMCMediaDataReader {
+  read(complete: (data?: ArrayBuffer, error?: Error) => void): void;
+}
+
+class MCMediaDataReader implements IMCMediaDataReader {
+  private mClientId: number;
+  private mMedia: IMCMedia;
+  private mRequest: IMCDataRequest;
+  private mSignal?: MCAbortSignal;
+
+  private mDataFetcher?: IMCDataFetcher = undefined;
+  private mData?: ArrayBuffer = undefined;
+  private mSerialPromise = Promise.resolve();
+
+  private mCompleted = false;
+  private mOnComplete?: (data?: ArrayBuffer, error?: Error) => void = undefined;
+
+  constructor(clientId: number, media: IMCMedia, request: IMCDataRequest, signal?: MCAbortSignal) {
+    this.mClientId = clientId;
+    this.mMedia = media;
+    this.mRequest = request;
+    this.mSignal = signal;
+  }
+
+  async read(complete: (data?: ArrayBuffer, error?: Error) => void): Promise<void> {
+    this.mOnComplete = complete;
+
+    try {
+      this.checkSignal();
+
+      const fetcher: IMCDataFetcher = new MCMediaDataFetcher(this.mClientId, this.mMedia, this.mRequest);
+      this.mDataFetcher = fetcher;
+
+      fetcher.on("newDataReadable", (fetcher) => this.readData(fetcher));
+      fetcher.on("aborted", (_, e) => this.onFetcherAborted(e));
+
+      this.mSignal?.addEventListener("aborted", (e) => fetcher.abort(e));
+
+      const responseHeaders = await fetcher.prepare();
+      switch (responseHeaders.statusCode) {
+        case 200: break;
+        case 206: break;
+        default:
+          throw new Error(`Invalid response with code: ${responseHeaders.statusCode}}`);
+      }
+      this.readData(fetcher);
+    }
+    catch (e) {
+      this.onComplete(e);
+    }
+  }
+
+  private readData(fetcher: IMCDataFetcher): void {
+    this.enqueueTask(async () => {
+      if ( this.mCompleted ) {
+        return;
+      }
+
+      const readableLength = fetcher.readableLength;
+      if ( readableLength == 0 ) {
+        return;
+      }
+
+      const data = await fetcher.read(readableLength);
+      if ( data ) {
+        this.mData = this.mData ? MCUtils.mergeArrayBuffers(this.mData, data) : data;
+
+        if ( fetcher.isDataEnd ) {
+          this.onComplete();
+        }
+      }
+    });
+  }
+
+  private onFetcherAborted(e: Error): void {
+    this.onComplete(e);
+  }
+
+  private onComplete(error?: Error): void {
+    if ( this.mCompleted ) {
+      return;
+    }
+
+    const fetcher = this.mDataFetcher;
+    if ( fetcher ) {
+      this.mDataFetcher = undefined;
+
+      fetcher.off('newDataReadable');
+      fetcher.off('aborted');
+
+      if ( !fetcher.isCompleted ) {
+        fetcher.abort(error);
+      }
+    }
+
+    this.mCompleted = true;
+    if ( error ) {
+      this.mOnComplete?.(undefined, error);
+    }
+    else {
+      this.mOnComplete?.(this.mData);
+    }
+  }
+
+  // 确保操作按顺序串行执行
+  private enqueueTask(task: () => void | Promise<void>): void {
+    this.mSerialPromise = this.mSerialPromise
+      .catch((e: Error) => this.onComplete(e)) // 捕获上一个任务的异常，防止链断裂
+      .then(async () => {
+        if ( this.mCompleted ) {
+          return;
+        }
+        return task(); // 执行新任务
+      });
+  }
+
+  private checkSignal(): void {
+    if ( this.mSignal && this.mSignal.isAborted ) {
+      throw this.mSignal.reason!;
+    }
+  }
+}

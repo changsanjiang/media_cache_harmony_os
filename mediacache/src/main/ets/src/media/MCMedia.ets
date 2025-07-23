@@ -183,8 +183,8 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     });
   }
 
-  fetch(request: IMCDataRequest, signal?: MCAbortSignal): Promise<IMCDataResponse> {
-    return this.probe(request, signal).then(() => this.resolve(request, signal)).catch((error: Error) => {
+  fetch(request: IMCDataRequest, clientId: number, signal?: MCAbortSignal): Promise<IMCDataResponse> {
+    return this.probe(request, signal).then(() => this.resolve(request, clientId, signal)).catch((error: Error) => {
       if ( !(error instanceof MCDataResponseError) ) {
         throw error;
       }
@@ -223,7 +223,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     return undefined;
   }
 
-  private async resolve(proxyRequest: IMCDataRequest, signal?: MCAbortSignal): Promise<IMCDataResponse> {
+  private async resolve(proxyRequest: IMCDataRequest, clientId: number, signal?: MCAbortSignal): Promise<IMCDataResponse> {
     this.checkAbortSignal(signal);
 
     if ( this.mRestructurePromise ) {
@@ -260,9 +260,9 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
             const leftRange = new MCRange(readRange.location, intersection.location - readRange.location);
             const leftRequest = new MCDownloadRequest(url, proxyRequest.headers);
             leftRequest.setHeader('range', toRequestRangeHeader(toRequestRange(leftRange)));
-            contentLoaders.push(new MCMediaHttpContentLoader(this, leftRequest));
+            contentLoaders.push(new MCMediaHttpContentLoader(clientId, contentLoaders.length, this, leftRequest));
           }
-          contentLoaders.push(new MCMediaFileContentLoader(content, intersection));
+          contentLoaders.push(new MCMediaFileContentLoader(clientId, contentLoaders.length, content, intersection));
           readRange = new MCRange(intersection.max, readRange.max - intersection.max);
         }
         if ( readRange.length === 0 || readableRange.location > readRange.max ) {
@@ -275,7 +275,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       if (readRange.length !== 0) {
         const request = new MCDownloadRequest(url, proxyRequest.headers);
         request.setHeader('range', toRequestRangeHeader(toRequestRange(readRange)));
-        contentLoaders.push(new MCMediaHttpContentLoader(this,request));
+        contentLoaders.push(new MCMediaHttpContentLoader(clientId, contentLoaders.length, this,request));
       }
 
       // 206
@@ -311,10 +311,10 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     }
     else {
       if ( !this.mProxyHandler ) {
-        contentLoaders.push(new MCMediaHttpContentLoader(this, new MCDownloadRequest(url, proxyRequest.headers)));
+        contentLoaders.push(new MCMediaHttpContentLoader(clientId, contentLoaders.length, this, new MCDownloadRequest(url, proxyRequest.headers)));
       }
       else {
-        contentLoaders.push(new MCMediaProxyContentLoader(this, new MCDownloadRequest(url, proxyRequest.headers)));
+        contentLoaders.push(new MCMediaProxyContentLoader(clientId, contentLoaders.length, this, new MCDownloadRequest(url, proxyRequest.headers)));
       }
 
       const contentLength = metadata.totalLength !== Number.MAX_SAFE_INTEGER ? metadata.totalLength : undefined;

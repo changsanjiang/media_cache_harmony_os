@@ -29,8 +29,7 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
   private mMediaAbortCallback = (error: Error) => this.abort(error);
 
   private mOnNewDataReadable?: (fetcher: IMCDataFetcher) => void = undefined;
-  private mOnAborted?: (fetcher: IMCDataFetcher, error?: Error | undefined) => void = undefined;
-  private mOnDataEnd?: (fetcher: IMCDataFetcher) => void = undefined;
+  private mOnAborted?: (fetcher: IMCDataFetcher, error: Error) => void = undefined;
 
   constructor(clientId: number, media: IMCMedia, request: IMCDataRequest) {
     this.mClientId = clientId;
@@ -76,7 +75,7 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
     this.mFetchAbortController = new MCAbortController();
 
     try {
-      const response = await this.mMedia.fetch(this.mRequest, this.mFetchAbortController.signal);
+      const response = await this.mMedia.fetch(this.mRequest, this.mClientId, this.mFetchAbortController.signal);
       this.mFetchAbortController = undefined;
       this.onPrepare(response);
       return this.generateResponseHeaders(response);
@@ -90,9 +89,18 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
   }
 
   async read(capacity: number): Promise<ArrayBuffer | undefined> {
-    const result = await this.mCurrentLoader?.read(capacity);
-    MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Read ${result?.byteLength ?? 0} bytes from current loader.`);
-    return result;
+    const loader = this.mCurrentLoader;
+    if ( loader ) {
+      const result = await loader.read(capacity);
+      MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Read ${result?.byteLength ?? 0} bytes from current loader.`);
+
+      if ( loader.state == MCMediaContentLoaderState.Ended ) {
+        if ( this.mLoaders?.length == 0 ) this.done();
+        else setTimeout(() => this.prepareNextLoader());
+      }
+      return result;
+    }
+    return undefined;
   }
 
   //  只允许在当前可读范围内 seek;
@@ -135,8 +143,8 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
     this.mMedia.abortSignal.removeEventListener('aborted', this.mMediaAbortCallback);
     this.mMedia.readwriteRelease();
 
-    Promise.resolve().then(() => {
-      this.mOnAborted?.(this, this.mError);
+    setTimeout(() => {
+      this.mOnAborted?.(this, this.mError!);
     });
   }
 
@@ -152,10 +160,6 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
     this.mMedia.readwriteRelease();
     // 不需要 clear, loader 都是通过 shift 从 mLoaders 推出的, 此时 mLoaders 为空数组;
     this.mCurrentLoader = undefined;
-
-    Promise.reject().then(() => {
-      this.mOnDataEnd?.(this);
-    });
   }
 
   private clear(error?: Error | undefined): void {
@@ -173,25 +177,20 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
   }
 
   on(event: 'newDataReadable', callback: (fetcher: IMCDataFetcher) => void): void;
-  on(event: 'aborted', callback: (fetcher: IMCDataFetcher, error?: Error) => void): void;
-  on(event: 'dataEnd', callback: (fetcher: IMCDataFetcher) => void): void;
+  on(event: 'aborted', callback: (fetcher: IMCDataFetcher, error: Error) => void): void;
   on(event: string, callback: Object): void {
     switch (event) {
       case 'newDataReadable':
         this.mOnNewDataReadable = callback as (fetcher: IMCDataFetcher) => void;
         break;
       case 'aborted':
-        this.mOnAborted = callback as (fetcher: IMCDataFetcher, error?: Error | undefined) => void;
-        break;
-      case 'dataEnd':
-        this.mOnDataEnd = callback as (fetcher: IMCDataFetcher) => void;;
+        this.mOnAborted = callback as (fetcher: IMCDataFetcher, error: Error) => void;
         break;
     }
   }
 
   off(event: 'newDataReadable'): void;
   off(event: 'aborted'): void;
-  off(event: 'dataEnd'): void;
   off(event: string): void {
     switch (event) {
       case 'newDataReadable':
@@ -199,9 +198,6 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
         break;
       case 'aborted':
         this.mOnAborted = undefined;
-        break;
-      case 'dataEnd':
-        this.mOnDataEnd = undefined;
         break;
     }
   }
@@ -224,7 +220,7 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
       throw this.mError!;
     }
 
-    Promise.resolve().then(() => this.prepareNextLoader());
+    setTimeout(() => this.prepareNextLoader());
   }
 
   private onError(error?: Error): void {
@@ -269,7 +265,6 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
     if ( loader != this.mCurrentLoader ) return;
     switch (state) {
       case MCMediaContentLoaderState.Ready:
-        if ( loader.readableLength > 0 ) this.onLoaderNewDataReadable(loader);
         break;
       case MCMediaContentLoaderState.Ended:
         this.prepareNextLoader();
