@@ -208,6 +208,15 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
   }
 
   private clear(error?: Error | undefined): void {
+    const cur = this.mCurrentLoader;
+    if ( cur ) {
+      this.mCurrentLoader = undefined;
+      MCLogger.info(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Aborting and clearing current loader`);
+      if ( cur.state != MCMediaContentLoaderState.Ended && cur.state != MCMediaContentLoaderState.Aborted ) {
+        cur.abort(error);
+      }
+    }
+
     if ( this.mLoaders && this.mLoaders.length > 0 ) {
       MCLogger.info(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Aborting and clearing remaining loaders. Count: ${this.mLoaders?.length}`);
 
