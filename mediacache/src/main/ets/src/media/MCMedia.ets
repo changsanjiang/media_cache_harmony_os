@@ -30,7 +30,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   private mAbortSignal: MCAbortSignal;
   private mMetadata?: IMCMediaMetadata = undefined;
   private mMetadataFileSize = 0;
-  private mContentProvider?: MCMediaContentProvider = undefined;
+  private mContentProvider: MCMediaContentProvider;
   private mNodeList = new MCMediaContentNodeList();
   private mAssembled = false; // 是否已组合完成, 是否已得到完整内容; 虽然得到了完整内容, 但是文件夹下可能还存在正在读取的冗余数据;
   private mFullyTrimmed = false; // 所有冗余数据都已删除;
@@ -49,6 +49,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     this.mDir = dir;
     this.mAbortSignal = abortSignal;
     this.mProxyHandler = proxy;
+    this.mContentProvider = new MCMediaContentProvider(this.id, this.mDir);
     MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${id}]: MCMedia instance created with dir ${dir}.`);
   }
 
@@ -84,7 +85,6 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   async prepare(): Promise<void> {
     MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Starting prepare.`);
     try {
-      this.mContentProvider = new MCMediaContentProvider(this.id, this.mDir);
       const entries = await this.mContentProvider.prepare();
       this.checkAbortSignal(this.mAbortSignal);
 
@@ -178,7 +178,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
         byteRangeAccessSupported: byteRangeAccessSupported
       };
       this.mMetadata = metadata;
-      this.mContentProvider?.saveMetadata(metadata);
+      this.mContentProvider.saveMetadata(metadata);
       return metadata;
     });
   }
@@ -407,7 +407,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
         byteRangeAccessSupported: true,
       };
       this.mMetadata = metadata;
-      this.mContentProvider?.saveMetadata(metadata);
+      this.mContentProvider.saveMetadata(metadata);
     }
   }
 
