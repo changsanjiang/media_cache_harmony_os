@@ -52,7 +52,7 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
   }
 
   private onHeadersReceive(headers: MCDownloadResponseHeaders): void { // 接收到headers的响应
-    this.enqueueTask(() => new Promise(async (resolve) => {
+    this.enqueueTask(async () => {
       MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Http] Headers received for URL: ${this.mRequest.url}: ${JSON.stringify(headers)}`);
 
       if ( this.isAborted ) {
@@ -94,10 +94,7 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
         MCLogger.error(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Http] Error processing headers for URL: ${this.mRequest.url} - ${(error as Error).message}. Stack trace: ${error.stack}`);
         this.onError(error);
       }
-      finally {
-        resolve();
-      }
-    }));
+    });
   }
 
   private onDataReceive(data: ArrayBuffer): void { // 接收到下载的数据
