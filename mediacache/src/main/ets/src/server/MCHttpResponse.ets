@@ -4,7 +4,7 @@ import { IMCHttpResponse } from '../defines/IMCHttpResponse';
 import { MCLogModule } from '../defines/MCLogModule';
 import { MCAssetDataFetcher } from '../asset/MCAssetDataFetcher';
 import { IMCDataFetcher } from '../defines/IMCDataFetcher';
-import MCAssetManager from '../asset/MCAssetManager';
+import { MCAssetManager } from '../asset/MCAssetManager';
 import {
   IMCHttpOkResponseHeaders,
   IMCHttpPartialContentResponseHeaders,
@@ -48,7 +48,7 @@ export class MCHttpResponse implements IMCHttpResponse {
   async prepare(): Promise<string> {
     MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Starting preparation for request: ${JSON.stringify(this.mRequest)}`);
     try {
-      const asset = await MCAssetManager.getAssetByRequestTarget(this.mRequest.requestTarget);
+      const asset = await MCAssetManager.getInstance().getAssetByRequestTarget(this.mRequest.requestTarget);
       if ( this.mAborted ) {
         MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Cannot prepare as the response has been aborted`);
         throw this.mError!;

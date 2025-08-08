@@ -1,20 +1,18 @@
-import { FILEAsset } from "../asset/filebased/FILEAsset";
-import { HLSAsset } from "../asset/hls/HLSAsset";
-import { HLSPlaylist } from "../asset/hls/HLSPlaylist";
-import MCAssetManager from "../asset/MCAssetManager";
-import MCAssetUtils from "../asset/MCAssetUtils";
-import HLSDefines from "../defines/HLSDefines";
-import { IMCDataFetcher } from "../defines/IMCDataFetcher";
-import { IMCDataRequest } from "../defines/IMCDataRequest";
-import { IMCHttpOkResponseHeaders,
-  IMCHttpPartialContentResponseHeaders,
-  IMCHttpResponseHeaders } from "../defines/IMCHttpResponseHeaders";
-import { IMCMedia } from "../defines/IMCMedia";
-import { MCAssetPrefetchOptions } from "../defines/MCAssetPrefetchOptions";
-import { MCAssetType } from "../defines/MCAssetType";
-import { MCMediaDataFetcher } from "../media/MCMediaDataFetcher";
-import { MCAbortController, MCAbortSignal } from "../utils/MCAbortController";
-import MCUtils from "../utils/MCUtils";
+import { FILEAsset } from '../asset/filebased/FILEAsset';
+import { HLSAsset } from '../asset/hls/HLSAsset';
+import { HLSPlaylist } from '../asset/hls/HLSPlaylist';
+import { MCAssetManager } from '../asset/MCAssetManager';
+import MCAssetUtils from '../asset/MCAssetUtils';
+import HLSDefines from '../defines/HLSDefines';
+import { IMCDataFetcher } from '../defines/IMCDataFetcher';
+import { IMCDataRequest } from '../defines/IMCDataRequest';
+import { IMCHttpOkResponseHeaders, IMCHttpPartialContentResponseHeaders } from '../defines/IMCHttpResponseHeaders';
+import { IMCMedia } from '../defines/IMCMedia';
+import { MCAssetPrefetchOptions } from '../defines/MCAssetPrefetchOptions';
+import { MCAssetType } from '../defines/MCAssetType';
+import { MCMediaDataFetcher } from '../media/MCMediaDataFetcher';
+import { MCAbortController, MCAbortSignal } from '../utils/MCAbortController';
+import MCUtils from '../utils/MCUtils';
 
 export namespace MCAssetPrefetcher {
   let mPrefetchId = -1
@@ -43,7 +41,7 @@ export namespace MCAssetPrefetcher {
     checkAbortSignal(signal);
 
     // 获取资产
-    const asset = await MCAssetManager.getAssetByRequestTarget(requestTarget);
+    const asset = await MCAssetManager.getInstance().getAssetByRequestTarget(requestTarget);
     checkAbortSignal(signal);
 
     // 根据资产类型进行预加载

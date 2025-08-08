@@ -1,5 +1,5 @@
 import { IMCAsset } from "../../defines/IMCAsset";
-import MCAssetManager from "../MCAssetManager";
+import { MCAssetManager } from "../MCAssetManager";
 import MCFileIOUtils from "../../utils/MCFileIOUtils";
 import MCAssetStateRepository from "../cachestate/MCAssetStateRepository";
 import MCAssetUtils from "../MCAssetUtils";
@@ -25,7 +25,7 @@ namespace MCAssetCacheManager {
     MCLogger.info(MCLogModule.MCAssetCacheManager, () => `Initializing asset cache manager.`);
     try {
       mContext = context;
-      MCAssetManager.prepare(context);
+      await MCAssetManager.getInstance().prepare(context);
       await MCAssetStateRepository.prepare(context);
       await MCAssetAccessLogRepository.prepare(context);
 
@@ -79,8 +79,8 @@ namespace MCAssetCacheManager {
   /** 获取缓存总大小 */
   export async function totalCacheSize(): Promise<number> {
     try {
-      const allIds = await MCAssetManager.queryAllAssetIds();
-      const size = allIds.length > 0 ? await MCAssetManager.calculateCacheSizeForAssets(allIds) : 0;
+      const allIds = await MCAssetManager.getInstance().getAllAssetIds();
+      const size = allIds.length > 0 ? await MCAssetManager.getInstance().calculateCacheSizeForAssets(allIds) : 0;
       MCLogger.debug(MCLogModule.MCAssetCacheManager, () => `Total cache size calculated: ${size} bytes.`);
       return size;
     }
@@ -93,9 +93,9 @@ namespace MCAssetCacheManager {
   /** 获取被固定的缓存大小 */
   export async function pinnedCacheSize(): Promise<number> {
     try {
-      const allIds = await MCAssetManager.queryAllAssetIds();
+      const allIds = await MCAssetManager.getInstance().getAllAssetIds();
       const pinnedAssets = allIds.filter(assetId => MCAssetStateRepository.isPinned(assetId));
-      const size = pinnedAssets.length > 0 ? await MCAssetManager.calculateCacheSizeForAssets(pinnedAssets) : 0;
+      const size = pinnedAssets.length > 0 ? await MCAssetManager.getInstance().calculateCacheSizeForAssets(pinnedAssets) : 0;
       MCLogger.debug(MCLogModule.MCAssetCacheManager, () => `Pinned cache size calculated: ${size} bytes.`);
       return size;
     }
@@ -121,7 +121,7 @@ namespace MCAssetCacheManager {
   /** 删除所有未固定的缓存 */
   export async function removeCaches(): Promise<void> {
     try {
-      const allIds = await MCAssetManager.queryAllAssetIds();
+      const allIds = await MCAssetManager.getInstance().getAllAssetIds();
       const assetsToEvict = allIds.filter(assetId => !MCAssetStateRepository.isPinned(assetId));
       await evictAssets(assetsToEvict);
       MCLogger.info(MCLogModule.MCAssetCacheManager, () => `All non-pinned caches removed successfully.`);
@@ -204,7 +204,7 @@ namespace MCAssetCacheManager {
           }
 
           const sortedByAccess = MCAssetAccessLogRepository.filter(pair => !MCAssetStateRepository.isPinned(pair[0])).sort((a, b) => a[1].lastAccessed - b[1].lastAccessed).map(pair => pair[0]);
-          const totalSize = await MCAssetManager.calculateCacheSizeForAssets(sortedByAccess);
+          const totalSize = await MCAssetManager.getInstance().calculateCacheSizeForAssets(sortedByAccess);
           if ( totalSize > config.maxDiskSize ) {
             const sizeToEvict = totalSize - config.maxDiskSize;
             MCLogger.info(MCLogModule.MCAssetCacheManager, () => `Exceeding max disk size by ${sizeToEvict} bytes. Evicting assets.`);
@@ -251,7 +251,7 @@ namespace MCAssetCacheManager {
     for (const pair of sortedByAccess) {
       if (cacheSize > size) break;
       assetsToEvict.push(pair[0]);
-      cacheSize += await MCAssetManager.calculateCacheSize(pair[0]);
+      cacheSize += await MCAssetManager.getInstance().calculateCacheSize(pair[0]);
     }
 
     if ( assetsToEvict.length > 0 ) {
@@ -281,7 +281,7 @@ namespace MCAssetCacheManager {
         await MCAssetStateRepository.onEvict(assetId);
         MCLogger.debug(MCLogModule.MCAssetCacheManager, () => `[AssetId: ${assetId}] State evicted.`);
 
-        await MCAssetManager.removeAssetBy(assetId);
+        await MCAssetManager.getInstance().removeAssetBy(assetId);
         MCLogger.debug(MCLogModule.MCAssetCacheManager, () => `[AssetId: ${assetId}] Evicted successfully.`);
       }
       catch (error) {
