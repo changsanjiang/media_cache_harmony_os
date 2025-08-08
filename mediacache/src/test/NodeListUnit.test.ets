@@ -114,27 +114,27 @@ function testAdd() {
   const nodeList = new MCMediaContentNodeList();
   const content = new TestMCMediaContent();
 
-  nodeList.upsertNode(5, content);
+  nodeList.upsertToNode(5, content);
   nodeList.printNodes();
-  nodeList.upsertNode(3, content);
+  nodeList.upsertToNode(3, content);
   nodeList.printNodes();
-  nodeList.upsertNode(0, content);
+  nodeList.upsertToNode(0, content);
   nodeList.printNodes();
-  nodeList.upsertNode(14, content);
+  nodeList.upsertToNode(14, content);
   nodeList.printNodes();
-  nodeList.upsertNode(6, content);
+  nodeList.upsertToNode(6, content);
   nodeList.printNodes();
-  nodeList.upsertNode(10, content);
+  nodeList.upsertToNode(10, content);
   nodeList.printNodes();
-  nodeList.upsertNode(2, content);
+  nodeList.upsertToNode(2, content);
   nodeList.printNodes();
-  nodeList.upsertNode(20, content);
+  nodeList.upsertToNode(20, content);
   nodeList.printNodes();
-  nodeList.upsertNode(1, content);
+  nodeList.upsertToNode(1, content);
   nodeList.printNodes();
-  nodeList.upsertNode(21, content);
+  nodeList.upsertToNode(21, content);
   nodeList.printNodes();
-  nodeList.upsertNode(4, content);
+  nodeList.upsertToNode(4, content);
   nodeList.printNodes();
 };
 function testDelete() {
@@ -143,7 +143,7 @@ function testDelete() {
 
   let idx = 20;
   while (idx >= 0) {
-    nodeList.upsertNode(idx, content);
+    nodeList.upsertToNode(idx, content);
     idx -= 1;
   }
   nodeList.printNodes();
@@ -184,7 +184,7 @@ function testDelete2() {
 
   let idx = 4;
   while (idx > 0) {
-    nodeList.upsertNode(idx, content);
+    nodeList.upsertToNode(idx, content);
     idx -= 1;
   }
   nodeList.printNodes();
@@ -205,7 +205,7 @@ function testDelete3() {
 
   let idx = 4;
   while (idx > 0) {
-    nodeList.upsertNode(idx, content);
+    nodeList.upsertToNode(idx, content);
     idx -= 1;
   }
   nodeList.printNodes();
@@ -226,7 +226,7 @@ function testFind() {
 
   let idx = 20;
   while (idx > 0) {
-    nodeList.upsertNode(idx, content);
+    nodeList.upsertToNode(idx, content);
     idx -= 2;
   }
   nodeList.printNodes();

@@ -21,7 +21,7 @@ export class MCMediaContentNodeList {
     return this.mTail;
   }
 
-  upsertNode(placement: number, content: IMCMediaContent): void {
+  upsertToNode(placement: number, content: IMCMediaContent): void {
     const curNodeKey = placement;
     let curNode = this.mNodes.get(curNodeKey);
     if (curNode != undefined) {

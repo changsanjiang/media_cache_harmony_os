@@ -106,26 +106,37 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
       const offset = loader.offset;
       MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Attempting to read ${capacity} bytes at offset ${offset}`);
 
-      const data = await loader.read(capacity);
+      let data = await loader.read(capacity);
       MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Read ${data?.byteLength ?? 0} bytes`);
 
       if ( data ) {
         // 校验数据一致性
         if ( MCConfigs.dataValidator ) {
-          MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Validating data. Offset: ${offset}, Bytes: ${data.byteLength}`);
+          MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Validating data. Offset: ${offset}, Bytes: ${data?.byteLength}`);
           const result = await MCConfigs.dataValidator(this.mRequest, offset, data);
           if ( !result ) {
             throw new Error(`Data validation failed at offset ${offset}. Data size: ${data.byteLength} bytes.`);
           }
 
-          MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Data validation passed. Offset: ${offset}, Bytes: ${data.byteLength}`);
+          MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Data validation passed. Offset: ${offset}, Bytes: ${data?.byteLength}`);
         }
 
         // 数据解密
         if ( MCConfigs.dataDecryptHandler ) {
-          MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Decrypting data. Offset: ${offset}, Bytes: ${data.byteLength}`);
-          await MCConfigs.dataDecryptHandler(this.mRequest, offset, data);
-          MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Data decryption completed. Offset: ${offset}, Bytes: ${data.byteLength}`);
+          MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Decrypting data. Offset: ${offset}, Bytes: ${data?.byteLength}`);
+          const byteLength = data.byteLength;
+          const result = await MCConfigs.dataDecryptHandler(this.mRequest, offset, data);
+          if ( result instanceof ArrayBuffer ) {
+            // 比较数据长度
+            // 解密后的数据长度必须与原始数据长度一致
+            if ( result.byteLength != byteLength ) {
+              MCLogger.error(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Decrypted data length mismatch. Offset: ${offset}, OriginalBytes: ${byteLength}, DecryptedBytes: ${result.byteLength}`);
+              throw new Error(`Decrypted data length mismatch at offset ${offset}`);
+            }
+
+            data = result;
+          }
+          MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Data decryption completed. Offset: ${offset}, Bytes: ${byteLength}`);
         }
       }
 

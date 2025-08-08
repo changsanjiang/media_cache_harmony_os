@@ -14,7 +14,7 @@ import { MCDownloadRequest } from './utils/MCDownloadRequest';
 import MCLogger from './utils/MCLogger';
 import MCURL from './utils/MCURL';
 
-namespace MCMediaCache {
+export namespace MCMediaCache {
   const mTcpServer = new MCTcpSocketServer();
   const mConnectionHandler = new MCHttpConnectionHandler();
 
@@ -108,8 +108,11 @@ namespace MCMediaCache {
     }
   }
 
-  /** 对缓存数据解密; */
-  export function setDataDecryptHandler(block: (resUrl: string, offset: number, data: ArrayBuffer) => Promise<void>): void {
+  /** 对缓存数据解密;
+   *
+   * 可直接修改 data, 也可以返回一个新的 ArrayBuffer(新 buffer 的数据长度不可改变, byteLength 必须与 data.byteLength 一致);
+   * */
+  export function setDataDecryptHandler(block: (resUrl: string, offset: number, data: ArrayBuffer) => Promise<void | ArrayBuffer>): void {
     MCConfigs.dataDecryptHandler = (request, offset, data) => {
       return block(MCURL.parseUrl(request.requestTarget), offset, data);
     };
@@ -148,5 +151,3 @@ namespace MCMediaCache {
     MCConfigs.renditionSelectionHandler = block;
   }
 }
-
-export default MCMediaCache;

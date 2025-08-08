@@ -103,7 +103,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
           this.checkAbortSignal(this.mAbortSignal);
           MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Loaded ${contents?.length || 0} content blocks from storage.`);
 
-          contents?.forEach((content) => this.mNodeList.upsertNode(content.contentOffset, content));
+          contents?.forEach((content) => this.mNodeList.upsertToNode(content.contentOffset, content));
           if (contents && contents.length > 0) {
             if ( contents.length === 1 ) {
               if ( contents[0].length === this.mMetadata.totalLength ) {
@@ -378,7 +378,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     }
 
     const content = this.mContentProvider!.createContent(offset, isTemp);
-    this.mNodeList.upsertNode(offset, content);
+    this.mNodeList.upsertToNode(offset, content);
     return content;
   }
 

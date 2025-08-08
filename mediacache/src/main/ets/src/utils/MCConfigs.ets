@@ -37,7 +37,7 @@ namespace MCConfigs {
    * @param data 数据内容, 将要发送给客户端的数据;
    *
    * */
-  export let dataDecryptHandler: ((request: IMCDataRequest, offset: number, data: ArrayBuffer) => Promise<void>) | undefined = undefined;
+  export let dataDecryptHandler: ((request: IMCDataRequest, offset: number, data: ArrayBuffer) => Promise<void | ArrayBuffer>) | undefined = undefined;
 
   /** 媒体文件数据加密; 当保存本地缓存需要加密时设置;
    *
