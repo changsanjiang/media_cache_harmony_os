@@ -8,7 +8,7 @@ export interface IMCMediaContent {
   readonly hasWriter: boolean;
 
   finalize(): void; // 临时内容转为正式内容;
-  destroy(): Promise<void>; // 销毁内容; 删除本地文件; 如果内容正在被读写时, 则会等待读写操作完成后才会销毁;
+  destroy(): Promise<void>; // 销毁内容; 删除本地文件;
 
   // 有新的数据被写入后的回调;
   on(event: 'dataWritten', callback: (content: IMCMediaContent) => void): void;
