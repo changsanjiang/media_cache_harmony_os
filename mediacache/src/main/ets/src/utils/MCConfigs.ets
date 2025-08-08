@@ -13,8 +13,6 @@ namespace MCConfigs {
 
   /** 发送给客户端的数据块大小; */
   export let socketDataBufferSize = 256 * 1024;
-  /** 发送给客户端数据块时等待的超时时间; */
-  export let socketDataSendTimeoutInterval = 60 * 1000;
 
   /**
    * 向远程服务器请求数据前回调; 可以在回调中修改请求, 添加请求头等;
@@ -44,7 +42,7 @@ namespace MCConfigs {
    * @param offset 数据偏移量, 在媒体文件中的偏移量;
    * @param data 数据内容, 将要保存到缓存中的数据;
    * */
-  export let dataEncryptHandler: ((request: MCDownloadRequest, offset: number, data: ArrayBuffer) => Promise<void>) | undefined = undefined;
+  export let dataEncryptHandler: ((request: MCDownloadRequest, offset: number, data: ArrayBuffer) => Promise<void | ArrayBuffer>) | undefined = undefined;
 
   export let variantStreamSelectionHandler: HLSDefines.VariantStreamSelectionHandler | undefined = undefined;
 

@@ -1,7 +1,7 @@
 {
   "name": "@sj/mediacache",
-  "version": "1.0.5",
-  "description": "主要用于支持音视频的边播放边缓存; 旨在代理媒体数据请求并优先提供缓存数据, 从而减少网络流量并提高播放流畅度.",
+  "version": "1.0.6",
+  "description": "用于支持音视频的边播放边缓存; 旨在代理媒体数据请求并优先提供缓存数据, 从而减少网络流量并提高播放流畅度.",
   "main": "Index.ets",
   "author": "csj",
   "license": "MIT",
@@ -14,6 +14,8 @@
     "video",
     "hls",
     "m3u8",
+    "下载",
+    "download"
   ],
   "dependencies": {}
 }

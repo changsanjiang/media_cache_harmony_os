@@ -114,9 +114,19 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
       try {
         const offset = this.mContent.contentOffset + this.mContent.length;
         if ( MCConfigs.dataEncryptHandler ) {
-          MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Http] Encrypting data for URL: ${this.mRequest.url}. Offset: ${offset}, Bytes: ${data.byteLength}`);
-          await MCConfigs.dataEncryptHandler(this.mRequest, offset, data);
-          MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Http] Data encryption completed for URL: ${this.mRequest.url}. Offset: ${offset}, Bytes: ${data.byteLength}`);
+          const byteLength = data.byteLength;
+          MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Http] Encrypting data for URL: ${this.mRequest.url}. Offset: ${offset}, Bytes: ${byteLength}`);
+          const result = await MCConfigs.dataEncryptHandler(this.mRequest, offset, data);
+          if ( result instanceof ArrayBuffer ) {
+            // 比较数据长度
+            // 加密后的数据长度必须与原始数据长度一致
+            if ( result.byteLength != byteLength ) {
+              MCLogger.error(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] Encrypted data length mismatch. Offset: ${offset}, OriginalBytes: ${byteLength}, DecryptedBytes: ${result.byteLength}`);
+              throw new Error(`Encrypted data length mismatch at offset ${offset}`);
+            }
+            data = result;
+          }
+          MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Http] Data encryption completed for URL: ${this.mRequest.url}. Offset: ${offset}, Bytes: ${byteLength}`);
         }
 
         if ( this.isAborted ) {

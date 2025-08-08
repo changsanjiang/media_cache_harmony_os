@@ -77,6 +77,7 @@ struct Index {
   }
 
   testPrefetch() {
+    this.prefetchState = '开始预加载';
     const videoSrc: string = 'http://devimages.apple.com/iphone/samples/bipbop/bipbopall.m3u8';
     MCMediaCache.prefetch(videoSrc, {
       prefetchSegmentCount: 10,
@@ -84,6 +85,10 @@ struct Index {
         this.prefetchState = progress.toFixed(2);
         console.log(`[progress] ${progress}`);
       }
+    }).then(() => {
+      this.prefetchState = '预加载完成';
+    }).catch(() => {
+      this.prefetchState = '预加载失败';
     });
   }
 }

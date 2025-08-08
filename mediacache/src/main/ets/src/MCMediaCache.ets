@@ -13,6 +13,7 @@ import MCConfigs from './utils/MCConfigs';
 import { MCDownloadRequest } from './utils/MCDownloadRequest';
 import MCLogger from './utils/MCLogger';
 import MCURL from './utils/MCURL';
+import { rcp } from '@kit.RemoteCommunicationKit';
 
 export namespace MCMediaCache {
   const mTcpServer = new MCTcpSocketServer();
@@ -101,8 +102,11 @@ export namespace MCMediaCache {
     MCConfigs.requestHandler = block;
   }
 
-  /** 对缓存数据加密; 将缓存数据加密保存到本地; */
-  export function setDataEncryptHandler(block: (resUrl: string, offset: number, data: ArrayBuffer) => Promise<void>): void {
+  /** 对缓存数据加密; 将缓存数据加密保存到本地;
+   *
+   * 可直接修改 data, 也可以返回一个新的 ArrayBuffer(新 buffer 的数据长度不可改变, byteLength 必须与 data.byteLength 一致);
+   * */
+  export function setDataEncryptHandler(block: (resUrl: string, offset: number, data: ArrayBuffer) => Promise<void | ArrayBuffer>): void {
     MCConfigs.dataEncryptHandler = (request, offset, data) => {
       return block(request.url, offset, data);
     }
@@ -149,5 +153,14 @@ export namespace MCMediaCache {
   /** hls rendition 选择器 */
   export function setRenditionSelectionHandler(block: HLSDefines.RenditionSelectionHandler): void {
     MCConfigs.renditionSelectionHandler = block;
+  }
+
+  export function setDownloadSessionConfiguration(configuration: rcp.SessionConfiguration | undefined): void {
+    MCConfigs.sessionConfiguration = configuration;
+  }
+
+  /** 设置发送给客户端的数据块大小; */
+  export function setSocketDataBufferSize(size: number): void {
+    MCConfigs.socketDataBufferSize = size;
   }
 }

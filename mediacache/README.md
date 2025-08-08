@@ -1,17 +1,24 @@
 # MediaCache for HarmonyOS
 
-MediaCache 主要用于支持音视频的边播放边缓存; 旨在代理媒体数据请求并优先提供缓存数据, 从而减少网络流量并提高播放流畅度.
+用于支持音视频的边播放边缓存; 旨在代理媒体数据请求并优先提供缓存数据, 从而减少网络流量并提高播放流畅度.
 
-目前支持以下两种类型的远程资源: 
-- 基于文件的媒体，例如 MP3、AAC、WAV、FLAC、OGG、MP4 和 MOV 等常见格式;
-- HTTP Live Streaming 或者叫 m3u8; 在播放时通常会自动代理播放列表中的各个媒体片段;
+---
 
-支持预缓存;
+#### 主要特性
+- 边播放边缓存支持以下两种类型的远程资源:
+    - 基于文件的媒体，例如 MP3、AAC、WAV、FLAC、OGG、MP4 和 MOV 等常见格式;
+    - HTTP Live Streaming 或者叫 m3u8; 在播放时通常会自动代理播放列表中的各个媒体片段;
+- 支持预缓存/预加载, 可缓存指定大小的数据或全部数据;
+- 支持数据加解密, 保存数据时加密, 读取数据时解密;
+
+---
 
 #### 安装
 ```shell
 ohpm i @sj/mediacache
 ```
+
+---
 
 #### 在项目中引用
 
@@ -19,12 +26,60 @@ ohpm i @sj/mediacache
 ```json
 {
   "dependencies": {
-    "@sj/mediacache": "^1.0.5"
+    "@sj/mediacache": "^1.0.6"
   }
 }
 ```
 
-#### 基础配置
+---
+
+#### 初始化
+
+在开始代理请求之前, 请通过以下方法进行初始化工作以启动代理服务器等;
+```ts
+await MCMediaCache.prepare(getContext());
+```
+
+---
+
+#### 播放
+
+播放时需要通过代理地址进行播放; 所以在播放之前请使用该方法生成代理地址, 然后设置给播放器播放即可:
+```ts
+// 原始地址
+const resUrl = 'http://www.example.com/video.mp4';
+// 代理地址
+const proxyUrl = await MCMediaCache.proxy(resUrl);
+
+// 设置播放; 这里以 AVPlayer 为例, 直接设置代理地址播放即可实现边播放边缓存;
+const player: media.AVPlayer;
+player.url = proxyUrl;
+```
+
+---
+
+#### 预缓存
+
+- 预先缓存指定大小的数据:
+  ```ts
+  // 直接使用原始地址进行预缓存即可;
+  MCMediaCache.prefetch(resUrl, {
+    prefetchSize: 5 * 1024 * 1024, // 假设预缓存5M
+    onProgress: (progress) => console.log(`[progress] ${progress}`)
+  });
+  ```
+- 预先缓存指定数量的媒体片段: 这个配置主要用于流媒体(HLS), 因为它的播放列表(playlist)中通常包含多个段(ts)文件, 通过以下配置来指定需要预缓存的文件数;
+  ```ts
+  // 直接使用原始地址进行预缓存即可;
+  MCMediaCache.prefetch(resUrl, {
+    prefetchSegmentCount: 1, // 假设预缓存1个片段
+    onProgress: (progress) => console.log(`[progress] ${progress}`)
+  });
+  ```
+
+---
+
+#### 相关配置
 
 - 配置请求头: 发起请求前回调, 可以在回调中修改请求, 添加请求头, cookies等;
   ```ts
@@ -58,7 +113,7 @@ ohpm i @sj/mediacache
     // 缓存个数限制: 0 表示不限制;
     MCMediaCache.cacheConfig.countLimit = 0;
     ```
-  - 保存时长限制(单位: 毫秒): 超过限制自动删除;   
+  - 保存时长限制(单位: 毫秒): 超过限制自动删除;
     ```ts
     // 保存时长限制(单位: 毫秒): 0 表示不限制;
     MCMediaCache.cacheConfig.maxAge = 0;
@@ -78,44 +133,4 @@ ohpm i @sj/mediacache
   MCMediaCache.setLogEnabled(BuildProfile.DEBUG); // 是否开启日志;
   MCMediaCache.setLogLevel(MCLogLevel.DEBUG); // 设置日志等级;
   MCMediaCache.setLogWhiteModules([MCLogModule.MCHttpConnectionHandler, MCLogModule.MCHttpResponse]) // 允许打印哪些模块的日志;
-  ```
-      
-#### 初始化
-
-在开始代理请求之前, 请通过以下方法进行初始化工作以启动代理服务器等;
-```ts
-await MCMediaCache.prepare(getContext());
-```
-
-#### 播放
-
-播放时需要通过代理地址进行播放; 所以在播放之前请使用该方法生成代理地址, 然后设置给播放器播放即可:
-```ts
-// 原始地址
-const resUrl = 'http://www.example.com/video.mp4';
-// 代理地址
-const proxyUrl = await MCMediaCache.proxy(resUrl);
-
-// 设置播放; 这里以 AVPlayer 为例, 直接设置代理地址播放即可实现边播放边缓存;
-const player: media.AVPlayer;
-player.url = proxyUrl;
-```
-
-#### 预缓存
-
-- 预先缓存指定大小的数据:
-  ```ts
-  // 直接使用原始地址进行预缓存即可;
-  MCMediaCache.prefetch(resUrl, {
-    prefetchSize: 5 * 1024 * 1024, // 假设预缓存5M
-    onProgress: (progress) => console.log(`[progress] ${progress}`)
-  });
-  ```
-- 预先缓存指定数量的媒体片段: 这个配置主要用于流媒体(HLS), 因为它的播放列表(playlist)中通常包含多个段(ts)文件, 通过以下配置来指定需要预缓存的文件数;
-  ```ts
-  // 直接使用原始地址进行预缓存即可;
-  MCMediaCache.prefetch(resUrl, {
-    prefetchSegmentCount: 1, // 假设预缓存1个片段
-    onProgress: (progress) => console.log(`[progress] ${progress}`)
-  });
   ```
