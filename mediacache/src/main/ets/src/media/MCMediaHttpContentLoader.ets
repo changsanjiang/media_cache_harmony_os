@@ -73,7 +73,7 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
         const contentRange = this.mMedia.parseContentRange(this.mRequest, headers);
         MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Http] Content range parsed for URL: ${this.mRequest.url}. Range: ${JSON.stringify(contentRange)}, Headers: ${JSON.stringify(headers)}}`);
 
-        this.mContent = await this.mMedia.createContentInRange(contentRange);
+        this.mContent = await this.mMedia.createContentByRange(contentRange);
         if ( this.isAborted ) {
           throw new Error(`Loader aborted after content creation`);
         }

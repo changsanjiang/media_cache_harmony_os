@@ -164,7 +164,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       const contentLengthHeader: string | undefined = headers['content-length'];
 
       const contentType = contentTypeHeader || 'application/octet-stream';
-      const byteRangeAccessSupported = this.mProxyHandler ? false : statusCode === 206 || acceptRangesHeader === 'bytes';
+      const byteRangeAccessSupported = !this.mProxyHandler && (statusCode === 206 || acceptRangesHeader === 'bytes');
 
       /// - 情况1: 当内容需要代理时, 最终的数据长度只有在生成代理内容后才能确定, 这里需要暂时设置为 Number.MAX_SAFE_INTEGER;
       /// - 情况2: 有些服务器不会返回 contentLengthHeader, 这里需要暂时设置 Number.MAX_SAFE_INTEGER;
@@ -368,7 +368,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     }
   }
   // 当范围是 {0, Number.MAX_SAFE_INTEGER} 返回临时 content; 下载完成后通过 copyTempContent 保存到正式目录;
-  createContentInRange(range: MCRange): Promise<IMCMediaContent> {
+  createContentByRange(range: MCRange): Promise<IMCMediaContent> {
     return this.createContentAt(range.location, range.length === Number.MAX_SAFE_INTEGER);
   }
   // 当范围是 {0, Number.MAX_SAFE_INTEGER} 需要创建临时 content; 下载完成后通过 copyTempContent 保存到正式目录;

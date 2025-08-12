@@ -22,12 +22,27 @@ export namespace MCMediaCache {
   /** 缓存管理配置; 缓存管理器会根据这个配置定期检测并删除一些缓存; */
   export const cacheConfig: MCAssetCacheConfig = MCAssetCacheManager.config;
 
+  let mPrepared = false;
+  let mPreparePromise: Promise<void> | undefined = undefined;
+
   /** 初始化; */
   export async function prepare(context: Context): Promise<void> {
-    mTcpServer.on('connect', (connection) => mConnectionHandler.handleConnection(connection));
-    // 初始化缓存管理器
-    // 启动代理服务器
-    await Promise.all([MCAssetCacheManager.prepare(context), mTcpServer.start()]);
+    if ( mPrepared ) {
+      return;
+    }
+
+    if ( mPreparePromise ) {
+      return mPreparePromise;
+    }
+
+    const promise = _prepare(context);
+    mPreparePromise = promise;
+    mPreparePromise.then(() => {
+      mPrepared = true;
+    }).finally(() => {
+      mPreparePromise = undefined;
+    });
+    return promise;
   }
 
   /** 生成代理播放地址, 播放器可以使用该地址播放; */
@@ -162,5 +177,12 @@ export namespace MCMediaCache {
   /** 设置发送给客户端的数据块大小; */
   export function setSocketDataBufferSize(size: number): void {
     MCConfigs.socketDataBufferSize = size;
+  }
+
+  async function _prepare(context: Context): Promise<void> {
+    mTcpServer.on('connect', (connection) => mConnectionHandler.handleConnection(connection));
+    // 初始化缓存管理器
+    // 启动代理服务器
+    await Promise.all([MCAssetCacheManager.prepare(context), mTcpServer.start()]);
   }
 }

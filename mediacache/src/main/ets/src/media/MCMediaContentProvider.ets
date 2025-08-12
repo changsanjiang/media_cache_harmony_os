@@ -53,7 +53,7 @@ export class MCMediaContentProvider {
   /** 返回文件大小和元数据; */
   private async loadMetadata(): Promise<[number, IMCMediaMetadata] | undefined> {
     try {
-      const fileName = this.generateMetadataFileName();
+      const fileName = this.resolveMetadataFileName();
       const filePath = `${this.mDir}/${fileName}`;
       const exists = await fileIo.access(filePath, fileIo.AccessModeType.EXIST);
       if ( exists ) {
@@ -83,7 +83,7 @@ export class MCMediaContentProvider {
       };
       const content = JSON.stringify(record);
       const buffer = MCUtils.stringToBuffer(content);
-      const fileName = this.generateMetadataFileName();
+      const fileName = this.resolveMetadataFileName();
       const filePath = `${this.mDir}/${fileName}`;
       const file = await fileIo.open(filePath, fileIo.OpenMode.WRITE_ONLY | fileIo.OpenMode.TRUNC | fileIo.OpenMode.CREATE);
       await fileIo.write(file.fd, buffer);
@@ -101,7 +101,7 @@ export class MCMediaContentProvider {
     return contentFileNames && contentFileNames.length > 0 ? Promise.all(contentFileNames.map(async (fileName) => {
       const filePath = `${this.mDir}/${fileName}`;
       const fileSize = (await fileIo.stat(filePath)).size;
-      const props = this.getContentOffsetAndSequence(fileName);
+      const props = this.parseContentOffsetAndSequence(fileName);
       const contentOffset = parseInt(props[0], 10);
       const sequence = parseInt(props[1], 10);
       if ( this.mContentFileSequence < sequence ) this.mContentFileSequence = sequence;
@@ -112,23 +112,23 @@ export class MCMediaContentProvider {
   createContent(contentOffset: number, temp: boolean = false): IMCMediaContent {
     const sequence = this.mContentFileSequence + 1;
     this.mContentFileSequence = sequence;
-    const fileName = this.generateContentFileName(contentOffset, sequence);
+    const fileName = this.resolveContentFileName(contentOffset, sequence);
     const filePath = `${this.mDir}/${fileName}`;
     const content = new MCMediaContent(this.mMediaId, contentOffset, filePath, 0, temp);
     return content;
   }
 
   /** file name format: `prefix_mediaId_contentOffset_sequence`; */
-  private generateContentFileName(contentOffset: number, sequence: number): string {
+  private resolveContentFileName(contentOffset: number, sequence: number): string {
     return `${this.mContentFileNamePrefix}_${this.mMediaId}_${contentOffset}_${sequence}`;
   }
 
   /** file name format: `prefix_mediaId`; */
-  private generateMetadataFileName(): string {
+  private resolveMetadataFileName(): string {
     return `${this.mMetadataFileNamePrefix}_${this.mMediaId}`;
   }
 
-  private getContentOffsetAndSequence(fileName: string): string[] {
+  private parseContentOffsetAndSequence(fileName: string): string[] {
     const parts = fileName.split("_");
     if (parts.length != 4) {
       throw new Error(`Invalid file name format: ${fileName}`);
