@@ -26,7 +26,7 @@ namespace MCUtils {
     return myMap;
   }
 
-  export function modifyRecord(record: Record<string, string>, key: string, value?: string): Record<string, string> {
+  export function modifyRecord(record: Record<string, string>, key: string, value: string | undefined): Record<string, string> {
     let map = recordToMap(record);
     value ? map.set(key, value) : map.delete(key);
     return mapToRecord(map);
@@ -83,6 +83,10 @@ namespace MCUtils {
       }
     }
     return true;
+  }
+  
+  export function clamp(value: number, min: number, max: number): number {
+    return Math.max(min, Math.min(max, value));
   }
 }
 

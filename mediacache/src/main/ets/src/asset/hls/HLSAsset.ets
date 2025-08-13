@@ -47,6 +47,9 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
   }
 
   async getMediaBy(requestTarget: string): Promise<IMCMedia> {
+    if ( this.mAbortController.signal.isAborted ) {
+      throw this.mAbortController.signal.reason!;
+    }
     const targetInfo = MCURL.parse(requestTarget);
     const mediaId = targetInfo.mediaId;
     const mediaKind = targetInfo.mediaKind;
@@ -122,7 +125,7 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
       }
     }
 
-    const media = new MCMedia(mediaId, this.mDir, this.mAbortController.signal, proxyHandler);
+    const media = new MCMedia(mediaId, mediaKind, this.mDir, this.mAbortController.signal, proxyHandler);
     await media.prepare();
     this.mMedias.set(mediaId, media);
     return media;

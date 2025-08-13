@@ -1,6 +1,7 @@
 import { IMCAsset } from "../../defines/IMCAsset";
 import { IMCMedia } from "../../defines/IMCMedia";
 import { MCAssetType } from "../../defines/MCAssetType";
+import { MCMediaKind } from "../../defines/MCMediaKind";
 import { MCMedia } from "../../media/MCMedia";
 import { MCAbortController, MCAbortSignal } from "../../utils/MCAbortController";
 import { MCReadwriteReference } from "../../utils/MCReadwriteReference";
@@ -16,7 +17,7 @@ export class FILEAsset extends MCReadwriteReference<FILEAsset> implements IMCAss
     super();
     this.id = id;
     // this.mDir = dir;
-    this.mMedia = new MCMedia(id, dir, this.mAbortController.signal);
+    this.mMedia = new MCMedia(id, MCMediaKind.FILE, dir, this.mAbortController.signal);
   }
 
   readonly id: string;
@@ -38,6 +39,9 @@ export class FILEAsset extends MCReadwriteReference<FILEAsset> implements IMCAss
   }
 
   async getMediaBy(_: string): Promise<IMCMedia> {
+    if ( this.mAbortController.signal.isAborted ) {
+      throw this.mAbortController.signal.reason!;
+    }
     return this.mMedia;
   }
 

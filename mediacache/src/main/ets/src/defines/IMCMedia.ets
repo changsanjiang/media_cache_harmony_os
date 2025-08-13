@@ -3,10 +3,12 @@ import { IMCDataRequest } from "./IMCDataRequest";
 import { IMCDataResponse } from "./IMCDataResponse";
 import { MCAbortSignal } from "../utils/MCAbortController";
 import { IMCMediaMetadata } from "./IMCMediaMetadata";
+import { MCMediaKind } from "./MCMediaKind";
 
 /** 代表着一个媒体文件; 可以是一个 mp4 文件, 也可以是 hls 的 playlist 文件或 ts 等文件; */
 export interface IMCMedia extends IMCReadwriteReference<IMCMedia> {
   readonly id: string;
+  readonly mediaKind: MCMediaKind;
   readonly metadataReady: boolean;
   readonly contentType: string | undefined; // mime type;
   readonly totalLength: number;

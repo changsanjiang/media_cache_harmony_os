@@ -23,9 +23,11 @@ import { MCDataResponseError } from "../defines/MCDataResponseError";
 import { MCAbortSignal } from "../utils/MCAbortController";
 import { MCMediaProxyContentLoader } from "./MCMediaProxyContentLoader";
 import MCUtils from "../utils/MCUtils";
+import { MCMediaKind } from "../defines/MCMediaKind";
 
 export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   readonly id: string;
+  readonly mediaKind: MCMediaKind;
   private mDir: string;
   private mAbortSignal: MCAbortSignal;
   private mMetadata?: IMCMediaMetadata = undefined;
@@ -40,12 +42,13 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   /// `id` 中不能包含下划线;
   ///
   /// proxy: 内容需要代理时设置;
-  constructor(id: string, dir: string, abortSignal: MCAbortSignal, proxy?: (requestUrl: string, currentUrl: string, data: ArrayBuffer) => Promise<ArrayBuffer>) {
+  constructor(id: string, mediaKind: MCMediaKind, dir: string, abortSignal: MCAbortSignal, proxy?: (requestUrl: string, currentUrl: string, data: ArrayBuffer) => Promise<ArrayBuffer>) {
     if (id.includes("_")) {
       throw new Error(`The media ID '${id}' is invalid. Media IDs cannot contain underscores ('_').`);
     }
     super();
     this.id = id;
+    this.mediaKind = mediaKind;
     this.mDir = dir;
     this.mAbortSignal = abortSignal;
     this.mProxyHandler = proxy;
