@@ -17,8 +17,6 @@ import { IMCMediaDataPrefetcher, MCMediaDataPrefetcher } from './MCMediaDataPref
 import { IMCMediaDataReader, MCMediaDataReader } from './MCMediaDataReader';
 
 export namespace MCAssetPrefetcher {
-  let mPrefetchId = -1
-
   export async function prefetch(resUrl: string, options?: MCAssetPrefetchOptions): Promise<void> {
     // 参数校验
     const prefetchSize = options?.prefetchSize;

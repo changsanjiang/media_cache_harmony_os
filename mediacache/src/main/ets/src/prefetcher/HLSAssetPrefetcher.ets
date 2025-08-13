@@ -23,7 +23,7 @@ export class HLSAssetPrefetcher implements IHLSAssetPrefetcher {
     // 获取播放列表
     const media = await asset.getMediaBy(requestTarget);
     if ( media.mediaKind != MCMediaKind.PLAYLIST ) {
-      throw new Error(`Illegal request: expected playlist to request, but got ${MCMediaKind[media.mediaKind]}`);
+      throw new Error(`Prefetch failed: expected mediaKind=PLAYLIST but got "${MCMediaKind[media.mediaKind]}". requestTarget="${requestTarget}`);
     }
     MCAssetPrefetcherUtils.checkAbortSignal(signal);
 
