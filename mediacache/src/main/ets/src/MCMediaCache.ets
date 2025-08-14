@@ -6,7 +6,7 @@ import { MCAssetPrefetchOptions } from './defines/MCAssetPrefetchOptions';
 import { MCAssetType } from './defines/MCAssetType';
 import { MCLogLevel } from './defines/MCLogLevel';
 import { MCLogModule } from './defines/MCLogModule';
-import { MCAssetPrefetcher } from './prefetcher/MCAssetPrefetcher';
+import { MCAssetPrefetchManager } from './prefetcher/MCAssetPrefetchManager';
 import { MCHttpConnectionHandler } from './server/MCHttpConnectionHandler';
 import { MCTcpSocketServer } from './server/MCTcpSocketServer';
 import MCConfigs from './utils/MCConfigs';
@@ -52,7 +52,7 @@ export namespace MCMediaCache {
 
   /** 预加载; 预先缓存一部分数据到本地; */
   export function prefetch(resUrl: string, options?: MCAssetPrefetchOptions): Promise<void> {
-    return MCAssetPrefetcher.prefetch(resUrl, options);
+    return MCAssetPrefetchManager.prefetch(resUrl, options);
   }
 
   /** 标记是否"固定"; 缓存管理器会定期删除一些缓存, 如果你想要保留某些视频防止被删除可以提前将其设置为"固定"; */

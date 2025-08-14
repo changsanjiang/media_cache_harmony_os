@@ -1,22 +1,19 @@
 import { FILEAsset } from '../asset/filebased/FILEAsset';
+import { IMCAssetPrefetcher } from '../defines/IMCAssetPrefetcher';
 import { IMCDataRequest } from '../defines/IMCDataRequest';
 import { MCAssetPrefetchOptions } from '../defines/MCAssetPrefetchOptions';
 import MCUtils from '../utils/MCUtils';
-import { MCAssetPrefetcherUtils } from './MCAssetPrefetcherUtils';
+import { MCAssetPrefetchUtils } from './MCAssetPrefetchUtils';
 import { MCMediaDataPrefetcher } from './MCMediaDataPrefetcher';
 
-export interface IFILEAssetPrefetcehr {
-  prefetch(asset: FILEAsset, requestTarget: string, options?: MCAssetPrefetchOptions): Promise<void>;
-}
-
-export class FILEAssetPrefetcher implements IFILEAssetPrefetcehr {
+export class FILEAssetPrefetcher implements IMCAssetPrefetcher<FILEAsset> {
   async prefetch(asset: FILEAsset, requestTarget: string, options?: MCAssetPrefetchOptions | undefined): Promise<void> {
     const signal = options?.signal;
-    MCAssetPrefetcherUtils.checkAbortSignal(signal);
+    MCAssetPrefetchUtils.checkAbortSignal(signal);
 
     // 获取媒体
     const media = await asset.getMediaBy(requestTarget);
-    MCAssetPrefetcherUtils.checkAbortSignal(signal);
+    MCAssetPrefetchUtils.checkAbortSignal(signal);
 
     // 探测元数据
     const probeRequest: IMCDataRequest = {
@@ -33,8 +30,8 @@ export class FILEAssetPrefetcher implements IFILEAssetPrefetcehr {
     // 分段请求数据
     if ( totalLength != Number.MAX_SAFE_INTEGER && metadata.byteRangeAccessSupported ) {
       const prefetchSize = options?.prefetchSize === undefined ? totalLength : Math.min(options.prefetchSize, totalLength);
-      const chunkSize = MCAssetPrefetcherUtils.getChunkSize(options);
-      const concurrentPrefetchCount = MCAssetPrefetcherUtils.getConcurrentPrefetchCount(options);
+      const chunkSize = MCAssetPrefetchUtils.getChunkSize(options);
+      const concurrentPrefetchCount = MCAssetPrefetchUtils.getConcurrentPrefetchCount(options);
 
       // 创建分段请求
       const allRequests: IMCDataRequest[] = [];
@@ -58,7 +55,7 @@ export class FILEAssetPrefetcher implements IFILEAssetPrefetcehr {
       while ( reqIdx < allRequests.length ) {
         const batch = allRequests.slice(reqIdx, reqIdx + concurrentPrefetchCount);
         const fetches = batch.map((req, index) => {
-          const prefetchId = MCAssetPrefetcherUtils.generatePrefetchId();
+          const prefetchId = MCAssetPrefetchUtils.generatePrefetchId();
           const progressCallback = options?.onProgress ? (receivedLength: number, expectedLength: number) => {
             const fetchIdx = reqIdx + index;
             allProgresses[fetchIdx] = receivedLength / expectedLength;
@@ -84,7 +81,7 @@ export class FILEAssetPrefetcher implements IFILEAssetPrefetcehr {
         requestTarget: requestTarget,
         headers: headers,
       };
-      const prefetchId = MCAssetPrefetcherUtils.generatePrefetchId();
+      const prefetchId = MCAssetPrefetchUtils.generatePrefetchId();
       const progressCallback = options?.onProgress ? (receivedLength: number, expectedLength: number) => options.onProgress!(receivedLength / expectedLength) : undefined;
       const prefecher = new MCMediaDataPrefetcher(
         prefetchId,

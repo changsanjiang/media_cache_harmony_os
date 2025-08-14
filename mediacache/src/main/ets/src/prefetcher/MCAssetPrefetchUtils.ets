@@ -1,7 +1,7 @@
 import { MCAssetPrefetchOptions } from "../defines/MCAssetPrefetchOptions";
 import { MCAbortSignal } from "../utils/MCAbortController";
 
-export namespace MCAssetPrefetcherUtils {
+export namespace MCAssetPrefetchUtils {
   let mPrefetchId = -1
 
   export function generatePrefetchId(): number {

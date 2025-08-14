@@ -1,31 +1,28 @@
 import { HLSAsset } from '../asset/hls/HLSAsset';
 import { HLSPlaylist } from '../asset/hls/HLSPlaylist';
 import HLSDefines from '../defines/HLSDefines';
+import { IMCAssetPrefetcher } from '../defines/IMCAssetPrefetcher';
 import { IMCDataRequest } from '../defines/IMCDataRequest';
 import { IMCMedia } from '../defines/IMCMedia';
 import { MCAssetPrefetchOptions } from '../defines/MCAssetPrefetchOptions';
 import { MCMediaKind } from '../defines/MCMediaKind';
 import { MCAbortSignal } from '../utils/MCAbortController';
 import MCUtils from '../utils/MCUtils';
-import { MCAssetPrefetcherUtils } from './MCAssetPrefetcherUtils';
+import { MCAssetPrefetchUtils } from './MCAssetPrefetchUtils';
 import { MCMediaDataPrefetcher } from './MCMediaDataPrefetcher';
 import { IMCMediaDataReader, MCMediaDataReader } from './MCMediaDataReader';
 
-export interface IHLSAssetPrefetcher {
-  prefetch(asset: HLSAsset, requestTarget: string, options?: MCAssetPrefetchOptions): Promise<void>;
-}
-
-export class HLSAssetPrefetcher implements IHLSAssetPrefetcher {
+export class HLSAssetPrefetcher implements IMCAssetPrefetcher<HLSAsset> {
   async prefetch(asset: HLSAsset, requestTarget: string, options?: MCAssetPrefetchOptions | undefined): Promise<void> {
     const signal = options?.signal;
-    MCAssetPrefetcherUtils.checkAbortSignal(signal);
+    MCAssetPrefetchUtils.checkAbortSignal(signal);
 
     // 获取播放列表
     const media = await asset.getMediaBy(requestTarget);
     if ( media.mediaKind != MCMediaKind.PLAYLIST ) {
       throw new Error(`Prefetch failed: expected mediaKind=PLAYLIST but got "${MCMediaKind[media.mediaKind]}". requestTarget="${requestTarget}`);
     }
-    MCAssetPrefetcherUtils.checkAbortSignal(signal);
+    MCAssetPrefetchUtils.checkAbortSignal(signal);
 
     // 获取播放列表数据
     const playlistRequest: IMCDataRequest = {
@@ -52,7 +49,7 @@ export class HLSAssetPrefetcher implements IHLSAssetPrefetcher {
     // 预加载指定数量的片段或全部
     else {
       const prefetchSegmentCount = options?.prefetchSegmentCount ?? Number.MAX_SAFE_INTEGER;
-      const concurrentPrefetchCount = MCAssetPrefetcherUtils.getConcurrentPrefetchCount(options);
+      const concurrentPrefetchCount = MCAssetPrefetchUtils.getConcurrentPrefetchCount(options);
       await this.prefetchBySpecifiedSegmentCount(
         asset,
         playlist,
@@ -75,9 +72,9 @@ export class HLSAssetPrefetcher implements IHLSAssetPrefetcher {
   ): Promise<void> {
     // 处理分段
     const segments = playlist.segments;
-    if ( segments && segments.length > 0 ) {
+    if ( playlist.allItems && segments && segments.length > 0 ) {
       let fetchedLength = 0;
-      const items = playlist.allItems!;
+      const items = playlist.allItems;
       let itemIndex = 0;
       while (itemIndex < items.length && fetchedLength < specifiedSize) {
         const item = items[itemIndex];
@@ -260,14 +257,14 @@ export class HLSAssetPrefetcher implements IHLSAssetPrefetcher {
     const uri = item.uri;
     if ( uri ) {
       const media = await asset.getMediaBy(uri);
-      MCAssetPrefetcherUtils.checkAbortSignal(signal);
+      MCAssetPrefetchUtils.checkAbortSignal(signal);
 
       const request: IMCDataRequest = {
         requestTarget: uri,
         headers: additionalHeaders
       };
 
-      const prefetcher = new MCMediaDataPrefetcher(MCAssetPrefetcherUtils.generatePrefetchId(), media, request, onProgress, signal);
+      const prefetcher = new MCMediaDataPrefetcher(MCAssetPrefetchUtils.generatePrefetchId(), media, request, onProgress, signal);
       await prefetcher.prefetch();
     }
   }
@@ -277,7 +274,7 @@ export class HLSAssetPrefetcher implements IHLSAssetPrefetcher {
     request: IMCDataRequest,
     signal?: MCAbortSignal
   ): Promise<ArrayBuffer | undefined> {
-    const reader: IMCMediaDataReader = new MCMediaDataReader(MCAssetPrefetcherUtils.generatePrefetchId(), media, request, signal);
+    const reader: IMCMediaDataReader = new MCMediaDataReader(MCAssetPrefetchUtils.generatePrefetchId(), media, request, signal);
     return reader.read();
   }
 }

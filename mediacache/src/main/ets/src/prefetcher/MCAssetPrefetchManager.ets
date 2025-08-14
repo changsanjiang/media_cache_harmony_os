@@ -1,22 +1,14 @@
 import { FILEAsset } from '../asset/filebased/FILEAsset';
 import { HLSAsset } from '../asset/hls/HLSAsset';
-import { HLSPlaylist } from '../asset/hls/HLSPlaylist';
 import { MCAssetManager } from '../asset/MCAssetManager';
 import MCAssetUtils from '../asset/MCAssetUtils';
-import HLSDefines from '../defines/HLSDefines';
-import { IMCDataRequest } from '../defines/IMCDataRequest';
-import { IMCMedia } from '../defines/IMCMedia';
 import { MCAssetPrefetchOptions } from '../defines/MCAssetPrefetchOptions';
 import { MCAssetType } from '../defines/MCAssetType';
-import { MCAbortController, MCAbortSignal } from '../utils/MCAbortController';
-import MCUtils from '../utils/MCUtils';
 import { FILEAssetPrefetcher } from './FILEAssetPrefetcher';
 import { HLSAssetPrefetcher } from './HLSAssetPrefetcher';
-import { MCAssetPrefetcherUtils } from './MCAssetPrefetcherUtils';
-import { IMCMediaDataPrefetcher, MCMediaDataPrefetcher } from './MCMediaDataPrefetcher';
-import { IMCMediaDataReader, MCMediaDataReader } from './MCMediaDataReader';
+import { MCAssetPrefetchUtils } from './MCAssetPrefetchUtils';
 
-export namespace MCAssetPrefetcher {
+export namespace MCAssetPrefetchManager {
   export async function prefetch(resUrl: string, options?: MCAssetPrefetchOptions): Promise<void> {
     // 参数校验
     const prefetchSize = options?.prefetchSize;
@@ -30,7 +22,7 @@ export namespace MCAssetPrefetcher {
     }
 
     const signal = options?.signal;
-    MCAssetPrefetcherUtils.checkAbortSignal(signal);
+    MCAssetPrefetchUtils.checkAbortSignal(signal);
 
     const requestTarget = await MCAssetUtils.generateProxyPath(resUrl);
     await prefetchByRequestTarget(requestTarget, options);
@@ -38,11 +30,11 @@ export namespace MCAssetPrefetcher {
 
   async function prefetchByRequestTarget(requestTarget: string, options?: MCAssetPrefetchOptions): Promise<void> {
     const signal = options?.signal;
-    MCAssetPrefetcherUtils.checkAbortSignal(signal);
+    MCAssetPrefetchUtils.checkAbortSignal(signal);
 
     // 获取资产
     const asset = await MCAssetManager.getInstance().getAssetByRequestTarget(requestTarget);
-    MCAssetPrefetcherUtils.checkAbortSignal(signal);
+    MCAssetPrefetchUtils.checkAbortSignal(signal);
 
     // 根据资产类型进行预加载
     try {
