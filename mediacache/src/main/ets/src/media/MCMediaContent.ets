@@ -5,6 +5,8 @@ import { MCMediaContentReader } from "./MCMediaContentReader";
 import { MCMediaContentWriter } from "./MCMediaContentWriter";
 import { fileIo } from "@kit.CoreFileKit";
 import { MCAbortController } from "../utils/MCAbortController";
+import { MCCopyFileConflictStrategy } from "../defines/MCCopyFileConflictStrategy";
+import MCFileIOUtils from "../utils/MCFileIOUtils";
 
 export class MCMediaContent implements IMCMediaContent {
   private mLength = 0;
@@ -87,6 +89,16 @@ export class MCMediaContent implements IMCMediaContent {
 
   finalize(): void {
     this.mTemp = false;
+  }
+
+  async copyToDirectory(targetDir: string, conflictStrategy?: MCCopyFileConflictStrategy | undefined): Promise<void> {
+    if ( this.mDestroyed ) {
+      throw new Error("Content has been destroyed");
+    }
+
+    const fileName = MCFileIOUtils.getFileName(this.filePath);
+    const destPath = `${targetDir}/${fileName}`;
+    return MCFileIOUtils.copyFile(this.filePath, destPath, conflictStrategy);
   }
 
   async destroy(): Promise<void> {

@@ -1,3 +1,5 @@
+import { MCCopyFileConflictStrategy } from "./MCCopyFileConflictStrategy";
+
 export interface IMCMediaContent {
   readonly contentOffset: number;   // 内容在文件中的偏移量; 读取数据时的 position 需要考虑这个偏移量, 如果读取范围不在 [contentOffset, contentOffset+length) 之间, 将不会返回数据;
   readonly length: number; // 内容长度;
@@ -9,6 +11,8 @@ export interface IMCMediaContent {
 
   finalize(): void; // 临时内容转为正式内容;
   destroy(): Promise<void>; // 销毁内容; 删除本地文件;
+
+  copyToDirectory(targetDir: string, conflictStrategy?: MCCopyFileConflictStrategy): Promise<void>;
 
   // 有新的数据被写入后的回调;
   on(event: 'dataWritten', callback: (content: IMCMediaContent) => void): void;

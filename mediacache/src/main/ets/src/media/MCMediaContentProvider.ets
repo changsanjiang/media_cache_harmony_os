@@ -1,11 +1,30 @@
-import { IMCMediaContent } from "../defines/IMCMediaContent";
-import { MCMediaContent } from "./MCMediaContent";
-import { fileIo } from "@kit.CoreFileKit";
-import { IMCMediaMetadata } from "../defines/IMCMediaMetadata";
-import { JSON } from "@kit.ArkTS";
-import MCUtils from "../utils/MCUtils";
+import { IMCMediaContent } from '../defines/IMCMediaContent';
+import { MCMediaContent } from './MCMediaContent';
+import { fileIo } from '@kit.CoreFileKit';
+import { IMCMediaMetadata } from '../defines/IMCMediaMetadata';
+import { JSON } from '@kit.ArkTS';
+import MCUtils from '../utils/MCUtils';
+import MCFileIOUtils from '../utils/MCFileIOUtils';
+import { MCCopyFileConflictStrategy } from '../defines/MCCopyFileConflictStrategy';
 
-export class MCMediaContentProvider {
+export interface IMCMediaContentProvider {
+  /** 执行准备工作, 加载元数据、清理目录下无效数据等; */
+  prepare(): Promise<[number, IMCMediaMetadata] | undefined>;
+
+  /** 保存元数据; */
+  saveMetadata(metadata: IMCMediaMetadata): Promise<number>;
+
+  /** 加载目录下缓存的媒体内容 */
+  loadContents(): Promise<IMCMediaContent[] | undefined>;
+
+  /** 创建内容块; */
+  createContent(contentOffset: number, temp: boolean): IMCMediaContent;
+
+  /** 将元数据复制到目标目录; */
+  copyMetadataToDirectory(targetDir: string, conflictStrategy?: MCCopyFileConflictStrategy): Promise<void>;
+}
+
+export class MCMediaContentProvider implements IMCMediaContentProvider {
   private mMediaId: string;
   private mDir: string;
   private mMetadataFileNamePrefix: string;
@@ -50,28 +69,6 @@ export class MCMediaContentProvider {
     return entries;
   }
 
-  /** 返回文件大小和元数据; */
-  private async loadMetadata(): Promise<[number, IMCMediaMetadata] | undefined> {
-    try {
-      const fileName = this.resolveMetadataFileName();
-      const filePath = `${this.mDir}/${fileName}`;
-      const exists = await fileIo.access(filePath, fileIo.AccessModeType.EXIST);
-      if ( exists ) {
-        const content = await fileIo.readText(filePath, { encoding: 'utf-8' });
-        const record = JSON.parse(content) as Record<string, string>;
-        const checksum = record['checksum'];
-        const jsonStr = record['data'];
-        const calculatedChecksum = await MCUtils.hash(jsonStr);
-        if ( checksum === calculatedChecksum ) {
-          const fileSize = (await fileIo.stat(filePath)).size;
-          return [fileSize, JSON.parse(jsonStr) as IMCMediaMetadata];
-        }
-      }
-    }
-    catch (error) { }
-    return undefined;
-  }
-
   /** 写入成功后返回文件大小; */
   async saveMetadata(metadata: IMCMediaMetadata): Promise<number> {
     try {
@@ -83,8 +80,7 @@ export class MCMediaContentProvider {
       };
       const content = JSON.stringify(record);
       const buffer = MCUtils.stringToBuffer(content);
-      const fileName = this.resolveMetadataFileName();
-      const filePath = `${this.mDir}/${fileName}`;
+      const filePath = this.resolveMetadataFilePath();
       const file = await fileIo.open(filePath, fileIo.OpenMode.WRITE_ONLY | fileIo.OpenMode.TRUNC | fileIo.OpenMode.CREATE);
       await fileIo.write(file.fd, buffer);
       return buffer.byteLength;
@@ -118,14 +114,49 @@ export class MCMediaContentProvider {
     return content;
   }
 
-  /** file name format: `prefix_mediaId_contentOffset_sequence`; */
-  private resolveContentFileName(contentOffset: number, sequence: number): string {
-    return `${this.mContentFileNamePrefix}_${this.mMediaId}_${contentOffset}_${sequence}`;
+  async copyMetadataToDirectory(targetDir: string, conflictStrategy?: MCCopyFileConflictStrategy): Promise<void> {
+    const fileName = this.resolveMetadataFileName();
+    const filePath = this.resolveMetadataFilePath();
+    const destPath = `${targetDir}/${fileName}`;
+    return MCFileIOUtils.copyFile(filePath, destPath, conflictStrategy);
+  }
+
+  /** 返回文件大小和元数据; */
+  private async loadMetadata(): Promise<[number, IMCMediaMetadata] | undefined> {
+    try {
+      const filePath = this.resolveMetadataFilePath();
+      const exists = await fileIo.access(filePath, fileIo.AccessModeType.EXIST);
+      if ( exists ) {
+        const content = await fileIo.readText(filePath, { encoding: 'utf-8' });
+        const record = JSON.parse(content) as Record<string, string>;
+        const checksum = record['checksum'];
+        const jsonStr = record['data'];
+        const calculatedChecksum = await MCUtils.hash(jsonStr);
+        if ( checksum === calculatedChecksum ) {
+          const fileSize = (await fileIo.stat(filePath)).size;
+          return [fileSize, JSON.parse(jsonStr) as IMCMediaMetadata];
+        }
+      }
+    }
+    catch (error) { }
+    return undefined;
+  }
+
+  /** 获取元数据文件路径; */
+  private resolveMetadataFilePath(): string {
+    const fileName = this.resolveMetadataFileName();
+    const filePath = `${this.mDir}/${fileName}`;
+    return filePath;
   }
 
   /** file name format: `prefix_mediaId`; */
   private resolveMetadataFileName(): string {
     return `${this.mMetadataFileNamePrefix}_${this.mMediaId}`;
+  }
+
+  /** file name format: `prefix_mediaId_contentOffset_sequence`; */
+  private resolveContentFileName(contentOffset: number, sequence: number): string {
+    return `${this.mContentFileNamePrefix}_${this.mMediaId}_${contentOffset}_${sequence}`;
   }
 
   private parseContentOffsetAndSequence(fileName: string): string[] {

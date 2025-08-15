@@ -4,6 +4,7 @@ import { IMCDataResponse } from "./IMCDataResponse";
 import { MCAbortSignal } from "../utils/MCAbortController";
 import { IMCMediaMetadata } from "./IMCMediaMetadata";
 import { MCMediaKind } from "./MCMediaKind";
+import { MCCopyFileConflictStrategy } from "./MCCopyFileConflictStrategy";
 
 /** 代表着一个媒体文件; 可以是一个 mp4 文件, 也可以是 hls 的 playlist 文件或 ts 等文件; */
 export interface IMCMedia extends IMCReadwriteReference<IMCMedia> {
@@ -26,4 +27,20 @@ export interface IMCMedia extends IMCReadwriteReference<IMCMedia> {
   readAllData(): Promise<ArrayBuffer | undefined>;
 
   readonly abortSignal: MCAbortSignal; // 任务中止信号;
+
+  // 将元数据和媒体文件复制到目标目录;
+  // 注意: 只有在所有数据下载完毕后(completeness === 1.0), 才能调用该方法;
+  copyToDirectory(targetDir: string, options?: MCMediaCopyBehaviorOptions): Promise<void>;
+}
+
+export interface MCMediaCopyBehaviorOptions {
+  /**
+   * 冲突处理策略：
+   * - Skip      => 直接跳过
+   * - Overwrite => 覆盖目标文件
+   * - Throw     => 抛出错误
+   *
+   * 默认为 Throw。
+   */
+  conflictStrategy?: MCCopyFileConflictStrategy;
 }

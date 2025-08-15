@@ -1,7 +1,8 @@
+import { IMCAsset } from './IMCAsset';
 import { MCAssetExportOptions } from './MCAssetExportOptions';
 
 /** 用于导出资产所有媒体数据; */
-export interface IMCAssetExporter {
+export interface IMCAssetExporter<T extends IMCAsset> {
   /**
    * 导出资产媒体数据到指定目录;
    *
@@ -11,5 +12,5 @@ export interface IMCAssetExporter {
    * @param options 导出选项(是否覆盖目录文件等选项);
    * @returns Promise<void>;
    */
-  exportToDirectory(targetDir: string, options?: MCAssetExportOptions): Promise<void>;
+  export(asset: T, requestTarget: string, targetDir: string, options?: MCAssetExportOptions): Promise<void>;
 }

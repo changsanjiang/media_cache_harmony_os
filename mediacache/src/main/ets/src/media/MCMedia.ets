@@ -1,6 +1,6 @@
-import { IMCMedia } from "../defines/IMCMedia";
+import { IMCMedia, MCMediaCopyBehaviorOptions } from "../defines/IMCMedia";
 import { IMCMediaContentLoader } from "../defines/IMCMediaContentLoader";
-import { IMCMediaContent } from "../defines/IMCMediaContent";
+import { IMCMediaContent, IMCMediaContentReader, IMCMediaContentWriter } from "../defines/IMCMediaContent";
 import { MCReadwriteReference } from "../utils/MCReadwriteReference";
 import { MCMediaContentProvider } from "./MCMediaContentProvider";
 import { MCMediaContentNodeList } from "./MCMediaContentNodeList";
@@ -35,7 +35,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   private mContentProvider: MCMediaContentProvider;
   private mNodeList = new MCMediaContentNodeList();
   private mAssembled = false; // 是否已组合完成, 是否已得到完整内容; 虽然得到了完整内容, 但是文件夹下可能还存在正在读取的冗余数据;
-  private mFullyTrimmed = false; // 所有冗余数据都已删除;
+  private mFullyTrimmed = false; // 已组合完成并且所有冗余数据都已删除;
   private mProxyHandler?: (requestUrl: string, currentUrl: string, data: ArrayBuffer) => Promise<ArrayBuffer> = undefined; // 代理内容;
   private mRestructurePromise?: Promise<void> = undefined;
 
@@ -200,7 +200,23 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   }
 
   async readAllData(): Promise<ArrayBuffer | undefined> {
-    if ( this.mAssembled ) {
+    if ( this.mRestructurePromise ) {
+      await this.mRestructurePromise;
+    }
+
+    this.checkAbortSignal(this.mAbortSignal);
+
+    const completeContent = this.mNodeList.head?.longestContent;
+    if ( completeContent && this.mAssembled ) {
+      const reader = completeContent.createReader();
+      const data = new ArrayBuffer(completeContent.length);
+      await reader.readData(0, data, completeContent.length);
+      await reader.close();
+      return data;
+    }
+
+    const completeness = await this.completeness;
+    if ( completeness == 1.0 ) {
       let buffer: ArrayBuffer | undefined = undefined;
       let node = this.mNodeList.head;
       let offset = 0;
@@ -227,11 +243,11 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   }
 
   private async resolve(proxyRequest: IMCDataRequest, clientId: number, signal?: MCAbortSignal): Promise<IMCDataResponse> {
-    this.checkAbortSignal(signal);
-
     if ( this.mRestructurePromise ) {
       await this.mRestructurePromise;
     }
+
+    this.checkAbortSignal(signal);
 
     const url = MCURL.parseUrl(proxyRequest.requestTarget);
     if (!url) {
@@ -331,6 +347,83 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       }
       return response;
     }
+  }
+
+  async copyToDirectory(targetDir: string, options?: MCMediaCopyBehaviorOptions): Promise<void> {
+    this.ensureReadyForCopy();
+
+    // 将元数据复制到指定目录
+    await this.mContentProvider.copyMetadataToDirectory(targetDir, options?.conflictStrategy);
+    // 将媒体数据复制到指定目录
+
+    // 执行到这里时虽然此时的完整度是1, 但可能还未将所有的content块组合成完整文件;
+    // 如果已存在完整文件(this.mAssembled == true), 则直接复制到指定目录,
+    // 否则创建一个新的 finalContent, 遍历node把数据写入到finalContent中, 再复制到指定目录;
+
+    const finalContent = await this.getOrAssembleFinalContent();
+    await finalContent.copyToDirectory(targetDir, options?.conflictStrategy);
+  }
+
+  private async ensureReadyForCopy(): Promise<void> {
+    if (this.mRestructurePromise) {
+      await this.mRestructurePromise;
+    }
+
+    this.checkAbortSignal(this.mAbortSignal);
+
+    const completeness = await this.completeness;
+    if (completeness !== 1) {
+      throw new Error(`Copy failed: Media local cache is incomplete and cannot be copied.`);
+    }
+  }
+
+  private async getOrAssembleFinalContent(): Promise<IMCMediaContent> {
+    const headContent = this.mNodeList.head?.longestContent;
+    if ( headContent && this.mAssembled ) {
+      return headContent;
+    }
+
+    return await this.assembleFinalContent();
+  }
+
+  // 组装 finalContent, 出现断层时会抛出异常
+  private async assembleFinalContent(): Promise<IMCMediaContent> {
+    const finalContent = this.mContentProvider.createContent(0);
+    const writerContent = finalContent;
+    const writer = writerContent.createWriter();
+
+    const capacity = 4 * 1024 * 1024;
+    const buffer = new ArrayBuffer(capacity);
+
+    let node = this.mNodeList.head;
+    try {
+      while ( node ) {
+        const readerContent = node.longestContent;
+        if ( readerContent ) {
+          const curRange = new MCRange(writerContent.contentOffset, writerContent.length);
+          const nextRange = new MCRange(readerContent.contentOffset, readerContent.length);
+
+          if ( curRange.contains(nextRange) ) {
+            node = node.next;
+            continue;
+          }
+
+          // 出现断层时抛出异常
+          if ( curRange.max !== nextRange.location && !curRange.isIntersecting(nextRange) ) {
+            throw new Error(`Copy failed: Detected inconsistency in local media cache data. Content ranges are misaligned or overlapping incorrectly.`);
+          }
+
+          const readRange = new MCRange(curRange.max, nextRange.max - curRange.max);
+          const reader = readerContent.createReader();
+          await this.transferContentData(writer, reader, readRange, buffer, false, true);
+        }
+        node = node.next;
+      }
+    }
+    finally {
+      writer.close();
+    }
+    return finalContent;
   }
 
   // 解析内容范围
@@ -435,50 +528,55 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   private async restructureContents(): Promise<void> {
     if ( !this.mFullyTrimmed && this.mMetadata && this.mMetadata.totalLength !== Number.MAX_SAFE_INTEGER ) {
       MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Starting restructureContents.`);
+      this.checkAbortSignal(this.mAbortSignal);
+
+      const capacity = 4 * 1024 * 1024;
+      const buffer = new ArrayBuffer(capacity);
 
       try {
         const head = this.mNodeList.head;
         let curNode = head;
 
-        while (curNode) {
+        while ( curNode ) {
+          // 清理当前节点冗余内容
           if ( curNode.numberOfContents > 1 ) {
             await this.trimRedundantContents(curNode);
           }
+
           const nextNode = curNode.next;
           if ( !nextNode ) break;  // break;
 
+          // 清理下一个节点冗余内容
           if ( nextNode.numberOfContents > 1 ) {
-            await this.trimRedundantContents(curNode);
+            await this.trimRedundantContents(nextNode);
           }
 
-          const writer = curNode.longestContent;
-          const reader = nextNode.longestContent;
-          let isNextNodeRemoved = false;
+          const writerContent = curNode.longestContent;
+          const readerContent = nextNode.longestContent;
 
-          if ( writer?.isTemp ) {
-            throw new Error(`Attempted to write data into a temporary content file. MediaId: ${this.id}, Writer: ${JSON.stringify(writer)}, Reader: ${JSON.stringify(reader)}`);
+          if ( writerContent?.isTemp ) {
+            throw new Error(`Attempted to write data into a temporary content file. MediaId: ${this.id}, Writer: ${JSON.stringify(writerContent)}, Reader: ${JSON.stringify(readerContent)}`);
           }
 
-          if ( writer && reader ) {
-            const isMerged = await this.mergeData(writer, reader);
+          if ( writerContent && readerContent ) {
+            const isMerged = await this.mergeData(writerContent, readerContent, buffer);
             if ( isMerged ) {
-              await reader.destroy();
-              this.checkAbortSignal(this.mAbortSignal);
-              nextNode.removeContent(reader);
+              await readerContent.destroy();
+              nextNode.removeContent(readerContent);
+
               MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Merged content from nextNode into currentNode.`);
+
               if ( nextNode.numberOfContents == 0 ) {
                 this.mNodeList.removeNode(nextNode);
-                isNextNodeRemoved = true;
                 MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Removed empty nextNode.`);
               }
             }
-            if ( !isNextNodeRemoved ) {
-              curNode = nextNode;
-            }
           }
+
+          curNode = curNode.next;
         }
 
-        if (head && head.longestContent?.length === this.mMetadata.totalLength) {
+        if ( head && head.longestContent?.length === this.mMetadata.totalLength ) {
           this.mAssembled = true;
           this.mFullyTrimmed = this.mNodeList.count === 1 && head.numberOfContents === 1;
           MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Content restructuring completed. Assembled: ${this.mAssembled}, FullyTrimmed: ${this.mFullyTrimmed}.`);
@@ -496,7 +594,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Trimming redundant contents for node at offset: ${node.placement}.`);
 
       // 同一段位置可能存在多个文件
-      // 删除多余的无用的content
+      // 保留最长的内容, 删除其他多余的无用的content
       const longestContent = node.longestContent!;
       const redundantContents = node.filterContents((content) => content !== longestContent);
       for (let redundant of redundantContents) {
@@ -508,12 +606,12 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     }
   }
 
-  // 合并数据; 被合并后返回 true;
-  // writer.contentOffset <= reader.contentOffset;
-  private async mergeData(writerContent: IMCMediaContent, readerContent: IMCMediaContent): Promise<boolean> {
+  // 尝试将 readerContent 中的数据合并到 writerContent 中, 被合并后返回 true
+  // @param buffer 可复用的缓冲区（ArrayBuffer）
+  private async mergeData(writerContent: IMCMediaContent, readerContent: IMCMediaContent, buffer: ArrayBuffer): Promise<boolean> {
     MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Attempting to merge data. Writer range: offset ${writerContent.contentOffset} to ${writerContent.contentOffset + writerContent.length}, Reader range: offset ${readerContent.contentOffset} to ${readerContent.contentOffset + readerContent.length}.`);
     if ( writerContent.contentOffset > readerContent.contentOffset ) {
-      // writer的内容偏移量 必须在 reader 的前面, 这样才能在存在交集时合并数据;
+      // Writer 必须在 Reader 之前或相同位置开始, 这样才能在存在交集时合并数据;
       const errorMsg = `Invalid offsets: writer offset (${writerContent.contentOffset}) must be less than or equal to reader offset (${readerContent.contentOffset}).`;
       MCLogger.error(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: ${errorMsg}`);
       throw new Error(errorMsg);
@@ -521,46 +619,74 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
 
     const curRange = new MCRange(writerContent.contentOffset, writerContent.length);
     const nextRange = new MCRange(readerContent.contentOffset, readerContent.length);
-    // 如果 writer 中包含 reader 的所有数据, return YES;
-    if (curRange.contains(nextRange)) {
+    // 已完全包含 Reader 数据: 无需合并
+    // return YES;
+    if ( curRange.contains(nextRange) ) {
       MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Writer range fully contains reader range. Skipping merge.`);
       return true;
     }
 
-    // 判断是否连续的 或 存在交集;
-    // 合并未相交部分的数据;
-    if ( curRange.max === nextRange.location || curRange.isIntersecting(nextRange) ) {
-      const capacity = 4 * 1024 * 1024;
-      const buffer = new ArrayBuffer(capacity);
-      // 读取 read 中未相交的部分;
-      const readRange = new MCRange(curRange.max, nextRange.max - curRange.max);
-      let position = readRange.location;
-      let writer = writerContent.createWriter();
-      let reader = readerContent.createReader();
-      try {
-        while (position < readRange.max) {
-          const len = await reader.readData(position, buffer, buffer.byteLength);
-          this.checkAbortSignal(this.mAbortSignal);
-          if (len === 0) break;
-          position += await writer.writeData(buffer, len);
-          this.checkAbortSignal(this.mAbortSignal);
-        }
-        await reader.close();
-        await writer.close();
-        this.checkAbortSignal(this.mAbortSignal);
+    // 检查是否相邻或相交
+    const isAdjacent = curRange.max === nextRange.location;
+    const isIntersecting = curRange.isIntersecting(nextRange);
 
-        MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Merge completed. Data from reader successfully written to writer.`);
-        return true;
-      }
-      catch (error) {
-        MCLogger.error(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Error during merge: ${error.message}. Stack trace: ${error.stack}`);
-        reader.close();
-        writer.close();
-        throw error as Error;
+    // 无交集: 不合并
+    if (!isAdjacent && !isIntersecting) {
+      MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Merge skipped. Ranges are neither contiguous nor overlapping. Writer max: ${curRange.max}, Reader start: ${nextRange.location}.`);
+      return false;
+    }
+
+    // 相邻或交叉: 合并尾部缺失的数据
+    // return YES;
+    const readRange = new MCRange(curRange.max, nextRange.max - curRange.max);
+    const reader = readerContent.createReader();
+    const writer = writerContent.createWriter();
+    try {
+      await this.transferContentData(writer, reader, readRange, buffer);
+      MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Merge completed successfully.`);
+      return true;
+    }
+    catch (err) {
+      MCLogger.error(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Error during merge: ${(err as Error).message}`);
+      throw err as Error;
+    }
+  }
+
+  /**
+   * 将 reader 中指定范围的数据拷贝到 writer。
+   * @param writer 已打开的内容写入器
+   * @param reader 已打开的内容读取器
+   * @param readRange 要拷贝的数据范围
+   * @param buffer 可复用的缓冲区（ArrayBuffer）
+   * @param closeWriter 是否在结束时关闭 writer（默认 true）
+   * @param closeReader 是否在结束时关闭 reader（默认 true）
+   * @throws 如果数据未完整读取到预期位置，则抛出异常
+   */
+  private async transferContentData(
+    writer: IMCMediaContentWriter,
+    reader: IMCMediaContentReader,
+    readRange: MCRange,
+    buffer: ArrayBuffer,
+    closeWriter: boolean = true,
+    closeReader: boolean = true,
+  ): Promise<void> {
+    const startOffset = readRange.location;
+    const endOffset = readRange.max;
+
+    let position = startOffset;
+    try {
+      while ( position < endOffset ) {
+        const len = await reader.readData(position, buffer, buffer.byteLength);
+        if ( len === 0 && position < endOffset ) {
+          throw new Error(`Data transfer failed: Unexpected EOF before reaching ${endOffset}.`);
+        }
+        position += await writer.writeData(buffer, len);
       }
     }
-    MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Ranges are not intersecting or contiguous. No merge performed.`);
-    return false;
+    finally {
+      if ( closeWriter ) await writer.close();
+      if ( closeReader ) await reader.close();
+    }
   }
 
   private generateContentRange(requestRangeHeader: string, totalLength: number): MCRange {
@@ -613,11 +739,11 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
 
   private async calculateCompleteness(): Promise<number> {
     if (this.mAssembled) {
-      return 1;
+      return 1.0;
     }
 
     if (!this.mMetadata || this.mMetadata.totalLength === Number.MAX_SAFE_INTEGER || !this.mNodeList.head) {
-      return 0;
+      return 0.0;
     }
 
     let lengthCached = 0;
@@ -634,7 +760,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       }
       node = node.next;
     }
-    return lengthCached * 1.0 / this.mMetadata.totalLength;
+    return lengthCached / this.mMetadata.totalLength;
   }
 
   private checkAbortSignal(signal: MCAbortSignal | undefined) {

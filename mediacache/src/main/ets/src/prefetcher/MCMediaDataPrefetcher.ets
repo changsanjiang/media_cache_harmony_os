@@ -25,7 +25,13 @@ export class MCMediaDataPrefetcher implements IMCMediaDataPrefetcher {
   private mReceivedLength: number = 0;
   private mExpectedLength: number = 0;
 
-  constructor(clientId: number, media: IMCMedia, request: IMCDataRequest, onProgress?: (receivedLength: number, expectedLength: number) => void, signal?: MCAbortSignal) {
+  constructor(
+    clientId: number,
+    media: IMCMedia,
+    request: IMCDataRequest,
+    onProgress?: (receivedLength: number, expectedLength: number) => void,
+    signal?: MCAbortSignal
+  ) {
     this.mClientId = clientId;
     this.mMedia = media;
     this.mRequest = request;
