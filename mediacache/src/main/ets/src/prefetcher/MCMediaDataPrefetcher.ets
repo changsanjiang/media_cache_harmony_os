@@ -4,6 +4,7 @@ import { IMCHttpOkResponseHeaders, IMCHttpPartialContentResponseHeaders } from '
 import { IMCMedia } from '../defines/IMCMedia';
 import { MCMediaDataFetcher } from '../media/MCMediaDataFetcher';
 import { MCAbortSignal } from '../utils/MCAbortController';
+import { MCAssetPrefetchUtils } from './MCAssetPrefetchUtils';
 
 export interface IMCMediaDataPrefetcher {
   prefetch(): Promise<void>;
@@ -26,13 +27,12 @@ export class MCMediaDataPrefetcher implements IMCMediaDataPrefetcher {
   private mExpectedLength: number = 0;
 
   constructor(
-    clientId: number,
     media: IMCMedia,
     request: IMCDataRequest,
     onProgress?: (receivedLength: number, expectedLength: number) => void,
     signal?: MCAbortSignal
   ) {
-    this.mClientId = clientId;
+    this.mClientId = MCAssetPrefetchUtils.generatePrefetchId();
     this.mMedia = media;
     this.mRequest = request;
     this.mOnProgress = onProgress;

@@ -264,7 +264,7 @@ export class HLSAssetPrefetcher implements IMCAssetPrefetcher<HLSAsset> {
         headers: additionalHeaders
       };
 
-      const prefetcher = new MCMediaDataPrefetcher(MCAssetPrefetchUtils.generatePrefetchId(), media, request, onProgress, signal);
+      const prefetcher = new MCMediaDataPrefetcher(media, request, onProgress, signal);
       await prefetcher.prefetch();
     }
   }
@@ -274,7 +274,7 @@ export class HLSAssetPrefetcher implements IMCAssetPrefetcher<HLSAsset> {
     request: IMCDataRequest,
     signal?: MCAbortSignal
   ): Promise<ArrayBuffer | undefined> {
-    const reader: IMCMediaDataReader = new MCMediaDataReader(MCAssetPrefetchUtils.generatePrefetchId(), media, request, signal);
+    const reader: IMCMediaDataReader = new MCMediaDataReader(media, request, signal);
     return reader.read();
   }
 }

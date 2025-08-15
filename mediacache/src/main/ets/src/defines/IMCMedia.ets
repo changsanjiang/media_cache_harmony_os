@@ -17,6 +17,7 @@ export interface IMCMedia extends IMCReadwriteReference<IMCMedia> {
   readonly isAssembled: boolean;
   readonly completeness: Promise<number>; // 完成度; [0, 1];
   readonly currentCachedSize: number; // 当前已缓存的数据大小(单位: 字节);
+  readonly abortSignal: MCAbortSignal; // 任务中止信号;
 
   prepare(): Promise<void>;
   probe(request: IMCDataRequest, signal?: MCAbortSignal): Promise<IMCMediaMetadata>;
@@ -24,9 +25,8 @@ export interface IMCMedia extends IMCReadwriteReference<IMCMedia> {
 
   // 如果数据组合完成, 通过该方法可以获取媒体所有数据;
   // 请谨慎使用, 该方法仅适合获取小文件的所有数据;
+  // 注意: 只有在所有数据下载完毕后(completeness === 1.0), 才能调用该方法;
   readAllData(): Promise<ArrayBuffer | undefined>;
-
-  readonly abortSignal: MCAbortSignal; // 任务中止信号;
 
   // 将元数据和媒体文件复制到目标目录;
   // 注意: 只有在所有数据下载完毕后(completeness === 1.0), 才能调用该方法;

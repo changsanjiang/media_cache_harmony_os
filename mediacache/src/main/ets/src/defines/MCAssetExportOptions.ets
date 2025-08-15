@@ -1,7 +1,9 @@
 import { MCAbortSignal } from "../utils/MCAbortController";
+import { MCCopyFileConflictStrategy } from "./MCCopyFileConflictStrategy";
 
 export interface MCAssetExportOptions {
-  overwrite?: boolean;    // 是否覆盖目录文件
-  signal?: MCAbortSignal; // 中止信号
+  additionalHeaders?: Record<string, string>;
+  conflictStrategy?: MCCopyFileConflictStrategy;
   onProgress?: (progress: number) => void;
+  signal?: MCAbortSignal; // 中止信号
 }

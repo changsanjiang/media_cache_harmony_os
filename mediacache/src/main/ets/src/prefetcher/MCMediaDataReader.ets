@@ -4,6 +4,7 @@ import { IMCMedia } from '../defines/IMCMedia';
 import { MCMediaDataFetcher } from '../media/MCMediaDataFetcher';
 import { MCAbortSignal } from '../utils/MCAbortController';
 import MCUtils from '../utils/MCUtils';
+import { MCAssetPrefetchUtils } from './MCAssetPrefetchUtils';
 
 /** 注意数据读取量不能过大, 仅适合小文件; */
 export interface IMCMediaDataReader {
@@ -23,8 +24,8 @@ export class MCMediaDataReader implements IMCMediaDataReader {
   private mCompleted = false;
   private mOnComplete?: (data: ArrayBuffer | undefined, error: Error | undefined) => void = undefined;
 
-  constructor(clientId: number, media: IMCMedia, request: IMCDataRequest, signal?: MCAbortSignal) {
-    this.mClientId = clientId;
+  constructor(media: IMCMedia, request: IMCDataRequest, signal?: MCAbortSignal) {
+    this.mClientId = MCAssetPrefetchUtils.generatePrefetchId();
     this.mMedia = media;
     this.mRequest = request;
     this.mSignal = signal;

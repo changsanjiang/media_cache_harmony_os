@@ -55,14 +55,12 @@ export class FILEAssetPrefetcher implements IMCAssetPrefetcher<FILEAsset> {
       while ( reqIdx < allRequests.length ) {
         const batch = allRequests.slice(reqIdx, reqIdx + concurrentPrefetchCount);
         const fetches = batch.map((req, index) => {
-          const prefetchId = MCAssetPrefetchUtils.generatePrefetchId();
           const progressCallback = options?.onProgress ? (receivedLength: number, expectedLength: number) => {
             const fetchIdx = reqIdx + index;
             allProgresses[fetchIdx] = receivedLength / expectedLength;
             options.onProgress!(allProgresses.reduce((prev, cur) => prev + cur, 0) / allProgresses.length);
           } : undefined;
           const prefetcher = new MCMediaDataPrefetcher(
-            prefetchId,
             media,
             req,
             progressCallback,
@@ -81,10 +79,8 @@ export class FILEAssetPrefetcher implements IMCAssetPrefetcher<FILEAsset> {
         requestTarget: requestTarget,
         headers: headers,
       };
-      const prefetchId = MCAssetPrefetchUtils.generatePrefetchId();
       const progressCallback = options?.onProgress ? (receivedLength: number, expectedLength: number) => options.onProgress!(receivedLength / expectedLength) : undefined;
       const prefecher = new MCMediaDataPrefetcher(
-        prefetchId,
         media,
         request,
         progressCallback,
