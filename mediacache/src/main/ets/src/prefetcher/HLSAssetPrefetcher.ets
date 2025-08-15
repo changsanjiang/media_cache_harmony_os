@@ -3,10 +3,12 @@ import { HLSPlaylist } from '../asset/hls/HLSPlaylist';
 import HLSDefines from '../defines/HLSDefines';
 import { IMCAssetPrefetcher } from '../defines/IMCAssetPrefetcher';
 import { IMCDataRequest } from '../defines/IMCDataRequest';
+import { toRequestRange, toRequestRangeHeader } from '../defines/IMCHttpRequestRange';
 import { IMCMedia } from '../defines/IMCMedia';
 import { MCAssetPrefetchOptions } from '../defines/MCAssetPrefetchOptions';
 import { MCMediaKind } from '../defines/MCMediaKind';
 import { MCAbortSignal } from '../utils/MCAbortController';
+import { MCRange } from '../utils/MCRange';
 import MCUtils from '../utils/MCUtils';
 import { MCAssetPrefetchUtils } from './MCAssetPrefetchUtils';
 import { MCMediaDataPrefetcher } from './MCMediaDataPrefetcher';
@@ -259,9 +261,24 @@ export class HLSAssetPrefetcher implements IMCAssetPrefetcher<HLSAsset> {
       const media = await asset.getMediaBy(uri);
       MCAssetPrefetchUtils.checkAbortSignal(signal);
 
+      let headers = additionalHeaders;
+      let byteRange: MCRange | undefined = undefined;
+      if ( item.itemType == HLSDefines.ItemType.SEGMENT ) {
+        byteRange = (item as HLSDefines.SegmentItem).byteRange;
+      }
+      else if ( item.itemType == HLSDefines.ItemType.INITIALIZATION ) {
+        byteRange = (item as HLSDefines.InitializationItem).byteRange;
+      }
+
+      if ( byteRange ) {
+        const reqRange = toRequestRange(byteRange);
+        const reqRangeHeader = toRequestRangeHeader(reqRange);
+        headers = MCUtils.modifyRecord(headers ?? {}, 'range', reqRangeHeader);
+      }
+
       const request: IMCDataRequest = {
         requestTarget: uri,
-        headers: additionalHeaders
+        headers: headers
       };
 
       const prefetcher = new MCMediaDataPrefetcher(media, request, onProgress, signal);

@@ -11,7 +11,7 @@ export interface IMCMediaExporter {
 
 export interface MCMediaExportOptions {
   conflictStrategy?: MCCopyFileConflictStrategy;
-  onProgress?: (receivedLength: number, expectedLength: number) => void;
+  onProgress?: (progress: number) => void;
   signal?: MCAbortSignal;
 }
 
@@ -47,7 +47,7 @@ export class MCMediaExporter implements IMCMediaExporter {
       const prefecher = new MCMediaDataPrefetcher(
         this.mMedia,
         this.mRequest,
-        this.mOptions?.onProgress,
+        (receivedLength, expectedLength) => this.mOptions?.onProgress?.(receivedLength / expectedLength),
         this.mOptions?.signal
       );
       await prefecher.prefetch();
