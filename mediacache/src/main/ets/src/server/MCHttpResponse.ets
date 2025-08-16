@@ -30,7 +30,7 @@ export class MCHttpResponse implements IMCHttpResponse {
   constructor(clientId: number, request: IMCHttpRequest) {
     this.mClientId = clientId;
     this.mRequest = request;
-    MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${clientId}] Created response for request: ${JSON.stringify(request)}. URL: ${MCURL.parseUrl(request.requestTarget)}`);
+    MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${clientId}] Created response for request: ${JSON.stringify(request)}. URL: ${MCURL.parseTargetUrl(request.requestTarget)}`);
   }
 
   get isReady(): boolean {
@@ -48,7 +48,7 @@ export class MCHttpResponse implements IMCHttpResponse {
   async prepare(): Promise<string> {
     MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Starting preparation for request: ${JSON.stringify(this.mRequest)}`);
     try {
-      const asset = await MCAssetManager.getInstance().getAssetByRequestTarget(this.mRequest.requestTarget);
+      const asset = await MCAssetManager.getInstance().getAssetByProxyPath(this.mRequest.requestTarget);
       if ( this.mAborted ) {
         MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Cannot prepare as the response has been aborted`);
         throw this.mError!;

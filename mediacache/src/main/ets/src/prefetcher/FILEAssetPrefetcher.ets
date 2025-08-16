@@ -7,17 +7,17 @@ import { MCAssetPrefetchUtils } from './MCAssetPrefetchUtils';
 import { MCMediaDataPrefetcher } from './MCMediaDataPrefetcher';
 
 export class FILEAssetPrefetcher implements IMCAssetPrefetcher<FILEAsset> {
-  async prefetch(asset: FILEAsset, requestTarget: string, options?: MCAssetPrefetchOptions | undefined): Promise<void> {
+  async prefetch(asset: FILEAsset, proxyPath: string, options?: MCAssetPrefetchOptions | undefined): Promise<void> {
     const signal = options?.signal;
     MCAssetPrefetchUtils.checkAbortSignal(signal);
 
     // 获取媒体
-    const media = await asset.getMediaBy(requestTarget);
+    const media = await asset.getMediaByProxyPath(proxyPath);
     MCAssetPrefetchUtils.checkAbortSignal(signal);
 
     // 探测元数据
     const probeRequest: IMCDataRequest = {
-      requestTarget: requestTarget,
+      requestTarget: proxyPath,
       headers: options?.additionalHeaders
     };
     const metadata = await media.probe(probeRequest, signal);
@@ -42,7 +42,7 @@ export class FILEAssetPrefetcher implements IMCAssetPrefetcher<FILEAsset> {
         const rangeEnd = Math.min(reqOffset + chunkSize, prefetchSize) - 1;
         const headers = MCUtils.modifyRecord(options?.additionalHeaders ?? { }, 'range', `bytes=${rangeStart}-${rangeEnd}`);
         const request: IMCDataRequest = {
-          requestTarget: requestTarget,
+          requestTarget: proxyPath,
           headers: headers,
         }
         allRequests.push(request);
@@ -76,7 +76,7 @@ export class FILEAssetPrefetcher implements IMCAssetPrefetcher<FILEAsset> {
     else {
       const headers = options?.additionalHeaders ? MCUtils.modifyRecord(options.additionalHeaders, 'range', undefined) : undefined;
       const request: IMCDataRequest = {
-        requestTarget: requestTarget,
+        requestTarget: proxyPath,
         headers: headers,
       };
       const progressCallback = options?.onProgress ? (receivedLength: number, expectedLength: number) => options.onProgress!(receivedLength / expectedLength) : undefined;

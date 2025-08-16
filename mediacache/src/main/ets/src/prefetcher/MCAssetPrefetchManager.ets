@@ -24,28 +24,26 @@ export namespace MCAssetPrefetchManager {
     const signal = options?.signal;
     MCAssetPrefetchUtils.checkAbortSignal(signal);
 
-    const requestTarget = await MCAssetUtils.generateProxyPath(resUrl);
-    await prefetchByRequestTarget(requestTarget, options);
-  }
-
-  async function prefetchByRequestTarget(requestTarget: string, options?: MCAssetPrefetchOptions): Promise<void> {
-    const signal = options?.signal;
-    MCAssetPrefetchUtils.checkAbortSignal(signal);
+    const proxyPath = await MCAssetUtils.generateProxyPath(resUrl);
 
     // 获取资产
-    const asset = await MCAssetManager.getInstance().getAssetByRequestTarget(requestTarget);
+    const asset = await MCAssetManager.getInstance().getAssetByProxyPath(proxyPath);
     MCAssetPrefetchUtils.checkAbortSignal(signal);
 
     // 根据资产类型进行预加载
     try {
       asset.readwriteRetain();
       switch (asset.type) {
-        case MCAssetType.FILE_BASED:
-          await prefetchFILEAsset(asset as FILEAsset, requestTarget, options);
+        case MCAssetType.FILE_BASED: {
+          const prefetcher = new FILEAssetPrefetcher();
+          await prefetcher.prefetch(asset as FILEAsset, proxyPath, options);
           break;
-        case MCAssetType.HLS:
-          await prefetchHLSAsset(asset as HLSAsset, requestTarget, options);
+        }
+        case MCAssetType.HLS: {
+          const prefetcher = new HLSAssetPrefetcher();
+          await prefetcher.prefetch(asset as HLSAsset, proxyPath, options);
           break;
+        }
         default:
           throw new Error(`Unsupported type: ${asset.type}`);
       }
@@ -53,15 +51,5 @@ export namespace MCAssetPrefetchManager {
     finally {
       asset.readwriteRelease();
     }
-  }
-
-  async function prefetchFILEAsset(asset: FILEAsset, requestTarget: string, options?: MCAssetPrefetchOptions): Promise<void> {
-    const prefetcher = new FILEAssetPrefetcher();
-    return prefetcher.prefetch(asset, requestTarget, options);
-  }
-
-  async function prefetchHLSAsset(asset: HLSAsset, requestTarget: string, options?: MCAssetPrefetchOptions): Promise<void> {
-    const prefetcher = new HLSAssetPrefetcher();
-    return prefetcher.prefetch(asset, requestTarget, options);
   }
 }

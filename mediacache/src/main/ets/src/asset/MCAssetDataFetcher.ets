@@ -58,7 +58,7 @@ export class MCAssetDataFetcher implements IMCDataFetcher {
     MCLogger.info(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Starting preparation for asset request: ${JSON.stringify(this.mRequest)}`);
 
     try {
-      const media = await this.mAsset.getMediaBy(this.mRequest.requestTarget);
+      const media = await this.mAsset.getMediaByProxyPath(this.mRequest.requestTarget);
       if ( this.mAborted ) {
         MCLogger.info(MCLogModule.MCAssetDataFetcher, () => `[clientId: ${this.mClientId}] Cannot prepare as the fetcher has been aborted`);
         throw this.mError!;

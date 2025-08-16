@@ -148,7 +148,7 @@ export namespace MCMediaCache {
    * */
   export function setDataDecryptHandler(block: (resUrl: string, offset: number, data: ArrayBuffer) => Promise<void | ArrayBuffer>): void {
     MCConfigs.dataDecryptHandler = (request, offset, data) => {
-      return block(MCURL.parseUrl(request.requestTarget), offset, data);
+      return block(MCURL.parseTargetUrl(request.requestTarget), offset, data);
     };
   }
 

@@ -7,11 +7,11 @@ import MCUtils from "../utils/MCUtils";
 import { MCMediaExporter } from "./MCMediaExporter";
 
 export class FILEAssetExporter implements IMCAssetExporter<FILEAsset> {
-  async export(asset: FILEAsset, requestTarget: string, targetDir: string, options?: MCAssetExportOptions): Promise<void> {
+  async export(asset: FILEAsset, proxyPath: string, targetDir: string, options?: MCAssetExportOptions): Promise<void> {
     const signal = options?.signal;
     MCAssetPrefetchUtils.checkAbortSignal(signal);
 
-    const media = await asset.getMediaBy(requestTarget);
+    const media = await asset.getMediaByProxyPath(proxyPath);
     MCAssetPrefetchUtils.checkAbortSignal(signal);
     //
     // const exportInfo: FILEAssetExportInfo = {
@@ -20,7 +20,7 @@ export class FILEAssetExporter implements IMCAssetExporter<FILEAsset> {
 
     const headers = options?.additionalHeaders ? MCUtils.modifyRecord(options.additionalHeaders, 'range', undefined) : undefined;
     const mediaRequest: IMCDataRequest = {
-      requestTarget: requestTarget,
+      requestTarget: proxyPath,
       headers: headers,
     };
     const mediaExporter = new MCMediaExporter(media, mediaRequest, targetDir, {

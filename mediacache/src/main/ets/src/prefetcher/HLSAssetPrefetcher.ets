@@ -15,20 +15,20 @@ import { MCMediaDataPrefetcher } from './MCMediaDataPrefetcher';
 import { IMCMediaDataReader, MCMediaDataReader } from './MCMediaDataReader';
 
 export class HLSAssetPrefetcher implements IMCAssetPrefetcher<HLSAsset> {
-  async prefetch(asset: HLSAsset, requestTarget: string, options?: MCAssetPrefetchOptions | undefined): Promise<void> {
+  async prefetch(asset: HLSAsset, proxyPath: string, options?: MCAssetPrefetchOptions | undefined): Promise<void> {
     const signal = options?.signal;
     MCAssetPrefetchUtils.checkAbortSignal(signal);
 
     // 获取播放列表
-    const media = await asset.getMediaBy(requestTarget);
+    const media = await asset.getMediaByProxyPath(proxyPath);
     if ( media.mediaKind != MCMediaKind.PLAYLIST ) {
-      throw new Error(`Prefetch failed: expected mediaKind=PLAYLIST but got "${MCMediaKind[media.mediaKind]}". requestTarget="${requestTarget}`);
+      throw new Error(`Prefetch failed: expected mediaKind=PLAYLIST but got "${MCMediaKind[media.mediaKind]}". proxyPath="${proxyPath}`);
     }
     MCAssetPrefetchUtils.checkAbortSignal(signal);
 
     // 获取播放列表数据
     const playlistRequest: IMCDataRequest = {
-      requestTarget: requestTarget,
+      requestTarget: proxyPath,
       headers: options?.additionalHeaders
     }
     const playlistRawData = await this.readRawData(media, playlistRequest, signal);
@@ -126,7 +126,7 @@ export class HLSAssetPrefetcher implements IMCAssetPrefetcher<HLSAsset> {
     let itemIndex = 0;
     while (itemIndex < items.length) {
       const item = items[itemIndex];
-      const uri = item.uri!
+      const proxyPath = item.uri!
       const fetchIndex = itemIndex;
       const fetchProgressCallback = (progress: number) => {
         fetchProgresses[fetchIndex] = progress;
@@ -135,7 +135,7 @@ export class HLSAssetPrefetcher implements IMCAssetPrefetcher<HLSAsset> {
 
       await this.prefetch(
         asset,
-        uri,
+        proxyPath,
         {
           prefetchSize: specifiedSize,
           onProgress: fetchProgressCallback,
@@ -197,7 +197,7 @@ export class HLSAssetPrefetcher implements IMCAssetPrefetcher<HLSAsset> {
     let itemIndex = 0;
     while (itemIndex < items.length) {
       const item = items[itemIndex];
-      const uri = item.uri!
+      const proxyPath = item.uri!
       const fetchIndex = itemIndex;
       const fetchProgressCallback = (progress: number) => {
         fetchProgresses[fetchIndex] = progress;
@@ -206,7 +206,7 @@ export class HLSAssetPrefetcher implements IMCAssetPrefetcher<HLSAsset> {
 
       await this.prefetch(
         asset,
-        uri,
+        proxyPath,
         {
           prefetchSegmentCount: specifiedSegmentCount,
           concurrentPrefetchCount: concurrentPrefetchCount,
@@ -250,9 +250,9 @@ export class HLSAssetPrefetcher implements IMCAssetPrefetcher<HLSAsset> {
     onProgress?: (receivedLength: number, expectedLength: number) => void,
     signal?: MCAbortSignal
   ): Promise<void> {
-    const uri = item.uri;
-    if ( uri ) {
-      const media = await asset.getMediaBy(uri);
+    const proxyPath = item.uri;
+    if ( proxyPath ) {
+      const media = await asset.getMediaByProxyPath(proxyPath);
       MCAssetPrefetchUtils.checkAbortSignal(signal);
 
       let headers = additionalHeaders;
@@ -272,7 +272,7 @@ export class HLSAssetPrefetcher implements IMCAssetPrefetcher<HLSAsset> {
       }
 
       const request: IMCDataRequest = {
-        requestTarget: uri,
+        requestTarget: proxyPath,
         headers: headers
       };
 

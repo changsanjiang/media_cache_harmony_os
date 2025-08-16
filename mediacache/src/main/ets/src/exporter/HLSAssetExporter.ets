@@ -13,20 +13,20 @@ import { MCMediaExporter } from './MCMediaExporter';
 import HLSDefines from '../defines/HLSDefines';
 
 export class HLSAssetExporter implements IMCAssetExporter<HLSAsset> {
-  async export(asset: HLSAsset, requestTarget: string, targetDir: string, options?: MCAssetExportOptions): Promise<void> {
+  async export(asset: HLSAsset, proxyPath: string, targetDir: string, options?: MCAssetExportOptions): Promise<void> {
     const signal = options?.signal;
     MCAssetPrefetchUtils.checkAbortSignal(signal);
 
     // 获取播放列表
-    const media = await asset.getMediaBy(requestTarget);
+    const media = await asset.getMediaByProxyPath(proxyPath);
     if (media.mediaKind != MCMediaKind.PLAYLIST) {
-      throw new Error(`Export failed: expected mediaKind=PLAYLIST but got "${MCMediaKind[media.mediaKind]}". requestTarget="${requestTarget}`);
+      throw new Error(`Export failed: expected mediaKind=PLAYLIST but got "${MCMediaKind[media.mediaKind]}". proxyPath="${proxyPath}`);
     }
     MCAssetPrefetchUtils.checkAbortSignal(signal);
 
     // first: export playlist
     const mediaRequest: IMCDataRequest = {
-      requestTarget: requestTarget,
+      requestTarget: proxyPath,
       headers: options?.additionalHeaders,
     };
     const mediaExporter = new MCMediaExporter(media, mediaRequest, targetDir, {
@@ -36,10 +36,7 @@ export class HLSAssetExporter implements IMCAssetExporter<HLSAsset> {
     await mediaExporter.export();
 
     // next: parse playlist
-    const playlistRequest: IMCDataRequest = {
-      requestTarget: requestTarget,
-      headers: options?.additionalHeaders
-    }
+    const playlistRequest = mediaRequest;
     const playlistRawData = await this.readRawData(media, playlistRequest, signal);
     const playlist = playlistRawData ? new HLSPlaylist(MCUtils.bufferToString(playlistRawData)) : undefined;
     const allItems = playlist?.allItems;
@@ -58,19 +55,19 @@ export class HLSAssetExporter implements IMCAssetExporter<HLSAsset> {
       }
 
       // export targets
-      const requestTargets: string[] = Array.from(set);
-      for (let i = 0; i < requestTargets.length; ++i) {
-        const requestTarget = requestTargets[i];
-        const media = await asset.getMediaBy(requestTarget);
+      const proxyPaths: string[] = Array.from(set);
+      for (let i = 0; i < proxyPaths.length; ++i) {
+        const proxyPath = proxyPaths[i];
+        const media = await asset.getMediaByProxyPath(proxyPath);
         MCAssetPrefetchUtils.checkAbortSignal(signal);
         const mediaRequest: IMCDataRequest = {
-          requestTarget: requestTarget,
+          requestTarget: proxyPath,
           headers: options?.additionalHeaders,
         };
         const mediaExporter = new MCMediaExporter(media, mediaRequest, targetDir, {
           conflictStrategy: options?.conflictStrategy,
           onProgress: options?.onProgress ? (progress) => {
-            options.onProgress!((i + progress) / requestTargets.length);
+            options.onProgress!((i + progress) / proxyPaths.length);
           } : undefined,
           signal: options?.signal
         });
@@ -94,11 +91,11 @@ export class HLSAssetExporter implements IMCAssetExporter<HLSAsset> {
     // 先导出小文件
     // export subtitles
     if (subtitlesRendition) {
-      const requestTarget = subtitlesRendition.uri!;
-      const media = await asset.getMediaBy(requestTarget);
+      const proxyPath = subtitlesRendition.uri!;
+      const media = await asset.getMediaByProxyPath(proxyPath);
       MCAssetPrefetchUtils.checkAbortSignal(signal);
       const mediaRequest: IMCDataRequest = {
-        requestTarget: requestTarget,
+        requestTarget: proxyPath,
         headers: options?.additionalHeaders,
       };
       const mediaExporter = new MCMediaExporter(media, mediaRequest, targetDir, {

@@ -27,14 +27,14 @@ export namespace MCURL {
     readonly mediaId: string;
   }
 
-  export function parse(requestTarget: string): ProxyTargetInfo {
-    if (!requestTarget.startsWith(MCConsts.PATH_PROXY_URL)) {
-      throw new Error(`Invalid proxy target: expected requestTarget to start with "${MCConsts.PATH_PROXY_URL}", but got "${requestTarget}".`);
+  export function parseTarget(proxyPath: string): ProxyTargetInfo {
+    if (!proxyPath.startsWith(MCConsts.PATH_PROXY_URL)) {
+      throw new Error(`Invalid proxy target: expected proxyPath to start with "${MCConsts.PATH_PROXY_URL}", but got "${proxyPath}".`);
     }
 
-    const parts = requestTarget.split(`/`);
+    const parts = proxyPath.split(`/`);
     if (parts.length < 7) {
-      throw new Error(`Malformed proxy target: expected at least 7 parts in the requestTarget, but got ${parts.length}. Target: "${requestTarget}".`);
+      throw new Error(`Malformed proxy target: expected at least 7 parts in the proxyPath, but got ${parts.length}. Target: "${proxyPath}".`);
     }
 
     const assetType: MCAssetType = parseInt(parts[2]);
@@ -44,19 +44,19 @@ export namespace MCURL {
     const url = decodeURIComponent(parts[6]);
 
     if (isNaN(assetType)) {
-      throw new Error(`Invalid assetType: expected a number at position 2, but got "${parts[2]}". Target: "${requestTarget}".`);
+      throw new Error(`Invalid assetType: expected a number at position 2, but got "${parts[2]}". Target: "${proxyPath}".`);
     }
     if (!assetId) {
-      throw new Error(`Invalid assetId: expected a non-empty string at position 3, but got "${parts[3]}". Target: "${requestTarget}".`);
+      throw new Error(`Invalid assetId: expected a non-empty string at position 3, but got "${parts[3]}". Target: "${proxyPath}".`);
     }
     if (isNaN(mediaKind)) {
-      throw new Error(`Invalid mediaKind: expected a number at position 4, but got "${parts[4]}". Target: "${requestTarget}".`);
+      throw new Error(`Invalid mediaKind: expected a number at position 4, but got "${parts[4]}". Target: "${proxyPath}".`);
     }
     if (!mediaId) {
-      throw new Error(`Invalid mediaId: expected a non-empty string at position 5, but got "${parts[5]}". Target: "${requestTarget}".`);
+      throw new Error(`Invalid mediaId: expected a non-empty string at position 5, but got "${parts[5]}". Target: "${proxyPath}".`);
     }
     if (!url) {
-      throw new Error(`Invalid URL: expected a non-empty string at position 6 after decoding, but got "${parts[6]}". Target: "${requestTarget}".`);
+      throw new Error(`Invalid URL: expected a non-empty string at position 6 after decoding, but got "${parts[6]}". Target: "${proxyPath}".`);
     }
 
     const targetInfo: ProxyTargetInfo = {
@@ -69,7 +69,7 @@ export namespace MCURL {
     return targetInfo;
   }
 
-  export function parseUrl(requestTarget: string): string {
-    return parse(requestTarget).url;
+  export function parseTargetUrl(proxyPath: string): string {
+    return parseTarget(proxyPath).url;
   }
 }

@@ -136,9 +136,9 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       return Promise.resolve(this.mMetadata);
     }
 
-    const requestTarget = proxyRequest.requestTarget;
+    const proxyPath = proxyRequest.requestTarget;
     const headers = proxyRequest.headers;
-    const mediaUrl = MCURL.parseUrl(requestTarget);
+    const mediaUrl = MCURL.parseTargetUrl(proxyPath);
     const request = new MCDownloadRequest(mediaUrl, headers);
 
     return MCDownload.probe(request, signal).then(async (response) => {
@@ -249,7 +249,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
 
     this.checkAbortSignal(signal);
 
-    const url = MCURL.parseUrl(proxyRequest.requestTarget);
+    const url = MCURL.parseTargetUrl(proxyRequest.requestTarget);
     if (!url) {
       throw new MCDataResponseError(400, "Failed to restore URL from the provided request.");
     }

@@ -38,7 +38,7 @@ export class FILEAsset extends MCReadwriteReference<FILEAsset> implements IMCAss
     return this.mMedia.prepare();
   }
 
-  async getMediaBy(_: string): Promise<IMCMedia> {
+  async getMediaByProxyPath(_: string): Promise<IMCMedia> {
     if ( this.mAbortController.signal.isAborted ) {
       throw this.mAbortController.signal.reason!;
     }

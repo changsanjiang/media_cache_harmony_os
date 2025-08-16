@@ -12,5 +12,5 @@ export interface IMCAssetExporter<T extends IMCAsset> {
    * @param options 导出选项(是否覆盖目录文件等选项);
    * @returns Promise<void>;
    */
-  export(asset: T, requestTarget: string, targetDir: string, options?: MCAssetExportOptions): Promise<void>;
+  export(asset: T, proxyPath: string, targetDir: string, options?: MCAssetExportOptions): Promise<void>;
 }

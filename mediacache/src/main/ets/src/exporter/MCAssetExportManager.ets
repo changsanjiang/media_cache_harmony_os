@@ -20,8 +20,8 @@ export namespace MCAssetExportManager {
     }
 
     // 获取资产
-    const requestTarget = await MCAssetUtils.generateProxyPath(resUrl);
-    const asset = await MCAssetManager.getInstance().getAssetByRequestTarget(requestTarget);
+    const proxyPath = await MCAssetUtils.generateProxyPath(resUrl);
+    const asset = await MCAssetManager.getInstance().getAssetByProxyPath(proxyPath);
     MCAssetPrefetchUtils.checkAbortSignal(signal);
 
     // 根据资产类型进行导出
@@ -30,11 +30,13 @@ export namespace MCAssetExportManager {
       switch (asset.type) {
         case MCAssetType.FILE_BASED: {
           const exporter = new FILEAssetExporter();
-          return exporter.export(asset as FILEAsset, requestTarget, targetDir, options);
+          await exporter.export(asset as FILEAsset, proxyPath, targetDir, options);
+          break;
         }
         case MCAssetType.HLS: {
           const exporter = new HLSAssetExporter();
-          return exporter.export(asset as HLSAsset, requestTarget, targetDir, options);
+          await exporter.export(asset as HLSAsset, proxyPath, targetDir, options);
+          break;
         }
         default:
           throw new Error(`Unsupported type: ${asset.type}`);

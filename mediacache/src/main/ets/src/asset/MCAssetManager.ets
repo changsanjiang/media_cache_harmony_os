@@ -14,10 +14,9 @@ export interface IMCAssetManager {
   prepare(context: Context): Promise<void>;
 
   /**
-   * 根据请求标识获取对应资产对象.
-   * @param requestTarget 可标识资产的 URL、路径或逻辑 ID.
+   * 根据代理路径获取对应资产对象.
    */
-  getAssetByRequestTarget(requestTarget: string): Promise<IMCAsset>;
+  getAssetByProxyPath(proxyPath: string): Promise<IMCAsset>;
 
   /**
    * 移除指定 ID 的资产缓存.
@@ -201,9 +200,9 @@ export class MCAssetManager implements IMCAssetManager {
     return this.mDirectoryManager.prepare(context);
   }
 
-  getAssetByRequestTarget(requestTarget: string): Promise<IMCAsset> {
+  getAssetByProxyPath(proxyPath: string): Promise<IMCAsset> {
     return this.enqueueTask(async () => {
-      const targetInfo = MCURL.parse(requestTarget);
+      const targetInfo = MCURL.parseTarget(proxyPath);
       const assetType = targetInfo.assetType;
       const assetId = targetInfo.assetId;
       let asset = this.mAssetMap.get(assetId);
