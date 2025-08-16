@@ -7,7 +7,7 @@ import { MCMedia } from "../../media/MCMedia";
 import { MCAbortController } from "../../utils/MCAbortController";
 import MCConfigs from "../../utils/MCConfigs";
 import { MCReadwriteReference } from "../../utils/MCReadwriteReference";
-import MCURL from "../../utils/MCURL";
+import { MCURL } from "../../utils/MCURL";
 import MCUtils from "../../utils/MCUtils";
 import MCAssetCacheManager from "../cachemgr/MCAssetCacheManager";
 import HLSParser from "./HLSParser";

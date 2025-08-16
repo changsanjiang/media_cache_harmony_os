@@ -9,7 +9,7 @@ import { MCRange } from "../utils/MCRange";
 import { IMCMediaMetadata } from "../defines/IMCMediaMetadata";
 import { generateResponseContentRange, parseResponseContentRange } from "../defines/IMCHttpResponseContentRange";
 import { MCDownloadResponseHeaders } from "../utils/MCDownloadResponseHeaders";
-import MCURL from "../utils/MCURL";
+import { MCURL } from "../utils/MCURL";
 import { MCMediaHttpContentLoader } from "./MCMediaHttpContentLoader";
 import { parseRequestRange, toRequestRange, toRequestRangeHeader } from "../defines/IMCHttpRequestRange";
 import { MCMediaFileContentLoader } from "./MCMediaFileContentLoader";

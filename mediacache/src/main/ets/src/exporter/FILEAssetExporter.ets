@@ -13,6 +13,10 @@ export class FILEAssetExporter implements IMCAssetExporter<FILEAsset> {
 
     const media = await asset.getMediaBy(requestTarget);
     MCAssetPrefetchUtils.checkAbortSignal(signal);
+    //
+    // const exportInfo: FILEAssetExportInfo = {
+    //
+    // }
 
     const headers = options?.additionalHeaders ? MCUtils.modifyRecord(options.additionalHeaders, 'range', undefined) : undefined;
     const mediaRequest: IMCDataRequest = {
@@ -26,4 +30,10 @@ export class FILEAssetExporter implements IMCAssetExporter<FILEAsset> {
     });
     return mediaExporter.export();
   }
+}
+
+interface FILEAssetExportInfo {
+  readonly version: string;
+  readonly id: string; // 仅记录一个id即可, 单文件模式下 assetId 与 mediaId 一致;
+  readonly checksum: string;
 }

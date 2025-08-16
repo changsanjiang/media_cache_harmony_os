@@ -11,7 +11,7 @@ import {
   IMCHttpResponseHeaders
 } from '../defines/IMCHttpResponseHeaders';
 import { buffer, util } from '@kit.ArkTS';
-import MCURL from '../utils/MCURL';
+import { MCURL } from '../utils/MCURL';
 
 export class MCHttpResponse implements IMCHttpResponse {
   private mClientId: number;

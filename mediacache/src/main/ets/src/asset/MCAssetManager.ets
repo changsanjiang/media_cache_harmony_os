@@ -3,7 +3,7 @@ import { MCAssetType, MCAssetTypeValues } from '../defines/MCAssetType';
 import { FILEAsset } from './filebased/FILEAsset';
 import { HLSAsset } from './hls/HLSAsset';
 import { fileIo } from '@kit.CoreFileKit';
-import MCURL from '../utils/MCURL';
+import { MCURL } from '../utils/MCURL';
 import MCArrayUtils from '../utils/MCArrayUtils';
 import MCFileIOUtils from '../utils/MCFileIOUtils';
 

@@ -54,7 +54,7 @@ export class FILEAssetPrefetcher implements IMCAssetPrefetcher<FILEAsset> {
       let reqIdx = 0;
       while ( reqIdx < allRequests.length ) {
         const batch = allRequests.slice(reqIdx, reqIdx + concurrentPrefetchCount);
-        const fetches = batch.map((req, index) => {
+        const fetches = batch.map(async (req, index) => {
           const progressCallback = options?.onProgress ? (receivedLength: number, expectedLength: number) => {
             const fetchIdx = reqIdx + index;
             allProgresses[fetchIdx] = receivedLength / expectedLength;
@@ -66,7 +66,7 @@ export class FILEAssetPrefetcher implements IMCAssetPrefetcher<FILEAsset> {
             progressCallback,
             signal
           );
-          return prefetcher.prefetch();
+          await prefetcher.prefetch();
         });
         await Promise.all(fetches);
         reqIdx += concurrentPrefetchCount;
