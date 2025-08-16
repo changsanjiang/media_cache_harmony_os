@@ -7,15 +7,20 @@ import { MCAssetType } from "../defines/MCAssetType";
 import { MCAssetPrefetchUtils } from "../prefetcher/MCAssetPrefetchUtils";
 import { FILEAssetExporter } from "./FILEAssetExporter";
 import { HLSAssetExporter } from "./HLSAssetExporter";
+import { fileIo } from "@kit.CoreFileKit";
 
 export namespace MCAssetExportManager {
   export async function exportToDirectory(resUrl: string, targetDir: string, options?: MCAssetExportOptions | undefined): Promise<void> {
     const signal = options?.signal;
     MCAssetPrefetchUtils.checkAbortSignal(signal);
 
-    const requestTarget = await MCAssetUtils.generateProxyPath(resUrl);
+    // 创建目录
+    if ( !fileIo.accessSync(targetDir, fileIo.AccessModeType.EXIST) ) {
+      await fileIo.mkdir(targetDir, true);
+    }
 
     // 获取资产
+    const requestTarget = await MCAssetUtils.generateProxyPath(resUrl);
     const asset = await MCAssetManager.getInstance().getAssetByRequestTarget(requestTarget);
     MCAssetPrefetchUtils.checkAbortSignal(signal);
 

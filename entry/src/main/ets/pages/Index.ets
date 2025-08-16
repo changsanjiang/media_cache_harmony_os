@@ -1,9 +1,8 @@
-import { MCLogLevel, MCLogModule, MCMediaCache } from "@sj/mediacache";
+import { MCLogLevel, MCLogModule, MCMediaCache } from '@sj/mediacache';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { router } from '@kit.ArkUI';
-import BuildProfile from "BuildProfile";
-import { fileIo } from "@kit.CoreFileKit";
-import { MCCopyFileConflictStrategy } from "@sj/mediacache/src/main/ets/src/defines/MCCopyFileConflictStrategy";
+import BuildProfile from 'BuildProfile';
+import { MCCopyFileConflictStrategy } from '@sj/mediacache/src/main/ets/src/defines/MCCopyFileConflictStrategy';
 
 @Entry
 @Component
@@ -113,14 +112,8 @@ struct Index {
     const videoUrl = 'https://consumer.huawei.com/content/dam/huawei-cbg-site/cn/mkt/pdp/phones/nova-flip/new/video/design-intro-popup.mp4';
 
     const ctx = this.getUIContext().getHostContext()!;
-    // 根目录
-    const exportRootDir = ctx.filesDir + '/my_exports';
-
     // 导出目录
-    const targetDir = exportRootDir + '/video2';
-    if ( !fileIo.accessSync(targetDir, fileIo.AccessModeType.EXIST) ) {
-      await fileIo.mkdir(targetDir, true);
-    }
+    const targetDir = ctx.filesDir + '/my_exports/video1';
 
     // 开始导出
     MCMediaCache.exportToDirectory(videoUrl, targetDir, {
