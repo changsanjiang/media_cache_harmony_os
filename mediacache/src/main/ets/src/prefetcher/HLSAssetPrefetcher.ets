@@ -263,13 +263,14 @@ export class HLSAssetPrefetcher implements IMCAssetPrefetcher<HLSAsset> {
 
       let headers = additionalHeaders;
       let byteRange: MCRange | undefined = undefined;
-      if ( item.itemType == HLSDefines.ItemType.SEGMENT ) {
-        byteRange = (item as HLSDefines.SegmentItem).byteRange;
+      switch(item.itemType) {
+        case HLSDefines.ItemType.INITIALIZATION:
+          byteRange = (item as HLSDefines.InitializationItem).byteRange;
+          break;
+        case HLSDefines.ItemType.SEGMENT:
+          byteRange = (item as HLSDefines.SegmentItem).byteRange;
+          break;
       }
-      else if ( item.itemType == HLSDefines.ItemType.INITIALIZATION ) {
-        byteRange = (item as HLSDefines.InitializationItem).byteRange;
-      }
-
       if ( byteRange ) {
         const reqRange = toRequestRange(byteRange);
         const reqRangeHeader = toRequestRangeHeader(reqRange);

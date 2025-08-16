@@ -12,10 +12,7 @@ export class FILEAssetExporter implements IMCAssetExporter<FILEAsset> {
     MCAssetPrefetchUtils.checkAbortSignal(signal);
 
     const media = await asset.getMediaBy(requestTarget);
-    if ( media.metadataReady && media.totalLength == 0 ) { // 空文件
-      options?.onProgress?.(1.0);
-      return;
-    }
+    MCAssetPrefetchUtils.checkAbortSignal(signal);
 
     const headers = options?.additionalHeaders ? MCUtils.modifyRecord(options.additionalHeaders, 'range', undefined) : undefined;
     const mediaRequest: IMCDataRequest = {

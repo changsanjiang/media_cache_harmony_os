@@ -360,8 +360,10 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     // 如果已存在完整文件(this.mAssembled == true), 则直接复制到指定目录,
     // 否则创建一个新的 finalContent, 遍历node把数据写入到finalContent中, 再复制到指定目录;
 
-    const finalContent = await this.getOrAssembleFinalContent();
-    await finalContent.copyToDirectory(targetDir, options?.conflictStrategy);
+    if ( this.mMetadata && this.mMetadata.totalLength > 0 ) {
+      const finalContent = await this.getOrAssembleFinalContent();
+      await finalContent.copyToDirectory(targetDir, options?.conflictStrategy);
+    }
   }
 
   private async ensureReadyForCopy(): Promise<void> {
