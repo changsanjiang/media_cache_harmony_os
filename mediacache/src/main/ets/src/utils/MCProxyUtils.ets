@@ -2,7 +2,7 @@ import { MCAssetType } from '../defines/MCAssetType';
 import { MCMediaKind } from '../defines/MCMediaKind';
 import MCConsts from './MCConsts';
 
-export namespace MCURL {
+export namespace MCProxyUtils {
   /** 生成代理地址;
    *
    * proxyUrl format: `http://localhost:port/mc_proxy/assetType/assetId/mediaKind/mediaId/encodedURI`;

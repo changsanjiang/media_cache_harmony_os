@@ -11,7 +11,7 @@ import {
   IMCHttpResponseHeaders
 } from '../defines/IMCHttpResponseHeaders';
 import { buffer, util } from '@kit.ArkTS';
-import { MCURL } from '../utils/MCURL';
+import { MCProxyUtils } from '../utils/MCProxyUtils';
 
 export class MCHttpResponse implements IMCHttpResponse {
   private mClientId: number;
@@ -30,7 +30,7 @@ export class MCHttpResponse implements IMCHttpResponse {
   constructor(clientId: number, request: IMCHttpRequest) {
     this.mClientId = clientId;
     this.mRequest = request;
-    MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${clientId}] Created response for request: ${JSON.stringify(request)}. URL: ${MCURL.parseTargetUrl(request.requestTarget)}`);
+    MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${clientId}] Created response for request: ${JSON.stringify(request)}. URL: ${MCProxyUtils.parseTargetUrl(request.requestTarget)}`);
   }
 
   get isReady(): boolean {

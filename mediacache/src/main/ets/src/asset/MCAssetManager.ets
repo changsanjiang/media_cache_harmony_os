@@ -3,7 +3,7 @@ import { MCAssetType, MCAssetTypeValues } from '../defines/MCAssetType';
 import { FILEAsset } from './filebased/FILEAsset';
 import { HLSAsset } from './hls/HLSAsset';
 import { fileIo } from '@kit.CoreFileKit';
-import { MCURL } from '../utils/MCURL';
+import { MCProxyUtils } from '../utils/MCProxyUtils';
 import MCArrayUtils from '../utils/MCArrayUtils';
 import MCFileIOUtils from '../utils/MCFileIOUtils';
 
@@ -202,7 +202,7 @@ export class MCAssetManager implements IMCAssetManager {
 
   getAssetByProxyPath(proxyPath: string): Promise<IMCAsset> {
     return this.enqueueTask(async () => {
-      const targetInfo = MCURL.parseTarget(proxyPath);
+      const targetInfo = MCProxyUtils.parseTarget(proxyPath);
       const assetType = targetInfo.assetType;
       const assetId = targetInfo.assetId;
       let asset = this.mAssetMap.get(assetId);

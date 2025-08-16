@@ -12,7 +12,7 @@ import { MCTcpSocketServer } from './server/MCTcpSocketServer';
 import MCConfigs from './utils/MCConfigs';
 import { MCDownloadRequest } from './utils/MCDownloadRequest';
 import MCLogger from './utils/MCLogger';
-import { MCURL } from './utils/MCURL';
+import { MCProxyUtils } from './utils/MCProxyUtils';
 import { rcp } from '@kit.RemoteCommunicationKit';
 import { MCAssetExportOptions } from './defines/MCAssetExportOptions';
 import { MCAssetExportManager } from './exporter/MCAssetExportManager';
@@ -148,7 +148,7 @@ export namespace MCMediaCache {
    * */
   export function setDataDecryptHandler(block: (resUrl: string, offset: number, data: ArrayBuffer) => Promise<void | ArrayBuffer>): void {
     MCConfigs.dataDecryptHandler = (request, offset, data) => {
-      return block(MCURL.parseTargetUrl(request.requestTarget), offset, data);
+      return block(MCProxyUtils.parseTargetUrl(request.requestTarget), offset, data);
     };
   }
 

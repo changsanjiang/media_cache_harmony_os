@@ -7,7 +7,7 @@ import { MCMedia } from "../../media/MCMedia";
 import { MCAbortController } from "../../utils/MCAbortController";
 import MCConfigs from "../../utils/MCConfigs";
 import { MCReadwriteReference } from "../../utils/MCReadwriteReference";
-import { MCURL } from "../../utils/MCURL";
+import { MCProxyUtils } from "../../utils/MCProxyUtils";
 import MCUtils from "../../utils/MCUtils";
 import MCAssetCacheManager from "../cachemgr/MCAssetCacheManager";
 import HLSParser from "./HLSParser";
@@ -50,7 +50,7 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
     if ( this.mAbortController.signal.isAborted ) {
       throw this.mAbortController.signal.reason!;
     }
-    const targetInfo = MCURL.parseTarget(proxyPath);
+    const targetInfo = MCProxyUtils.parseTarget(proxyPath);
     const mediaId = targetInfo.mediaId;
     const mediaKind = targetInfo.mediaKind;
     return this.getMedia(mediaId, mediaKind);
@@ -97,17 +97,17 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
     this.mPlaylists.set(mediaId, playlist);
 
     if ( playlist.variantStream ) {
-      const targetInfo = MCURL.parseTarget(playlist.variantStream.uri!);
+      const targetInfo = MCProxyUtils.parseTarget(playlist.variantStream.uri!);
       await this.loadPlaylists(targetInfo.mediaId); // 尝试加载 variant stream playlist
     }
 
     if ( playlist.audioRendition ) {
-      const targetInfo = MCURL.parseTarget(playlist.audioRendition.uri!);
+      const targetInfo = MCProxyUtils.parseTarget(playlist.audioRendition.uri!);
       await this.loadPlaylists(targetInfo.mediaId); // 尝试加载 audio rendition playlist
     }
 
     if ( playlist.videoRendition ) {
-      const targetInfo = MCURL.parseTarget(playlist.videoRendition.uri!);
+      const targetInfo = MCProxyUtils.parseTarget(playlist.videoRendition.uri!);
       await this.loadPlaylists(targetInfo.mediaId);  // 尝试加载 video rendition playlist
     }
   }
@@ -147,7 +147,7 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
       const promises: Promise<IMCMedia>[] = [];
       for (let p = 0; p < concurrentLoadCount; p++) {
         const item = allItems[itemIndex];
-        const targetInfo = MCURL.parseTarget(item.uri!);
+        const targetInfo = MCProxyUtils.parseTarget(item.uri!);
         promises.push(this.initializeMedia(targetInfo.mediaId, targetInfo.mediaKind));
         itemIndex += 1;
         if ( itemIndex >= allItems.length ) break;
@@ -170,7 +170,7 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
     }
 
     for (let item of childPlaylistItems) {
-      const targetInfo = MCURL.parseTarget(item.uri!);
+      const targetInfo = MCProxyUtils.parseTarget(item.uri!);
       const childPlaylist = this.mPlaylists.get(targetInfo.mediaId);
       if ( childPlaylist ) await this.initializeMediasBy(childPlaylist);
     }
@@ -187,7 +187,7 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
     }
 
     for (let item of allItems) {
-      const targetInfo = MCURL.parseTarget(item.uri!);
+      const targetInfo = MCProxyUtils.parseTarget(item.uri!);
       const media = this.mMedias.get(targetInfo.mediaId);
       if ( !media || !media.isAssembled ) {
         return false;
@@ -208,7 +208,7 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
       childPlaylistItems.push(videoRendition);
     }
     for (let item of childPlaylistItems) {
-      const targetInfo = MCURL.parseTarget(item.uri!);
+      const targetInfo = MCProxyUtils.parseTarget(item.uri!);
       const childPlaylist = this.mPlaylists.get(targetInfo.mediaId);
       const isCached = this.checkMediasCachedBy(childPlaylist);
       if ( !isCached ) {

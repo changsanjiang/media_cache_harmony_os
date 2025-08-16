@@ -2,7 +2,7 @@ import { url } from '@kit.ArkTS';
 import { MCAssetType } from '../defines/MCAssetType';
 import { MCMediaKind } from '../defines/MCMediaKind';
 import MCConfigs from '../utils/MCConfigs';
-import { MCURL } from '../utils/MCURL';
+import { MCProxyUtils } from '../utils/MCProxyUtils';
 import MCUtils from '../utils/MCUtils';
 
 namespace MCAssetUtils {
@@ -16,7 +16,7 @@ namespace MCAssetUtils {
     const assetId = await generateAssetId(resUrl);
     const mediaKind = assetType === MCAssetType.HLS ? MCMediaKind.PLAYLIST : MCMediaKind.FILE;
     const mediaId = assetId; // 根文件的媒体id和资产id一致;
-    return MCURL.generateProxyUrl(resUrl, localServerPort, assetType, assetId, mediaKind, mediaId);
+    return MCProxyUtils.generateProxyUrl(resUrl, localServerPort, assetType, assetId, mediaKind, mediaId);
   }
 
   /**
@@ -29,7 +29,7 @@ namespace MCAssetUtils {
     const assetId = await generateAssetId(resUrl);
     const mediaKind = assetType === MCAssetType.HLS ? MCMediaKind.PLAYLIST : MCMediaKind.FILE;
     const mediaId = assetId; // 根文件的媒体id和资产id一致;
-    return MCURL.generateProxyPath(resUrl, assetType, assetId, mediaKind, mediaId);
+    return MCProxyUtils.generateProxyPath(resUrl, assetType, assetId, mediaKind, mediaId);
   }
 
   /**
@@ -39,7 +39,7 @@ namespace MCAssetUtils {
    * */
   export async function generateHLSProxyPath(assetId: string, mediaKind: MCMediaKind, mediaUrl: string): Promise<string> {
     const mediaId = await generateMediaId(mediaUrl);
-    return MCURL.generateProxyPath(mediaUrl, MCAssetType.HLS, assetId, mediaKind, mediaId);
+    return MCProxyUtils.generateProxyPath(mediaUrl, MCAssetType.HLS, assetId, mediaKind, mediaId);
   }
 
   /**
