@@ -9,9 +9,8 @@ import { MCAbortSignal } from '../utils/MCAbortController';
 import { HLSPlaylist } from '../asset/hls/HLSPlaylist';
 import MCUtils from '../utils/MCUtils';
 import { IMCMediaDataReader, MCMediaDataReader } from '../prefetcher/MCMediaDataReader';
-import { MCMediaExporter, MCMediaExportOptions } from './MCMediaExporter';
-import { it } from '@ohos/hypium';
-import media from '@ohos.multimedia.media';
+import { MCMediaExporter } from './MCMediaExporter';
+import HLSDefines from '../defines/HLSDefines';
 
 export class HLSAssetExporter implements IMCAssetExporter<HLSAsset> {
   async export(asset: HLSAsset, requestTarget: string, targetDir: string, options?: MCAssetExportOptions): Promise<void> {
@@ -20,7 +19,7 @@ export class HLSAssetExporter implements IMCAssetExporter<HLSAsset> {
 
     // 获取播放列表
     const media = await asset.getMediaBy(requestTarget);
-    if ( media.mediaKind != MCMediaKind.PLAYLIST ) {
+    if (media.mediaKind != MCMediaKind.PLAYLIST) {
       throw new Error(`Export failed: expected mediaKind=PLAYLIST but got "${MCMediaKind[media.mediaKind]}". requestTarget="${requestTarget}`);
     }
     MCAssetPrefetchUtils.checkAbortSignal(signal);
@@ -45,22 +44,22 @@ export class HLSAssetExporter implements IMCAssetExporter<HLSAsset> {
     const playlist = playlistRawData ? new HLSPlaylist(MCUtils.bufferToString(playlistRawData)) : undefined;
     const allItems = playlist?.allItems;
     // 空文件、空列表
-    if ( !playlist || !allItems || allItems.length == 0 ) {
+    if (!playlist || !allItems || allItems.length == 0) {
       options?.onProgress?.(1.0);
       return;
     }
 
-    // 如果存在ts片段, 就导出所有项目
+    // 如果存在ts片段, 就导出所有项目(keys、ts等)
     const segments = playlist.segments;
-    if ( segments && segments.length > 0 ) {
+    if (segments && segments.length > 0) {
       const set: Set<string> = new Set();
       for (let item of allItems) {
-        if ( item.uri ) set.add(item.uri);
+        if (item.uri) set.add(item.uri);
       }
 
-      // export
+      // export targets
       const requestTargets: string[] = Array.from(set);
-      for ( let i = 0; i < requestTargets.length; ++i ) {
+      for (let i = 0; i < requestTargets.length; ++i) {
         const requestTarget = requestTargets[i];
         const media = await asset.getMediaBy(requestTarget);
         MCAssetPrefetchUtils.checkAbortSignal(signal);
@@ -79,11 +78,56 @@ export class HLSAssetExporter implements IMCAssetExporter<HLSAsset> {
       }
       return;
     }
-    
+
     // 否则导出变体流
+    const variantStream = playlist.variantStream;
+    if (!variantStream) {
+      options?.onProgress?.(1.0);
+      return;
+    }
 
+    // 处理变体流 + renditions
+    const audioRendition = playlist.audioRendition;
+    const videoRendition = playlist.videoRendition;
+    const subtitlesRendition = playlist.subtitlesRendition;
 
-    throw new Error("Method not implemented.");
+    // 先导出小文件
+    // export subtitles
+    if (subtitlesRendition) {
+      const requestTarget = subtitlesRendition.uri!;
+      const media = await asset.getMediaBy(requestTarget);
+      MCAssetPrefetchUtils.checkAbortSignal(signal);
+      const mediaRequest: IMCDataRequest = {
+        requestTarget: requestTarget,
+        headers: options?.additionalHeaders,
+      };
+      const mediaExporter = new MCMediaExporter(media, mediaRequest, targetDir, {
+        conflictStrategy: options?.conflictStrategy,
+        signal: options?.signal
+      });
+      await mediaExporter.export();
+    }
+
+    // export variant stream & audio video renditions
+    const items: HLSDefines.Item[] = [];
+    items.push(variantStream);
+    if (audioRendition) items.push(audioRendition);
+    if (videoRendition) items.push(videoRendition);
+    for (let i = 0; i < items.length; ++i) {
+      const item = items[i];
+      await this.export(
+        asset,
+        item.uri!,
+        targetDir,
+        {
+          conflictStrategy: options?.conflictStrategy,
+          additionalHeaders: options?.additionalHeaders,
+          onProgress: options?.onProgress ? (progress) => options.onProgress!((i + progress) / items.length) :
+            undefined,
+          signal: options?.signal,
+        }
+      );
+    }
   }
 
   private readRawData(

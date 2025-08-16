@@ -96,7 +96,7 @@ export class HLSAssetPrefetcher implements IMCAssetPrefetcher<HLSAsset> {
 
     const variantStream = playlist.variantStream;
     if ( !variantStream ) {
-      onProgress?.(1);
+      onProgress?.(1.0);
       return;
     }
 
@@ -105,11 +105,22 @@ export class HLSAssetPrefetcher implements IMCAssetPrefetcher<HLSAsset> {
     const videoRendition = playlist.videoRendition;
     const subtitlesRendition = playlist.subtitlesRendition;
 
+    // subtitles
+    if ( subtitlesRendition ) {
+      await this.prefetchItem(
+        asset,
+        subtitlesRendition,
+        additionalHeaders,
+        undefined,
+        signal
+      );
+    }
+
+    // variant stream or audio video renditions
     const items: HLSDefines.Item[] = [];
     items.push(variantStream);
     if ( audioRendition ) items.push(audioRendition);
     if ( videoRendition ) items.push(videoRendition);
-    if ( subtitlesRendition ) items.push(subtitlesRendition);
 
     const fetchProgresses: number[] = items.map(() => 0);
     let itemIndex = 0;
@@ -122,31 +133,16 @@ export class HLSAssetPrefetcher implements IMCAssetPrefetcher<HLSAsset> {
         onProgress?.(fetchProgresses.reduce((prev, cur) => prev + cur, 0) / fetchProgresses.length);
       };
 
-      // variant stream or audio video renditions
-      if (item !== subtitlesRendition) {
-        await this.prefetch(
-          asset,
-          uri,
-          {
-            prefetchSize: specifiedSize,
-            onProgress: fetchProgressCallback,
-            additionalHeaders: additionalHeaders,
-            signal: signal,
-          },
-        );
-      }
-      // subtitles rendition
-      else {
-        await this.prefetchItem(
-          asset,
-          item,
-          additionalHeaders,
-          (receivedLength: number, expectedLength: number) => {
-            fetchProgressCallback(receivedLength / expectedLength);
-          },
-          signal
-        );
-      }
+      await this.prefetch(
+        asset,
+        uri,
+        {
+          prefetchSize: specifiedSize,
+          onProgress: fetchProgressCallback,
+          additionalHeaders: additionalHeaders,
+          signal: signal,
+        },
+      );
       itemIndex += 1;
     }
   }
@@ -171,7 +167,7 @@ export class HLSAssetPrefetcher implements IMCAssetPrefetcher<HLSAsset> {
 
     const variantStream = playlist.variantStream;
     if ( !variantStream ) {
-      onProgress?.(1);
+      onProgress?.(1.0);
       return;
     }
 
@@ -180,11 +176,22 @@ export class HLSAssetPrefetcher implements IMCAssetPrefetcher<HLSAsset> {
     const videoRendition = playlist.videoRendition;
     const subtitlesRendition = playlist.subtitlesRendition;
 
+    // prefetch subtitles
+    if ( subtitlesRendition ) {
+      await this.prefetchItem(
+        asset,
+        subtitlesRendition,
+        additionalHeaders,
+        undefined,
+        signal
+      );
+    }
+
+    // prefetch variant stream or audio video renditions
     const items: HLSDefines.Item[] = [];
     items.push(variantStream);
     if ( audioRendition ) items.push(audioRendition);
     if ( videoRendition ) items.push(videoRendition);
-    if ( subtitlesRendition ) items.push(subtitlesRendition);
 
     const fetchProgresses: number[] = items.map(() => 0);
     let itemIndex = 0;
@@ -197,30 +204,17 @@ export class HLSAssetPrefetcher implements IMCAssetPrefetcher<HLSAsset> {
         onProgress?.(fetchProgresses.reduce((prev, cur) => prev + cur, 0) / fetchProgresses.length);
       };
 
-      // variant stream or audio video renditions
-      if ( item !== subtitlesRendition ) {
-        await this.prefetch(
-          asset,
-          uri,
-          {
-            prefetchSegmentCount: specifiedSegmentCount,
-            concurrentPrefetchCount: concurrentPrefetchCount,
-            onProgress: fetchProgressCallback,
-            additionalHeaders: additionalHeaders,
-            signal: signal
-          }
-        );
-      }
-      // subtitles rendition
-      else {
-        await this.prefetchItem(
-          asset,
-          item,
-          additionalHeaders,
-          fetchProgressCallback,
-          signal
-        );
-      }
+      await this.prefetch(
+        asset,
+        uri,
+        {
+          prefetchSegmentCount: specifiedSegmentCount,
+          concurrentPrefetchCount: concurrentPrefetchCount,
+          onProgress: fetchProgressCallback,
+          additionalHeaders: additionalHeaders,
+          signal: signal
+        }
+      );
       itemIndex += 1;
     }
   }
