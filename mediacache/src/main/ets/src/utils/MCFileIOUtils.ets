@@ -104,7 +104,7 @@ namespace MCFileIOUtils {
     // 使用临时文件确保复制原子性
     const tempPath = `${toPath}.tmp`;
     try {
-      await fileIo.copyFile(srcPath, tempPath, fileIo.OpenMode.CREATE | fileIo.OpenMode.TRUNC);
+      await fileIo.copyFile(srcPath, tempPath, 0);
 
       // 如果要覆盖，先删除旧文件
       if ( exists && strategy === MCCopyFileConflictStrategy.Overwrite ) {

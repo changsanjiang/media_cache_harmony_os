@@ -14,6 +14,8 @@ import { MCDownloadRequest } from './utils/MCDownloadRequest';
 import MCLogger from './utils/MCLogger';
 import MCURL from './utils/MCURL';
 import { rcp } from '@kit.RemoteCommunicationKit';
+import { MCAssetExportOptions } from './defines/MCAssetExportOptions';
+import { MCAssetExportManager } from './exporter/MCAssetExportManager';
 
 export namespace MCMediaCache {
   const mTcpServer = new MCTcpSocketServer();
@@ -50,9 +52,22 @@ export namespace MCMediaCache {
     return MCAssetUtils.generateProxyUrl(resUrl, await mTcpServer.start());
   }
 
-  /** 预加载; 预先缓存一部分数据到本地; */
+  /** 预缓存; 预先缓存一部分数据到本地; */
   export function prefetch(resUrl: string, options?: MCAssetPrefetchOptions): Promise<void> {
     return MCAssetPrefetchManager.prefetch(resUrl, options);
+  }
+
+  /**
+   * 导出资产媒体数据到指定目录;
+   *
+   * 导出过程中如果媒体数据仅存在部分缓存, 则会发起网络请求获取剩余数据, 如果缓存都已存在, 则不会请求网络;
+   *
+   * @param targetDir 目标目录绝对路径;
+   * @param options 导出选项(是否覆盖目录文件等选项);
+   * @returns Promise<void>;
+   */
+  export function exportToDirectory(resUrl: string, targetDir: string, options?: MCAssetExportOptions): Promise<void> {
+    return MCAssetExportManager.exportToDirectory(resUrl, targetDir, options);
   }
 
   /** 标记是否"固定"; 缓存管理器会定期删除一些缓存, 如果你想要保留某些视频防止被删除可以提前将其设置为"固定"; */

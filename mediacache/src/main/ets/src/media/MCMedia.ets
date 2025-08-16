@@ -350,7 +350,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   }
 
   async copyToDirectory(targetDir: string, options?: MCMediaCopyBehaviorOptions): Promise<void> {
-    this.ensureReadyForCopy();
+    await this.ensureReadyForCopy();
 
     // 将元数据复制到指定目录
     await this.mContentProvider.copyMetadataToDirectory(targetDir, options?.conflictStrategy);

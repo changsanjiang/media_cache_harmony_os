@@ -2,12 +2,15 @@ import { MCLogLevel, MCLogModule, MCMediaCache } from "@sj/mediacache";
 import { BusinessError } from '@kit.BasicServicesKit';
 import { router } from '@kit.ArkUI';
 import BuildProfile from "BuildProfile";
+import { fileIo } from "@kit.CoreFileKit";
+import { MCCopyFileConflictStrategy } from "@sj/mediacache/src/main/ets/src/defines/MCCopyFileConflictStrategy";
 
 @Entry
 @Component
 struct Index {
   @State message: string = 'Hello World';
   @State prefetchState: string = 'Test Prefetch';
+  @State exportState: string = 'Test Export';
 
   aboutToAppear() {
     // Asset 个数限制; 0 表示不限制;
@@ -38,7 +41,7 @@ struct Index {
   build() {
     Column() {
       Text("Test play")
-        .id('Test play')
+        .id('测试播放')
         .fontSize(50)
         .fontWeight(FontWeight.Bold)
         .alignRules({
@@ -48,7 +51,7 @@ struct Index {
         .onClick(() => this.testPlay())
 
       Text(this.prefetchState)
-        .id('Test prefetch')
+        .id('测试预缓存')
         .fontSize(50)
         .fontWeight(FontWeight.Bold)
         .alignRules({
@@ -56,6 +59,16 @@ struct Index {
           middle: { anchor: '__container__', align: HorizontalAlign.Center }
         })
         .onClick(() => this.testPrefetch())
+
+      Text(this.exportState)
+        .id('测试导出到指定目录')
+        .fontSize(50)
+        .fontWeight(FontWeight.Bold)
+        .alignRules({
+          center: { anchor: '__container__', align: VerticalAlign.Center },
+          middle: { anchor: '__container__', align: HorizontalAlign.Center }
+        })
+        .onClick(() => this.testExport())
     }
   }
 
@@ -78,17 +91,49 @@ struct Index {
 
   testPrefetch() {
     this.prefetchState = '开始预加载';
-    const videoSrc: string = 'http://devimages.apple.com/iphone/samples/bipbop/bipbopall.m3u8';
-    MCMediaCache.prefetch(videoSrc, {
+    const videoUrl: string = 'http://devimages.apple.com/iphone/samples/bipbop/bipbopall.m3u8';
+    MCMediaCache.prefetch(videoUrl, {
       prefetchSegmentCount: 10,
       onProgress: (progress) => {
         this.prefetchState = progress.toFixed(2);
-        console.log(`[progress] ${progress}`);
+        console.log(`[prefech progress] ${progress}`);
       }
     }).then(() => {
       this.prefetchState = '预加载完成';
-    }).catch(() => {
+    }).catch((e: Error) => {
+      console.log(`[prefech error] ${e.message}`);
       this.prefetchState = '预加载失败';
+    });
+  }
+
+  async testExport() {
+    this.exportState = '开始导出';
+
+    // 视频播放地址
+    const videoUrl = 'https://consumer.huawei.com/content/dam/huawei-cbg-site/cn/mkt/pdp/phones/nova-flip/new/video/design-intro-popup.mp4';
+
+    const ctx = this.getUIContext().getHostContext()!;
+    // 根目录
+    const exportRootDir = ctx.filesDir + '/my_exports';
+
+    // 导出目录
+    const targetDir = exportRootDir + '/video2';
+    if ( !fileIo.accessSync(targetDir, fileIo.AccessModeType.EXIST) ) {
+      await fileIo.mkdir(targetDir, true);
+    }
+
+    // 开始导出
+    MCMediaCache.exportToDirectory(videoUrl, targetDir, {
+      conflictStrategy: MCCopyFileConflictStrategy.Overwrite,
+      onProgress: (progress) => {
+        this.exportState = progress.toFixed(2);
+        console.log(`[export progress] ${progress}`);
+      }
+    }).then(() => {
+      this.exportState = '导出完成';
+    }).catch((e: Error) => {
+      console.log(`[export error] ${e.message}`);
+      this.exportState = '导出失败';
     });
   }
 }
