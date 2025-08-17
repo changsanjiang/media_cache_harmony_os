@@ -11,6 +11,9 @@ import MCUtils from '../utils/MCUtils';
 import { IMCMediaDataReader, MCMediaDataReader } from '../prefetcher/MCMediaDataReader';
 import { MCMediaExporter } from './MCMediaExporter';
 import HLSDefines from '../defines/HLSDefines';
+import { MCAssetExportInfo } from './MCAssetExportInfo';
+import { MCAssetExportUtils } from './MCAssetExportUtils';
+import { MCCopyFileConflictStrategy } from '../defines/MCCopyFileConflictStrategy';
 
 export class HLSAssetExporter implements IMCAssetExporter<HLSAsset> {
   async export(asset: HLSAsset, proxyPath: string, targetDir: string, options?: MCAssetExportOptions): Promise<void> {
@@ -40,8 +43,11 @@ export class HLSAssetExporter implements IMCAssetExporter<HLSAsset> {
     const playlistRawData = await this.readRawData(media, playlistRequest, signal);
     const playlist = playlistRawData ? new HLSPlaylist(MCUtils.bufferToString(playlistRawData)) : undefined;
     const allItems = playlist?.allItems;
+    const playlistMediaId = media.id;
+
     // 空文件、空列表
-    if (!playlist || !allItems || allItems.length == 0) {
+    if ( !playlist || !allItems || allItems.length == 0 ) {
+      if ( playlistMediaId == asset.id ) await this.saveExportInfo(asset, targetDir, options?.conflictStrategy);
       options?.onProgress?.(1.0);
       return;
     }
@@ -73,12 +79,14 @@ export class HLSAssetExporter implements IMCAssetExporter<HLSAsset> {
         });
         await mediaExporter.export();
       }
+      if ( playlistMediaId == asset.id ) await this.saveExportInfo(asset, targetDir, options?.conflictStrategy);
       return;
     }
 
     // 否则导出变体流
     const variantStream = playlist.variantStream;
     if (!variantStream) {
+      if ( playlistMediaId == asset.id ) await this.saveExportInfo(asset, targetDir, options?.conflictStrategy);
       options?.onProgress?.(1.0);
       return;
     }
@@ -125,6 +133,14 @@ export class HLSAssetExporter implements IMCAssetExporter<HLSAsset> {
         }
       );
     }
+    if ( playlistMediaId == asset.id ) await this.saveExportInfo(asset, targetDir, options?.conflictStrategy);
+  }
+
+  private saveExportInfo(asset: HLSAsset, targetDir: string, conflictStrategy?: MCCopyFileConflictStrategy): Promise<void> {
+    const exportInfo: MCAssetExportInfo = {
+      assetId: asset.id,
+    };
+    return MCAssetExportUtils.saveExportInfo(exportInfo, targetDir, conflictStrategy);
   }
 
   private readRawData(
