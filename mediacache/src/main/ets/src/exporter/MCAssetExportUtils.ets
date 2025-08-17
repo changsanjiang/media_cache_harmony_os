@@ -12,7 +12,7 @@ export namespace MCAssetExportUtils {
   }
 
   /** 保存导出信息到指定目录 */
-  export async function saveExportInfo(targetDir: string, exportInfo: MCAssetExportInfo, conflictStrategy: MCCopyFileConflictStrategy): Promise<void> {
+  export async function saveExportInfo(exportInfo: MCAssetExportInfo, targetDir: string, conflictStrategy?: MCCopyFileConflictStrategy): Promise<void> {
     const jsonStr = JSON.stringify(exportInfo);
     const checksum = await MCUtils.hash(jsonStr);
     const record: Record<string, string> = {
