@@ -20,7 +20,7 @@ export namespace MCAssetExportManager {
     }
 
     // 获取资产
-    const proxyPath = await MCAssetUtils.generateProxyPath(resUrl);
+    const proxyPath = await MCAssetUtils.generateAssetProxyPath(resUrl);
     const asset = await MCAssetManager.getInstance().getAssetByProxyPath(proxyPath);
     MCAssetPrefetchUtils.checkAbortSignal(signal);
 

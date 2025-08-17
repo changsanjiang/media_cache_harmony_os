@@ -24,7 +24,7 @@ export namespace MCAssetPrefetchManager {
     const signal = options?.signal;
     MCAssetPrefetchUtils.checkAbortSignal(signal);
 
-    const proxyPath = await MCAssetUtils.generateProxyPath(resUrl);
+    const proxyPath = await MCAssetUtils.generateAssetProxyPath(resUrl);
 
     // 获取资产
     const asset = await MCAssetManager.getInstance().getAssetByProxyPath(proxyPath);

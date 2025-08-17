@@ -49,7 +49,7 @@ export namespace MCMediaCache {
 
   /** 生成代理播放地址, 播放器可以使用该地址播放; */
   export async function proxy(resUrl: string): Promise<string> {
-    return MCAssetUtils.generateProxyUrl(resUrl, await mTcpServer.start());
+    return MCAssetUtils.generateAssetProxyUrl(resUrl, await mTcpServer.start());
   }
 
   /** 预缓存; 预先缓存一部分数据到本地; */

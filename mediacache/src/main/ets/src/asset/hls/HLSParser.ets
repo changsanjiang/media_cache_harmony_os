@@ -119,7 +119,7 @@ namespace HLSParser {
                 mediaKind = MCMediaKind.PLAYLIST;
               }
             }
-            const proxyPath = await MCAssetUtils.generateHLSProxyPath(assetId, mediaKind, absoluteUrl);
+            const proxyPath = await MCAssetUtils.generateProxyPathForHLSMedia(assetId, mediaKind, absoluteUrl);
             proxyPlaylist = MCUtils.replaceCharactersInRange(proxyPlaylist, [item.uriRange!.location, uri.length], proxyPath);
           }
         }

@@ -11,7 +11,7 @@ namespace MCAssetUtils {
    *
    * 返回资产的代理地址(媒体id和资产id一致), 通过它来访问内部的缓存;
    * */
-  export async function generateProxyUrl(resUrl: string, localServerPort: number): Promise<string> {
+  export async function generateAssetProxyUrl(resUrl: string, localServerPort: number): Promise<string> {
     const assetType = await determineAssetType(resUrl);
     const assetId = await generateAssetId(resUrl);
     const mediaKind = assetType === MCAssetType.HLS ? MCMediaKind.PLAYLIST : MCMediaKind.FILE;
@@ -24,7 +24,7 @@ namespace MCAssetUtils {
    *
    * 返回资产的代理路径(媒体id和资产id一致), 通过它来访问内部的缓存;
    * */
-  export async function generateProxyPath(resUrl: string): Promise<string> {
+  export async function generateAssetProxyPath(resUrl: string): Promise<string> {
     const assetType = await determineAssetType(resUrl);
     const assetId = await generateAssetId(resUrl);
     const mediaKind = assetType === MCAssetType.HLS ? MCMediaKind.PLAYLIST : MCMediaKind.FILE;
@@ -37,7 +37,7 @@ namespace MCAssetUtils {
    *
    * 代理 hls 中的各个媒体片段;
    * */
-  export async function generateHLSProxyPath(assetId: string, mediaKind: MCMediaKind, mediaUrl: string): Promise<string> {
+  export async function generateProxyPathForHLSMedia(assetId: string, mediaKind: MCMediaKind, mediaUrl: string): Promise<string> {
     const mediaId = await generateMediaId(mediaUrl);
     return MCProxyURLUtils.generateProxyPath(mediaUrl, assetId, MCAssetType.HLS, mediaId, mediaKind);
   }
