@@ -30,7 +30,7 @@ export namespace MCProxyDirUtils {
     mediaId: string,
     mediaKind: MCMediaKind,
   ): string {
-    return `${MCConsts.ROUTE_PATH_PROXY_DIR}/${encodeURIComponent(targetDir)}`;
+    return `${MCConsts.ROUTE_PATH_PROXY_DIR}/${assetType}/${assetId}/${mediaKind}/${mediaId}/${encodeURIComponent(targetDir)}`;
   }
 
   export interface ProxyTargetInfo {
