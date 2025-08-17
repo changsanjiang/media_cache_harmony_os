@@ -10,13 +10,13 @@ export namespace MCProxyURLUtils {
    * */
   export function generateProxyUrl(
     resUrl: string,
-    assetType: MCAssetType,
     assetId: string,
-    mediaKind: MCMediaKind,
+    assetType: MCAssetType,
     mediaId: string,
+    mediaKind: MCMediaKind,
     localServerPort: number
   ): string {
-    return `http://${MCConsts.LOCALHOST}:${localServerPort}${generateProxyPath(resUrl, assetType, assetId, mediaKind, mediaId)}`
+    return `http://${MCConsts.LOCALHOST}:${localServerPort}${generateProxyPath(resUrl, assetId, assetType, mediaId, mediaKind)}`
   }
 
   /** 生成代理路径;
@@ -25,10 +25,10 @@ export namespace MCProxyURLUtils {
    * */
   export function generateProxyPath(
     resUrl: string,
-    assetType: MCAssetType,
     assetId: string,
+    assetType: MCAssetType,
+    mediaId: string,
     mediaKind: MCMediaKind,
-    mediaId: string
   ): string {
     return `${MCConsts.ROUTE_PATH_PROXY_URL}/${assetType}/${assetId}/${mediaKind}/${mediaId}/${encodeURIComponent(resUrl)}`;
   }
