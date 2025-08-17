@@ -92,5 +92,5 @@ export class MCLocalMedia extends MCReadwriteReference<MCLocalMedia> implements 
   }
 
   readAllData(): Promise<ArrayBuffer | undefined> { throw new Error('Method not implemented.'); }
-  copyToDirectory(targetDir: string, options?: MCMediaCopyBehaviorOptions | undefined): Promise<void> { throw new Error('Method not implemented.'); }
+  copyFiles(metadataDestPath: string, contentDestPath: string, options?: MCMediaCopyBehaviorOptions | undefined): Promise<void> { throw new Error('Method not implemented.')}
 }

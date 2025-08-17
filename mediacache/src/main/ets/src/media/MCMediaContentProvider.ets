@@ -27,6 +27,56 @@ export interface IMCMediaContentProvider {
   copyMetadataFile(destPath: string, conflictStrategy?: MCCopyFileConflictStrategy): Promise<void>;
 }
 
+export namespace MCMediaMetadataStore {
+  /** 保存元数据; */
+  export async function saveMetadata(metadata: IMCMediaMetadata, targetPath: string): Promise<number> {
+    try {
+      const jsonStr = JSON.stringify(metadata);
+      const checksum = await MCUtils.hash(jsonStr);
+      const record: Record<string, string> = {
+        'checksum': checksum,
+        'data': jsonStr
+      };
+      const content = JSON.stringify(record);
+      const buffer = MCUtils.stringToBuffer(content);
+      const file = await fileIo.open(targetPath, fileIo.OpenMode.WRITE_ONLY | fileIo.OpenMode.TRUNC | fileIo.OpenMode.CREATE);
+      await fileIo.write(file.fd, buffer);
+      return buffer.byteLength;
+    }
+    catch (error) {
+      console.warn(`Failed to save metadata to ${targetPath}: ${String(error)}`);
+    }
+    return 0;
+  }
+
+  /** 获取元数据;
+   *
+   * 返回 [元数据, 文件大小];
+   * 如果文件不存在或数据非法 → 返回 undefined;
+   */
+  export async function loadMetadata(targetPath: string): Promise<[IMCMediaMetadata, number] | undefined> {
+    try {
+      const exists = await fileIo.access(targetPath, fileIo.AccessModeType.EXIST);
+      if ( exists ) {
+        const content = await fileIo.readText(targetPath, { encoding: 'utf-8' });
+        const record = JSON.parse(content) as Record<string, string>;
+        const checksum = record['checksum'];
+        const jsonStr = record['data'];
+        const calculatedChecksum = await MCUtils.hash(jsonStr);
+        if ( checksum !== calculatedChecksum ) {
+          throw new Error(`Metadata checksum mismatch at ${targetPath}`);
+        }
+        const fileSize = (await fileIo.stat(targetPath)).size;
+        return [JSON.parse(jsonStr) as IMCMediaMetadata, fileSize];
+      }
+    }
+    catch (error) {
+      console.warn(`Failed to load metadata from ${targetPath}: ${String(error)}`);
+    }
+    return undefined;
+  }
+}
+
 export class MCMediaContentProvider implements IMCMediaContentProvider {
   private mMediaId: string;
   private mDir: string;
@@ -48,7 +98,7 @@ export class MCMediaContentProvider implements IMCMediaContentProvider {
       return undefined;
     }
 
-    const entries = await this.findMetadata();
+    const entries = await this.loadMetadata();
     if ( !entries ) {
       return undefined;
     }
@@ -74,22 +124,7 @@ export class MCMediaContentProvider implements IMCMediaContentProvider {
 
   /** 写入成功后返回文件大小; */
   async saveMetadata(metadata: IMCMediaMetadata): Promise<number> {
-    try {
-      const jsonStr = JSON.stringify(metadata);
-      const checksum = await MCUtils.hash(jsonStr);
-      const record: Record<string, string> = {
-        'checksum': checksum,
-        'data': jsonStr
-      };
-      const content = JSON.stringify(record);
-      const buffer = MCUtils.stringToBuffer(content);
-      const filePath = this.resolveMetadataFilePath();
-      const file = await fileIo.open(filePath, fileIo.OpenMode.WRITE_ONLY | fileIo.OpenMode.TRUNC | fileIo.OpenMode.CREATE);
-      await fileIo.write(file.fd, buffer);
-      return buffer.byteLength;
-    }
-    catch (error) { }
-    return 0;
+    return MCMediaMetadataStore.saveMetadata(metadata, this.resolveMetadataFilePath());
   }
 
   /** 加载目录下缓存的媒体内容; */
@@ -123,24 +158,8 @@ export class MCMediaContentProvider implements IMCMediaContentProvider {
   }
 
   /** 返回文件大小和元数据; */
-  private async findMetadata(): Promise<[IMCMediaMetadata, number] | undefined> {
-    try {
-      const filePath = this.resolveMetadataFilePath();
-      const exists = await fileIo.access(filePath, fileIo.AccessModeType.EXIST);
-      if ( exists ) {
-        const content = await fileIo.readText(filePath, { encoding: 'utf-8' });
-        const record = JSON.parse(content) as Record<string, string>;
-        const checksum = record['checksum'];
-        const jsonStr = record['data'];
-        const calculatedChecksum = await MCUtils.hash(jsonStr);
-        if ( checksum === calculatedChecksum ) {
-          const fileSize = (await fileIo.stat(filePath)).size;
-          return [JSON.parse(jsonStr) as IMCMediaMetadata, fileSize];
-        }
-      }
-    }
-    catch (error) { }
-    return undefined;
+  private async loadMetadata(): Promise<[IMCMediaMetadata, number] | undefined> {
+    return MCMediaMetadataStore.loadMetadata(this.resolveMetadataFilePath());
   }
 
   /** 获取元数据文件路径; */
