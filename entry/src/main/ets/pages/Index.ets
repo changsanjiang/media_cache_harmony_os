@@ -9,7 +9,7 @@ import { MCCopyFileConflictStrategy } from '@sj/mediacache/src/main/ets/src/defi
 struct Index {
   @State message: string = 'Hello World';
   @State prefetchState: string = 'Test Prefetch';
-  @State exportState: string = 'Test Export';
+  @State exportState: string = '畅江月';
 
   aboutToAppear() {
     // Asset 个数限制; 0 表示不限制;
@@ -37,6 +37,11 @@ struct Index {
     MCMediaCache.prepare(getContext());
   }
 
+  @State mX: number = 0;
+  @State mY: number = 0;
+  @State mPrevOffsetX: number = 0;
+  @State mPrevOffsetY: number = 0;
+
   build() {
     Column() {
       Text("Test play")
@@ -61,13 +66,28 @@ struct Index {
 
       Text(this.exportState)
         .id('测试导出到指定目录')
-        .fontSize(50)
+        .fontColor(0xFF1493)
+        .fontSize(100)
         .fontWeight(FontWeight.Bold)
+        .translate({ x: this.mX, y: this.mY})
         .alignRules({
           center: { anchor: '__container__', align: VerticalAlign.Center },
           middle: { anchor: '__container__', align: HorizontalAlign.Center }
         })
-        .onClick(() => this.testExport())
+        // .onClick(() => this.testExport())
+        .gesture(PanGesture().onActionStart(event => {
+          this.mPrevOffsetX = event.offsetX;
+          this.mPrevOffsetY = event.offsetY;
+        }).onActionUpdate(event => {
+          this.mX += event.offsetX - this.mPrevOffsetX;
+          this.mY += event.offsetY - this.mPrevOffsetY;
+          this.mPrevOffsetX = event.offsetX;
+          this.mPrevOffsetY = event.offsetY;
+        }).onActionEnd(event => {
+
+        }).onActionCancel(() => {
+
+        }))
     }
   }
 

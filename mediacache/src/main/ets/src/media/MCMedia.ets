@@ -1,29 +1,29 @@
-import { IMCMedia, MCMediaCopyBehaviorOptions } from "../defines/IMCMedia";
-import { IMCMediaContentLoader } from "../defines/IMCMediaContentLoader";
-import { IMCMediaContent, IMCMediaContentReader, IMCMediaContentWriter } from "../defines/IMCMediaContent";
-import { MCReadwriteReference } from "../utils/MCReadwriteReference";
-import { MCMediaContentProvider } from "./MCMediaContentProvider";
-import { MCMediaContentNodeList } from "./MCMediaContentNodeList";
-import { IMCMediaContentNode } from "../defines/IMCMediaContentNode";
-import { MCRange } from "../utils/MCRange";
-import { IMCMediaMetadata } from "../defines/IMCMediaMetadata";
-import { generateResponseContentRange, parseResponseContentRange } from "../defines/IMCHttpResponseContentRange";
-import { MCDownloadResponseHeaders } from "../utils/MCDownloadResponseHeaders";
-import { MCProxyURLUtils } from "../utils/MCProxyURLUtils";
-import { MCMediaHttpContentLoader } from "./MCMediaHttpContentLoader";
-import { parseRequestRange, toRequestRange, toRequestRangeHeader } from "../defines/IMCHttpRequestRange";
-import { MCMediaFileContentLoader } from "./MCMediaFileContentLoader";
-import MCLogger from "../utils/MCLogger";
-import { MCLogModule } from "../defines/MCLogModule";
-import MCDownload from "../utils/MCDownload";
-import { IMCDataRequest } from "../defines/IMCDataRequest";
-import { MCDownloadRequest } from "../utils/MCDownloadRequest";
-import { IMCDataOkResponse, IMCDataPartialContentResponse, IMCDataResponse } from "../defines/IMCDataResponse";
-import { MCDataResponseError } from "../defines/MCDataResponseError";
-import { MCAbortSignal } from "../utils/MCAbortController";
-import { MCMediaProxyContentLoader } from "./MCMediaProxyContentLoader";
-import MCUtils from "../utils/MCUtils";
-import { MCMediaKind } from "../defines/MCMediaKind";
+import { IMCMedia, MCMediaCopyBehaviorOptions } from '../defines/IMCMedia';
+import { IMCMediaContentLoader } from '../defines/IMCMediaContentLoader';
+import { IMCMediaContent, IMCMediaContentReader, IMCMediaContentWriter } from '../defines/IMCMediaContent';
+import { MCReadwriteReference } from '../utils/MCReadwriteReference';
+import { MCMediaContentProvider } from './MCMediaContentProvider';
+import { MCMediaContentNodeList } from './MCMediaContentNodeList';
+import { IMCMediaContentNode } from '../defines/IMCMediaContentNode';
+import { MCRange } from '../utils/MCRange';
+import { IMCMediaMetadata } from '../defines/IMCMediaMetadata';
+import { generateResponseContentRange, parseResponseContentRange } from '../defines/IMCHttpResponseContentRange';
+import { MCDownloadResponseHeaders } from '../utils/MCDownloadResponseHeaders';
+import { MCProxyURLUtils } from '../utils/MCProxyURLUtils';
+import { MCMediaHttpContentLoader } from './MCMediaHttpContentLoader';
+import { parseRequestRange, toRequestRange } from '../defines/IMCHttpRequestRange';
+import { MCMediaFileContentLoader } from './MCMediaFileContentLoader';
+import MCLogger from '../utils/MCLogger';
+import { MCLogModule } from '../defines/MCLogModule';
+import MCDownload from '../utils/MCDownload';
+import { IMCDataRequest } from '../defines/IMCDataRequest';
+import { MCDownloadRequest } from '../utils/MCDownloadRequest';
+import { IMCDataOkResponse, IMCDataPartialContentResponse, IMCDataResponse } from '../defines/IMCDataResponse';
+import { MCDataResponseError } from '../defines/MCDataResponseError';
+import { MCAbortSignal } from '../utils/MCAbortController';
+import { MCMediaProxyContentLoader } from './MCMediaProxyContentLoader';
+import MCUtils from '../utils/MCUtils';
+import { MCMediaKind } from '../defines/MCMediaKind';
 
 export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   readonly id: string;
@@ -42,7 +42,13 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   /// `id` 中不能包含下划线;
   ///
   /// proxy: 内容需要代理时设置;
-  constructor(id: string, mediaKind: MCMediaKind, dir: string, abortSignal: MCAbortSignal, proxy?: (requestUrl: string, currentUrl: string, data: ArrayBuffer) => Promise<ArrayBuffer>) {
+  constructor(
+    id: string,
+    mediaKind: MCMediaKind,
+    dir: string,
+    abortSignal: MCAbortSignal,
+    proxy?: (requestUrl: string, currentUrl: string, data: ArrayBuffer) => Promise<ArrayBuffer>
+  ) {
     if (id.includes("_")) {
       throw new Error(`The media ID '${id}' is invalid. Media IDs cannot contain underscores ('_').`);
     }
@@ -259,7 +265,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     const contentLoaders: IMCMediaContentLoader[] = [];
     if (metadata.byteRangeAccessSupported && metadata.totalLength > 0) {
       const requestRangeHeader = proxyRequest.headers?.['range'];
-      const contentRange = requestRangeHeader ? this.generateContentRange(requestRangeHeader, totalLength) : new MCRange(0, totalLength);
+      const contentRange = requestRangeHeader ? parseRequestRange(requestRangeHeader).toRange(totalLength) : new MCRange(0, totalLength);
 
       let readRange = new MCRange(contentRange.location, contentRange.length);
       let curNode: IMCMediaContentNode | undefined = this.mNodeList.findClosestLeftNode(readRange.location) ?? this.mNodeList.head;
@@ -278,7 +284,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
           if ( intersection.location > readRange.location ) {
             const leftRange = new MCRange(readRange.location, intersection.location - readRange.location);
             const leftRequest = new MCDownloadRequest(url, proxyRequest.headers);
-            leftRequest.setHeader('range', toRequestRangeHeader(toRequestRange(leftRange)));
+            leftRequest.setHeader('range', toRequestRange(leftRange).toRangeHeader());
             contentLoaders.push(new MCMediaHttpContentLoader(clientId, contentLoaders.length, this, leftRequest));
           }
           contentLoaders.push(new MCMediaFileContentLoader(clientId, contentLoaders.length, content, intersection));
@@ -293,7 +299,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       // 剩余未下载的部分;
       if (readRange.length !== 0) {
         const request = new MCDownloadRequest(url, proxyRequest.headers);
-        request.setHeader('range', toRequestRangeHeader(toRequestRange(readRange)));
+        request.setHeader('range', toRequestRange(readRange).toRangeHeader());
         contentLoaders.push(new MCMediaHttpContentLoader(clientId, contentLoaders.length, this,request));
       }
 
@@ -689,54 +695,6 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       if ( closeWriter ) await writer.close();
       if ( closeReader ) await reader.close();
     }
-  }
-
-  private generateContentRange(requestRangeHeader: string, totalLength: number): MCRange {
-    if (!requestRangeHeader) {
-      throw new Error("Missing range header in the request.");
-    }
-
-    if ( totalLength <= 0 ) {
-      throw new Error(`The total length must be greater than 0.`);
-    }
-
-    const requestRange = parseRequestRange(requestRangeHeader);
-    const requestRangeStart = requestRange.rangeStart;
-    let requestRangeEnd = requestRange.rangeEnd;
-    let requestSuffixLength = requestRange.suffixLength;
-
-    // 检查范围合法性;
-    if ( requestRangeStart && requestRangeStart >= totalLength ) {
-      throw new Error('Invalid range: range-start exceeds total media length.');
-    }
-    if ( requestRangeEnd && requestRangeEnd >= totalLength ) {
-      requestRangeEnd = totalLength - 1;
-    }
-    if ( requestSuffixLength && requestSuffixLength > totalLength ) {
-      requestSuffixLength = totalLength;
-    }
-
-    if (requestRangeStart && requestRangeEnd && requestRangeStart > requestRangeEnd) {
-      throw new Error('Invalid range: range-start cannot be greater than range-end.');
-    }
-
-    // 转为 range;
-    let rangeStart: number | undefined;
-    let rangeEnd: number | undefined;
-
-    if ( requestSuffixLength ) {
-      rangeStart = totalLength - requestSuffixLength;
-      rangeEnd = totalLength - 1;
-    }
-    else if ( requestRangeEnd ) {
-      rangeStart = requestRangeStart!;
-      rangeEnd = requestRangeEnd;
-    }
-    else {
-      rangeStart = requestRangeStart!;
-      rangeEnd = totalLength - 1;
-    }
-    return new MCRange(rangeStart, rangeEnd + 1 - rangeStart);
   }
 
   private async calculateCompleteness(): Promise<number> {

@@ -3,7 +3,7 @@ import { HLSPlaylist } from '../asset/hls/HLSPlaylist';
 import HLSDefines from '../defines/HLSDefines';
 import { IMCAssetPrefetcher } from '../defines/IMCAssetPrefetcher';
 import { IMCDataRequest } from '../defines/IMCDataRequest';
-import { toRequestRange, toRequestRangeHeader } from '../defines/IMCHttpRequestRange';
+import { toRequestRange } from '../defines/IMCHttpRequestRange';
 import { IMCMedia } from '../defines/IMCMedia';
 import { MCAssetPrefetchOptions } from '../defines/MCAssetPrefetchOptions';
 import { MCMediaKind } from '../defines/MCMediaKind';
@@ -267,7 +267,7 @@ export class HLSAssetPrefetcher implements IMCAssetPrefetcher<HLSAsset> {
       }
       if ( byteRange ) {
         const reqRange = toRequestRange(byteRange);
-        const reqRangeHeader = toRequestRangeHeader(reqRange);
+        const reqRangeHeader = reqRange.toRangeHeader();
         headers = MCUtils.modifyRecord(headers ?? {}, 'range', reqRangeHeader);
       }
 
