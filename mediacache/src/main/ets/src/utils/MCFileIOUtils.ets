@@ -58,7 +58,7 @@ namespace MCFileIOUtils {
    * 复制文件
    * @param srcPath 源文件路径
    * @param toPath 目标文件路径
-   * @param options 冲突处理策略
+   * @param conflictStrategy 冲突处理策略
    */
   export async function copyFile(
     srcPath: string,

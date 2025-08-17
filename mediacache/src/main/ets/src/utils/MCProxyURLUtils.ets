@@ -2,12 +2,20 @@ import { MCAssetType } from '../defines/MCAssetType';
 import { MCMediaKind } from '../defines/MCMediaKind';
 import MCConsts from './MCConsts';
 
-export namespace MCProxyUtils {
+/** proxy remote res; */
+export namespace MCProxyURLUtils {
   /** 生成代理地址;
    *
    * proxyUrl format: `http://localhost:port/mc_proxy/assetType/assetId/mediaKind/mediaId/encodedURI`;
    * */
-  export function generateProxyUrl(resUrl: string, localServerPort: number, assetType: MCAssetType, assetId: string, mediaKind: MCMediaKind, mediaId: string): string {
+  export function generateProxyUrl(
+    resUrl: string,
+    assetType: MCAssetType,
+    assetId: string,
+    mediaKind: MCMediaKind,
+    mediaId: string,
+    localServerPort: number
+  ): string {
     return `http://${MCConsts.LOCALHOST}:${localServerPort}${generateProxyPath(resUrl, assetType, assetId, mediaKind, mediaId)}`
   }
 
@@ -15,8 +23,14 @@ export namespace MCProxyUtils {
    *
    * proxyPath format: `/mc_proxy/assetType/assetId/mediaKind/mediaId/encodedURI`;
    * */
-  export function generateProxyPath(resUrl: string, assetType: MCAssetType, assetId: string, mediaKind: MCMediaKind, mediaId: string): string {
-    return `${MCConsts.PATH_PROXY_URL}/${assetType}/${assetId}/${mediaKind}/${mediaId}/${encodeURIComponent(resUrl)}`;
+  export function generateProxyPath(
+    resUrl: string,
+    assetType: MCAssetType,
+    assetId: string,
+    mediaKind: MCMediaKind,
+    mediaId: string
+  ): string {
+    return `${MCConsts.ROUTE_PATH_PROXY_URL}/${assetType}/${assetId}/${mediaKind}/${mediaId}/${encodeURIComponent(resUrl)}`;
   }
  
   export interface ProxyTargetInfo {
@@ -28,8 +42,8 @@ export namespace MCProxyUtils {
   }
 
   export function parseTarget(proxyPath: string): ProxyTargetInfo {
-    if (!proxyPath.startsWith(MCConsts.PATH_PROXY_URL)) {
-      throw new Error(`Invalid proxy target: expected proxyPath to start with "${MCConsts.PATH_PROXY_URL}", but got "${proxyPath}".`);
+    if ( !proxyPath.startsWith(`${MCConsts.ROUTE_PATH_PROXY_URL}`) ) {
+      throw new Error(`Invalid proxy path: expected proxyPath to start with "${MCConsts.ROUTE_PATH_PROXY_URL}", but got "${proxyPath}".`);
     }
 
     const parts = proxyPath.split(`/`);

@@ -12,7 +12,7 @@ import { MCTcpSocketServer } from './server/MCTcpSocketServer';
 import MCConfigs from './utils/MCConfigs';
 import { MCDownloadRequest } from './utils/MCDownloadRequest';
 import MCLogger from './utils/MCLogger';
-import { MCProxyUtils } from './utils/MCProxyUtils';
+import { MCProxyURLUtils } from './utils/MCProxyURLUtils';
 import { rcp } from '@kit.RemoteCommunicationKit';
 import { MCAssetExportOptions } from './defines/MCAssetExportOptions';
 import { MCAssetExportManager } from './exporter/MCAssetExportManager';
@@ -62,12 +62,26 @@ export namespace MCMediaCache {
    *
    * 导出过程中如果媒体数据仅存在部分缓存, 则会发起网络请求获取剩余数据, 如果缓存都已存在, 则不会请求网络;
    *
-   * @param targetDir 导出目录到绝对路径;
+   * @param targetDir 导出目录的绝对路径;
    * @param options 导出选项(是否覆盖目录文件等选项);
    * @returns Promise<void>;
+   *
+   * 导出的媒体数据可通过调用 proxyDir 代理目录后获取到代理地址进行播放;
    */
   export function exportToDirectory(resUrl: string, targetDir: string, options?: MCAssetExportOptions): Promise<void> {
     return MCAssetExportManager.exportToDirectory(resUrl, targetDir, options);
+  }
+
+  /**
+   * 代理指定目录进行播放, 返回代理地址;
+   *
+   * 当通过 exportToDirectory 导出媒体数据后, 可使用该接口生成代理地址进行播放;
+   *
+   * @param targetDir 已导出媒体数据的目录绝对路径;
+   * @returns Promise<string> 代理播放地址;
+   * */
+  export function proxyDir(targetDir: string): Promise<string> {
+    throw new Error("Method not implemented.");
   }
 
   /** 标记是否"固定"; 缓存管理器会定期删除一些缓存, 如果你想要保留某些视频防止被删除可以提前将其设置为"固定"; */
@@ -148,7 +162,7 @@ export namespace MCMediaCache {
    * */
   export function setDataDecryptHandler(block: (resUrl: string, offset: number, data: ArrayBuffer) => Promise<void | ArrayBuffer>): void {
     MCConfigs.dataDecryptHandler = (request, offset, data) => {
-      return block(MCProxyUtils.parseTargetUrl(request.requestTarget), offset, data);
+      return block(MCProxyURLUtils.parseTargetUrl(request.requestTarget), offset, data);
     };
   }
 

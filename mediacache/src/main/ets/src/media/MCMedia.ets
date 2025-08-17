@@ -9,7 +9,7 @@ import { MCRange } from "../utils/MCRange";
 import { IMCMediaMetadata } from "../defines/IMCMediaMetadata";
 import { generateResponseContentRange, parseResponseContentRange } from "../defines/IMCHttpResponseContentRange";
 import { MCDownloadResponseHeaders } from "../utils/MCDownloadResponseHeaders";
-import { MCProxyUtils } from "../utils/MCProxyUtils";
+import { MCProxyURLUtils } from "../utils/MCProxyURLUtils";
 import { MCMediaHttpContentLoader } from "./MCMediaHttpContentLoader";
 import { parseRequestRange, toRequestRange, toRequestRangeHeader } from "../defines/IMCHttpRequestRange";
 import { MCMediaFileContentLoader } from "./MCMediaFileContentLoader";
@@ -138,7 +138,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
 
     const proxyPath = proxyRequest.requestTarget;
     const headers = proxyRequest.headers;
-    const mediaUrl = MCProxyUtils.parseTargetUrl(proxyPath);
+    const mediaUrl = MCProxyURLUtils.parseTargetUrl(proxyPath);
     const request = new MCDownloadRequest(mediaUrl, headers);
 
     return MCDownload.probe(request, signal).then(async (response) => {
@@ -249,7 +249,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
 
     this.checkAbortSignal(signal);
 
-    const url = MCProxyUtils.parseTargetUrl(proxyRequest.requestTarget);
+    const url = MCProxyURLUtils.parseTargetUrl(proxyRequest.requestTarget);
     if (!url) {
       throw new MCDataResponseError(400, "Failed to restore URL from the provided request.");
     }
