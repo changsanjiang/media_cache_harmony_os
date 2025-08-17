@@ -1,6 +1,7 @@
 import { fileIo, statfs } from "@kit.CoreFileKit";
 import { BusinessError } from "@kit.BasicServicesKit";
 import { MCCopyFileConflictStrategy } from "../defines/MCCopyFileConflictStrategy";
+import MCUtils from "./MCUtils";
 
 namespace MCFileIOUtils {
   export async function calculateTotalBytes(path: string): Promise<number> {
@@ -102,14 +103,12 @@ namespace MCFileIOUtils {
     }
 
     // 使用临时文件确保复制原子性
-    const tempPath = `${toPath}.tmp`;
+    const tempPath = `${toPath}.${Math.random().toString(36).slice(2)}.tmp`;
     try {
       await fileIo.copyFile(srcPath, tempPath, 0);
 
       // 如果要覆盖，先删除旧文件
-      if ( exists && strategy === MCCopyFileConflictStrategy.Overwrite ) {
-        await fileIo.unlink(toPath);
-      }
+      if ( exists ) await fileIo.unlink(toPath);
 
       // 重命名临时文件为目标文件
       await fileIo.rename(tempPath, toPath);
@@ -119,6 +118,48 @@ namespace MCFileIOUtils {
       try { await fileIo.unlink(tempPath); } catch {}
       throw err as Error;
     }
+  }
+
+  /**
+   * 写入文件.
+   *
+   * @param buffer 写入内容 (ArrayBuffer)
+   * @param toPath 最终文件路径
+   * @param conflictStrategy 冲突处理策略
+   */
+  export async function writeFile(
+    buffer: ArrayBuffer,
+    toPath: string,
+    conflictStrategy?: MCCopyFileConflictStrategy
+  ): Promise<void> {
+    const exists = await fileIo.access(toPath, fileIo.AccessModeType.EXIST);
+    if ( exists ) {
+      const strategy = conflictStrategy ?? MCCopyFileConflictStrategy.Throw;
+      switch (strategy) {
+        case MCCopyFileConflictStrategy.Skip:
+          return;
+        case MCCopyFileConflictStrategy.Overwrite:
+          break;
+        case MCCopyFileConflictStrategy.Throw:
+          throw new Error(`File write failed: Target file already exists at ${toPath}`);
+      }
+    }
+
+    const tempPath = `${toPath}.${Math.random().toString(36).slice(2)}.tmp`;
+    const file = await fileIo.open(
+      tempPath,
+      fileIo.OpenMode.WRITE_ONLY | fileIo.OpenMode.TRUNC | fileIo.OpenMode.CREATE
+    );
+
+    try {
+      await fileIo.write(file.fd, buffer);
+    }
+    finally {
+      await fileIo.close(file.fd);
+    }
+
+    if ( exists ) await fileIo.unlink(toPath);
+    await fileIo.rename(tempPath, toPath);
   }
 
   // `/path/to/file.txt` => file.txt

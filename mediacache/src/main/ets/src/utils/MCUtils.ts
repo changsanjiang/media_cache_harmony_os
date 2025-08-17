@@ -32,11 +32,11 @@ namespace MCUtils {
     return mapToRecord(map);
   }
 
-  export async function hash(url: string): Promise<string> {
+  export async function hash(content: string, length: 8 | 16 | 32 = 32): Promise<string> {
     const md = cryptoFramework.createMd('SHA256');
-    await md.update({ data: new Uint8Array(buffer.from(url, 'utf-8').buffer) });
+    await md.update({ data: new Uint8Array(buffer.from(content, 'utf-8').buffer) });
     const blob = await md.digest();
-    return blob.data.slice(0, 16).reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '');
+    return blob.data.slice(0, length / 2).reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '');
   }
 
   export function replaceCharactersInRange(str: string, range: [number, number], replacement: string): string {
