@@ -8,8 +8,11 @@ import MCFileIOUtils from '../utils/MCFileIOUtils';
 import { MCCopyFileConflictStrategy } from '../defines/MCCopyFileConflictStrategy';
 
 export interface IMCMediaContentProvider {
-  /** 执行准备工作, 加载元数据、清理目录下无效数据等; */
-  prepare(): Promise<[number, IMCMediaMetadata] | undefined>;
+  /** 执行准备工作, 加载元数据、清理目录下无效数据等;
+   *
+   * @param checkContents 是否检查并删除不可用内容;
+   * */
+  prepare(checkContents?: boolean): Promise<[IMCMediaMetadata, number] | undefined>;
 
   /** 保存元数据; */
   saveMetadata(metadata: IMCMediaMetadata): Promise<number>;
@@ -20,8 +23,8 @@ export interface IMCMediaContentProvider {
   /** 创建内容块; */
   createContent(contentOffset: number, temp: boolean): IMCMediaContent;
 
-  /** 将元数据复制到目标目录; */
-  copyMetadataToDirectory(targetDir: string, conflictStrategy?: MCCopyFileConflictStrategy): Promise<void>;
+  /** 复制元数据文件; */
+  copyMetadataFile(destPath: string, conflictStrategy?: MCCopyFileConflictStrategy): Promise<void>;
 }
 
 export class MCMediaContentProvider implements IMCMediaContentProvider {
@@ -38,20 +41,20 @@ export class MCMediaContentProvider implements IMCMediaContentProvider {
     this.mContentFileNamePrefix = "c";
   }
 
-  async prepare(): Promise<[number, IMCMediaMetadata] | undefined> {
+  async prepare(checkContents?: boolean): Promise<[IMCMediaMetadata, number] | undefined> {
     const exists = await fileIo.access(this.mDir, fileIo.AccessModeType.EXIST);
     if ( !exists ) {
       await fileIo.mkdir(this.mDir, true);
       return undefined;
     }
 
-    const entries = await this.loadMetadata();
+    const entries = await this.findMetadata();
     if ( !entries ) {
       return undefined;
     }
 
-    const metadata = entries[1];
-    if ( metadata.totalLength === Number.MAX_SAFE_INTEGER ) {
+    const metadata = entries[0];
+    if ( checkContents && metadata.totalLength === Number.MAX_SAFE_INTEGER ) {
       // 这些文件需要删除(元数据未就绪之前, 无法确定内容完整性);
       try {
         const fileNames = await fileIo.listFile(this.mDir);
@@ -114,15 +117,13 @@ export class MCMediaContentProvider implements IMCMediaContentProvider {
     return content;
   }
 
-  async copyMetadataToDirectory(targetDir: string, conflictStrategy?: MCCopyFileConflictStrategy): Promise<void> {
-    const fileName = this.resolveMetadataFileName();
+  copyMetadataFile(destPath: string, conflictStrategy?: MCCopyFileConflictStrategy | undefined): Promise<void> {
     const filePath = this.resolveMetadataFilePath();
-    const destPath = `${targetDir}/${fileName}`;
     return MCFileIOUtils.copyFile(filePath, destPath, conflictStrategy);
   }
 
   /** 返回文件大小和元数据; */
-  private async loadMetadata(): Promise<[number, IMCMediaMetadata] | undefined> {
+  private async findMetadata(): Promise<[IMCMediaMetadata, number] | undefined> {
     try {
       const filePath = this.resolveMetadataFilePath();
       const exists = await fileIo.access(filePath, fileIo.AccessModeType.EXIST);
@@ -134,7 +135,7 @@ export class MCMediaContentProvider implements IMCMediaContentProvider {
         const calculatedChecksum = await MCUtils.hash(jsonStr);
         if ( checksum === calculatedChecksum ) {
           const fileSize = (await fileIo.stat(filePath)).size;
-          return [fileSize, JSON.parse(jsonStr) as IMCMediaMetadata];
+          return [JSON.parse(jsonStr) as IMCMediaMetadata, fileSize];
         }
       }
     }

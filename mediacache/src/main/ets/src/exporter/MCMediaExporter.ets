@@ -18,18 +18,21 @@ export interface MCMediaExportOptions {
 export class MCMediaExporter implements IMCMediaExporter {
   private mMedia: IMCMedia;
   private mRequest: IMCDataRequest;
-  private mTargetDir: string;
+  private mMetadataDestPath: string;
+  private mContentDestPath: string;
   private mOptions?: MCMediaExportOptions;
 
   constructor(
     media: IMCMedia,
     request: IMCDataRequest,
-    targetDir: string,
+    metadataDestPath: string,
+    contentDestPath: string,
     options?: MCMediaExportOptions,
   ) {
     this.mMedia = media;
     this.mRequest = request;
-    this.mTargetDir = targetDir;
+    this.mMetadataDestPath = metadataDestPath;
+    this.mContentDestPath = contentDestPath;
     this.mOptions = options;
   }
 
@@ -54,8 +57,12 @@ export class MCMediaExporter implements IMCMediaExporter {
     }
 
     // copy到指定目录
-    await this.mMedia.copyToDirectory(this.mTargetDir, {
-      conflictStrategy: this.mOptions?.conflictStrategy,
-    });
+    await this.mMedia.copyFiles(
+      this.mMetadataDestPath,
+      this.mContentDestPath,
+      {
+        conflictStrategy: this.mOptions?.conflictStrategy
+      }
+    );
   }
 }

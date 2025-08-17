@@ -98,8 +98,8 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       this.checkAbortSignal(this.mAbortSignal);
 
       if (entries) {
-        this.mMetadataFileSize = entries[0];
-        this.mMetadata = entries[1];
+        this.mMetadata = entries[0];
+        this.mMetadataFileSize = entries[1];
         MCLogger.debug(MCLogModule.MCMedia, () => `[mediaId: ${this.id}]: Metadata successfully loaded. ContentType: ${this.mMetadata?.contentType}, TotalLength: ${this.mMetadata?.totalLength}, ByteRangeAccessSupported: ${this.mMetadata?.byteRangeAccessSupported}.`);
 
         if ( this.mMetadata.totalLength == 0 ) { // 空文件
@@ -187,7 +187,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
         byteRangeAccessSupported: byteRangeAccessSupported
       };
       this.mMetadata = metadata;
-      this.mContentProvider.saveMetadata(metadata);
+      this.mMetadataFileSize = await this.mContentProvider.saveMetadata(metadata);
       return metadata;
     });
   }
@@ -355,20 +355,22 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     }
   }
 
-  async copyToDirectory(targetDir: string, options?: MCMediaCopyBehaviorOptions): Promise<void> {
+  async copyFiles(
+    metadataDestPath: string,
+    contentDestPath: string,
+    options?: MCMediaCopyBehaviorOptions
+  ): Promise<void> {
     await this.ensureReadyForCopy();
+    // 复制元数据
+    await this.mContentProvider.copyMetadataFile(metadataDestPath, options?.conflictStrategy);
 
-    // 将元数据复制到指定目录
-    await this.mContentProvider.copyMetadataToDirectory(targetDir, options?.conflictStrategy);
-    // 将媒体数据复制到指定目录
-
-    // 执行到这里时虽然此时的完整度是1, 但可能还未将所有的content块组合成完整文件;
+    // 复制媒体
     // 如果已存在完整文件(this.mAssembled == true), 则直接复制到指定目录,
     // 否则创建一个新的 finalContent, 遍历node把数据写入到finalContent中, 再复制到指定目录;
 
     if ( this.mMetadata && this.mMetadata.totalLength > 0 ) {
       const finalContent = await this.getOrAssembleFinalContent();
-      await finalContent.copyToDirectory(targetDir, options?.conflictStrategy);
+      await finalContent.copyFile(contentDestPath, options?.conflictStrategy);
     }
   }
 
@@ -511,7 +513,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
         byteRangeAccessSupported: true,
       };
       this.mMetadata = metadata;
-      this.mContentProvider.saveMetadata(metadata);
+      this.mMetadataFileSize = await this.mContentProvider.saveMetadata(metadata);
     }
   }
 

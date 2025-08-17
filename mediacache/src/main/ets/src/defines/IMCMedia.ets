@@ -28,9 +28,13 @@ export interface IMCMedia extends IMCReadwriteReference<IMCMedia> {
   // 注意: 只有在所有数据下载完毕后(completeness === 1.0), 才能调用该方法;
   readAllData(): Promise<ArrayBuffer | undefined>;
 
-  // 将元数据和媒体文件复制到目标目录;
+  // 复制元数据和媒体文件;
   // 注意: 只有在所有数据下载完毕后(completeness === 1.0), 才能调用该方法;
-  copyToDirectory(targetDir: string, options?: MCMediaCopyBehaviorOptions): Promise<void>;
+  copyFiles(
+    metadataDestPath: string,
+    contentDestPath: string,
+    options?: MCMediaCopyBehaviorOptions
+  ): Promise<void>;
 }
 
 export interface MCMediaCopyBehaviorOptions {

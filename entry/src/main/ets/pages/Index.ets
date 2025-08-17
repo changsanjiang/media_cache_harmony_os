@@ -9,7 +9,7 @@ import { MCCopyFileConflictStrategy } from '@sj/mediacache/src/main/ets/src/defi
 struct Index {
   @State message: string = 'Hello World';
   @State prefetchState: string = 'Test Prefetch';
-  @State exportState: string = '畅江月';
+  @State exportState: string = 'Test Export';
 
   aboutToAppear() {
     // Asset 个数限制; 0 表示不限制;
@@ -37,11 +37,6 @@ struct Index {
     MCMediaCache.prepare(getContext());
   }
 
-  @State mX: number = 0;
-  @State mY: number = 0;
-  @State mPrevOffsetX: number = 0;
-  @State mPrevOffsetY: number = 0;
-
   build() {
     Column() {
       Text("Test play")
@@ -66,28 +61,13 @@ struct Index {
 
       Text(this.exportState)
         .id('测试导出到指定目录')
-        .fontColor(0xFF1493)
-        .fontSize(100)
+        .fontSize(50)
         .fontWeight(FontWeight.Bold)
-        .translate({ x: this.mX, y: this.mY})
         .alignRules({
           center: { anchor: '__container__', align: VerticalAlign.Center },
           middle: { anchor: '__container__', align: HorizontalAlign.Center }
         })
-        // .onClick(() => this.testExport())
-        .gesture(PanGesture().onActionStart(event => {
-          this.mPrevOffsetX = event.offsetX;
-          this.mPrevOffsetY = event.offsetY;
-        }).onActionUpdate(event => {
-          this.mX += event.offsetX - this.mPrevOffsetX;
-          this.mY += event.offsetY - this.mPrevOffsetY;
-          this.mPrevOffsetX = event.offsetX;
-          this.mPrevOffsetY = event.offsetY;
-        }).onActionEnd(event => {
-
-        }).onActionCancel(() => {
-
-        }))
+        .onClick(() => this.testExport())
     }
   }
 
@@ -134,6 +114,10 @@ struct Index {
     const ctx = this.getUIContext().getHostContext()!;
     // 导出目录
     const targetDir = ctx.filesDir + '/my_exports/video1';
+
+    // const videoUrl = 'http://devimages.apple.com/iphone/samples/bipbop/bipbopall.m3u8';
+    // const ctx = this.getUIContext().getHostContext()!;
+    // const targetDir = ctx.filesDir + '/my_exports/video2';
 
     // 开始导出
     MCMediaCache.exportToDirectory(videoUrl, targetDir, {

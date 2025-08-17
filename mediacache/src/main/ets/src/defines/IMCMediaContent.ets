@@ -12,7 +12,7 @@ export interface IMCMediaContent {
   finalize(): void; // 临时内容转为正式内容;
   destroy(): Promise<void>; // 销毁内容; 删除本地文件;
 
-  copyToDirectory(targetDir: string, conflictStrategy?: MCCopyFileConflictStrategy): Promise<void>;
+  copyFile(destPath: string, conflictStrategy?: MCCopyFileConflictStrategy): Promise<void>;
 
   // 有新的数据被写入后的回调;
   on(event: 'dataWritten', callback: (content: IMCMediaContent) => void): void;

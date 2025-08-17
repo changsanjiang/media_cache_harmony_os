@@ -11,4 +11,6 @@ export enum MCLogModule {
   MCAssetAccessLogRepository = 'MCAssetAccessLogRepository',
   MCAssetStateRepository = 'MCAssetStateRepository',
   MCAssetCacheManager = 'MCAssetCacheManager',
+
+  MCLocalMedia = 'MCLocalMedia',
 }
