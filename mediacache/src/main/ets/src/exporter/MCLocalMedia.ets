@@ -21,12 +21,14 @@ export class MCLocalMedia extends MCReadwriteReference<MCLocalMedia> implements 
     mediaKind: MCMediaKind,
     metadata: IMCMediaMetadata,
     content: IMCMediaContent,
+    signal: MCAbortSignal,
   ) {
     super();
     this.id = id;
     this.mediaKind = mediaKind;
     this.mMetadata = metadata;
     this.mContent = content;
+    this.abortSignal = signal;
   }
 
   readonly id: string;
@@ -37,7 +39,7 @@ export class MCLocalMedia extends MCReadwriteReference<MCLocalMedia> implements 
   get isAssembled(): boolean { return true; }
   get completeness(): Promise<number> { return Promise.resolve(1.0); }
   get currentCachedSize(): number { return this.mMetadata.totalLength; }
-  get abortSignal(): MCAbortSignal { throw new Error('Method not implemented.'); }
+  readonly abortSignal: MCAbortSignal;
   protected getInstance(): MCLocalMedia { return this; }
 
   prepare(): Promise<void> { return Promise.resolve(); }

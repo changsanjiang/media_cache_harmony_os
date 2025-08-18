@@ -12,8 +12,7 @@ export class HLSPlaylist implements HLSDefines.Playlist {
   subtitlesRendition?: HLSDefines.RenditionItem | undefined;
 
   constructor(playlist: string) {
-    const parsedItems: HLSDefines.Item[] = [];
-    HLSParser.parse(playlist, parsedItems);
+    const parsedItems = HLSParser.parse(playlist)[0];
 
     parsedItems.forEach((item) => {
       switch (item.itemType) {

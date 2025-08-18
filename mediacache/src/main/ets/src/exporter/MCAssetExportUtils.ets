@@ -4,11 +4,32 @@ import { JSON } from "@kit.ArkTS";
 import { fileIo } from "@kit.CoreFileKit";
 import { MCCopyFileConflictStrategy } from "../defines/MCCopyFileConflictStrategy";
 import MCFileIOUtils from "../utils/MCFileIOUtils";
+import { MCMediaKind } from "../defines/MCMediaKind";
+import { MCProxyDirUtils } from "../utils/MCProxyDirUtils";
+import { MCAssetType } from "../defines/MCAssetType";
+import { MCProxyURLUtils } from "../utils/MCProxyURLUtils";
 
 export namespace MCAssetExportUtils {
+  // 代理指定目录返回代理地址;
+  export async function generateAssetProxyUrl(targetDir: string, localServerPort: number): Promise<string> {
+    const exportInfo = await loadExportInfo(targetDir);
+    const assetId = exportInfo.assetId;
+    const assetType = exportInfo.assetType;
+    const mediaId = exportInfo.assetId;
+    const mediaKind = exportInfo.assetType == MCAssetType.HLS ? MCMediaKind.PLAYLIST : MCMediaKind.FILE;
+    const ext = assetType == MCAssetType.HLS ? 'm3u8' : '';
+    return MCProxyDirUtils.generateProxyUrl(targetDir, assetId, assetType, mediaId, mediaKind, ext, localServerPort);
+  }
 
-  export async function generateDirProxyUrl(targetDir: string, localServerPort: number): Promise<string> {
-    throw new Error("Method not implemented.");
+  // 将代理内容转移到 dir;
+  export async function transferProxy(proxyPath: string, targetDir: string): Promise<string> {
+    const proxyInfo = MCProxyURLUtils.parseTarget(proxyPath);
+    const assetId = proxyInfo.assetId;
+    const assetType = proxyInfo.assetType;
+    const mediaId = proxyInfo.mediaId;
+    const mediaKind = proxyInfo.mediaKind;
+    const ext = MCUtils.getFileExtension(proxyPath);
+    return MCProxyDirUtils.generateProxyPath(targetDir, assetId, assetType, mediaId, mediaKind, ext);
   }
 
   /** 保存导出信息到指定目录 */

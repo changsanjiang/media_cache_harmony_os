@@ -6,7 +6,7 @@ import MCConsts from "./MCConsts";
 export namespace MCProxyDirUtils {
   /** 生成代理地址;
    *
-   * proxyUrl format: `http://localhost:port/mc_proxy/assetType/assetId/mediaKind/mediaId/encodedTargetDir`;
+   * proxyUrl format: `http://localhost:port/mc_proxy/assetType/assetId/mediaKind/mediaId/encodedTargetDir/media.ext`;
    * */
   export function generateProxyUrl(
     targetDir: string,
@@ -14,14 +14,15 @@ export namespace MCProxyDirUtils {
     assetType: MCAssetType,
     mediaId: string,
     mediaKind: MCMediaKind,
+    ext: string,
     localServerPort: number,
   ): string {
-    return `http://${MCConsts.LOCALHOST}:${localServerPort}${generateProxyPath(targetDir, assetId, assetType, mediaId, mediaKind)}`;
+    return `http://${MCConsts.LOCALHOST}:${localServerPort}${generateProxyPath(targetDir, assetId, assetType, mediaId, mediaKind, ext)}`;
   }
 
   /** 生成代理路径;
    *
-   * proxyPath format: `/mc_proxy/assetType/assetId/mediaKind/mediaId/encodedTargetDir`;
+   * proxyPath format: `/mc_proxy/assetType/assetId/mediaKind/mediaId/encodedTargetDir/media.ext`;
    * */
   export function generateProxyPath(
     targetDir: string,
@@ -29,8 +30,10 @@ export namespace MCProxyDirUtils {
     assetType: MCAssetType,
     mediaId: string,
     mediaKind: MCMediaKind,
+    ext: string,
   ): string {
-    return `${MCConsts.ROUTE_PATH_PROXY_DIR}/${assetType}/${assetId}/${mediaKind}/${mediaId}/${encodeURIComponent(targetDir)}`;
+    const filename = ext ? `media.${ext}` : `media`;
+    return `${MCConsts.ROUTE_PATH_PROXY_DIR}/${assetType}/${assetId}/${mediaKind}/${mediaId}/${encodeURIComponent(targetDir)}/${filename}`;
   }
 
   export interface ProxyTargetInfo {
@@ -47,7 +50,7 @@ export namespace MCProxyDirUtils {
     }
 
     const parts = proxyPath.split(`/`);
-    if (parts.length < 7) {
+    if (parts.length < 8) {
       throw new Error(`Malformed proxy target: expected at least 7 parts in the proxyPath, but got ${parts.length}. Target: "${proxyPath}".`);
     }
 

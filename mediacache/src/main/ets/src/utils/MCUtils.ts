@@ -88,6 +88,32 @@ namespace MCUtils {
   export function clamp(value: number, min: number, max: number): number {
     return Math.max(min, Math.min(max, value));
   }
+
+  /**
+   * 获取文件扩展名（不包含点号）
+   * @param fileName 文件名或路径
+   * @returns 扩展名（小写），如果没有扩展名则返回空字符串
+   */
+  export function getFileExtension(fileName: string): string {
+    if (!fileName) {
+      return '';
+    }
+
+    // 提取路径最后一段
+    const baseName = fileName.split(/[\\/]/).pop()!;
+
+    // 忽略以 "." 开头的隐藏文件（如 .gitignore）
+    if (baseName.startsWith('.') && baseName.indexOf('.', 1) === -1) {
+      return '';
+    }
+
+    const lastDot = baseName.lastIndexOf('.');
+    if (lastDot === -1 || lastDot === baseName.length - 1) {
+      return '';
+    }
+
+    return baseName.substring(lastDot + 1).toLowerCase();
+  }
 }
 
 export default MCUtils;

@@ -12,6 +12,9 @@ import {
 } from '../defines/IMCHttpResponseHeaders';
 import { buffer, util } from '@kit.ArkTS';
 import { MCProxyURLUtils } from '../utils/MCProxyURLUtils';
+import MCConsts from '../utils/MCConsts';
+import { IMCAsset } from '../defines/IMCAsset';
+import { MCAssetExportManager } from '../exporter/MCAssetExportManager';
 
 export class MCHttpResponse implements IMCHttpResponse {
   private mClientId: number;
@@ -30,7 +33,7 @@ export class MCHttpResponse implements IMCHttpResponse {
   constructor(clientId: number, request: IMCHttpRequest) {
     this.mClientId = clientId;
     this.mRequest = request;
-    MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${clientId}] Created response for request: ${JSON.stringify(request)}. URL: ${MCProxyURLUtils.parseTargetUrl(request.requestTarget)}`);
+    MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${clientId}] Created response for request: ${JSON.stringify(request)}`);
   }
 
   get isReady(): boolean {
@@ -48,7 +51,20 @@ export class MCHttpResponse implements IMCHttpResponse {
   async prepare(): Promise<string> {
     MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Starting preparation for request: ${JSON.stringify(this.mRequest)}`);
     try {
-      const asset = await MCAssetManager.getInstance().getAssetByProxyPath(this.mRequest.requestTarget);
+      let asset: IMCAsset;
+      const proxyPath = this.mRequest.requestTarget;
+      if ( proxyPath.startsWith(MCConsts.ROUTE_PATH_PROXY_URL) ) {
+        asset = await MCAssetManager.getInstance().getAssetByProxyPath(proxyPath);
+      }
+      else if ( proxyPath.startsWith(MCConsts.ROUTE_PATH_PROXY_DIR) ) {
+        asset = await MCAssetExportManager.getInstance().getAssetByProxyPath(proxyPath);
+      }
+      else {
+        throw new Error(`[clientId: ${this.mClientId}] Invalid proxy path: "${proxyPath}". ` +
+          `Expected path to start with "/${MCConsts.ROUTE_PATH_PROXY_URL}" or "/${MCConsts.ROUTE_PATH_PROXY_DIR}".`
+        );
+      }
+
       if ( this.mAborted ) {
         MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Cannot prepare as the response has been aborted`);
         throw this.mError!;

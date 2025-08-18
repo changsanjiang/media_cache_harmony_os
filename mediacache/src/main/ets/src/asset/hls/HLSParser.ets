@@ -1,13 +1,15 @@
-import { MCRange } from "../../utils/MCRange";
-import HLSDefines from "../../defines/HLSDefines";
+import { MCRange } from '../../utils/MCRange';
+import HLSDefines from '../../defines/HLSDefines';
 import MCAssetUtils from '../MCAssetUtils';
-import { MCMediaKind } from "../../defines/MCMediaKind";
-import MCUtils from "../../utils/MCUtils";
+import { MCMediaKind } from '../../defines/MCMediaKind';
+import MCUtils from '../../utils/MCUtils';
+import { MCAssetExportUtils } from '../../exporter/MCAssetExportUtils';
 
 namespace HLSParser {
 
   // 解析 playlist;
-  export function parse(playlist: string, outputs: HLSDefines.Item[], shouldTrim: boolean = false): string {
+  export function parse(playlist: string, shouldTrim: boolean = false): [HLSDefines.Item[], string] {
+    const outputs: HLSDefines.Item[] = [];
     let trimmedPlaylist = "";
     let offset = 0; // content offset
     const ctx: Map<string, Object> = new Map();
@@ -26,16 +28,17 @@ namespace HLSParser {
       if ( shouldTrim && !isComments ) trimmedPlaylist += curLine;
       offset = (shouldTrim ? trimmedPlaylist.length : (offset + curLine.length)) + 1; // + "\n".length;
     });
-    return shouldTrim ? trimmedPlaylist : playlist;
+    return shouldTrim ? [outputs, trimmedPlaylist] : [outputs, playlist];
   }
 
   // 代理 playlist; throw if error;
-  export async function proxy(assetId: string, playlist: string, originalUrl: string, currentUrl: string, variantStreamSelectionHandler?: HLSDefines.VariantStreamSelectionHandler, renditionSelectionHandler?: HLSDefines.RenditionSelectionHandler): Promise<string> {
+  export async function proxy(playlist: string, assetId: string, originalUrl: string, currentUrl: string, variantStreamSelectionHandler?: HLSDefines.VariantStreamSelectionHandler, renditionSelectionHandler?: HLSDefines.RenditionSelectionHandler): Promise<string> {
     try {
       // let decoder = util.TextDecoder.create('utf-8');
       // let rawContent = decoder.decodeToString(new Uint8Array(playlist));
-      const parsedItems: HLSDefines.Item[] = [];
-      let proxyPlaylist = parse(playlist, parsedItems, true);
+      const results = parse(playlist, true);
+      const parsedItems = results[0];
+      let proxyPlaylist = results[1];
       let variantStreams: HLSDefines.VariantStreamItem[] | undefined;
       let renditionGroups: Map<string, RenditionGroup> | undefined;
       parsedItems.forEach((item) => {
@@ -131,6 +134,24 @@ namespace HLSParser {
     catch (error) {
       throw error as Error;
     }
+  }
+
+  // 将代理内容转移到 dir;
+  export async function transferProxy(playlist: string, targetDir: string): Promise<string> {
+    const results = parse(playlist);
+    const parsedItems = results[0];
+    let transferredPlaylist = playlist;
+
+    const items = parsedItems.reverse();
+    let item = items.shift();
+    while (item) {
+      if ( item.uri ) {
+        const transferred = await MCAssetExportUtils.transferProxy(item.uri, targetDir);
+        transferredPlaylist = MCUtils.replaceCharactersInRange(transferredPlaylist, [item.uriRange!.location, item.uri.length], transferred);
+      }
+      item = items.shift();
+    }
+    return transferredPlaylist;
   }
 
   // https://tools.ietf.org/html/rfc8216

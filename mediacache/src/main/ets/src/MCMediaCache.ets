@@ -16,6 +16,9 @@ import { MCProxyURLUtils } from './utils/MCProxyURLUtils';
 import { rcp } from '@kit.RemoteCommunicationKit';
 import { MCAssetExportOptions } from './defines/MCAssetExportOptions';
 import { MCAssetExportManager } from './exporter/MCAssetExportManager';
+import { MCAssetExportUtils } from './exporter/MCAssetExportUtils';
+import MCConsts from './utils/MCConsts';
+import { MCProxyDirUtils } from './utils/MCProxyDirUtils';
 
 export namespace MCMediaCache {
   const mTcpServer = new MCTcpSocketServer();
@@ -69,7 +72,7 @@ export namespace MCMediaCache {
    * 导出的媒体数据可通过调用 proxyDir 代理目录后获取到代理地址进行播放;
    */
   export function exportToDirectory(resUrl: string, targetDir: string, options?: MCAssetExportOptions): Promise<void> {
-    return MCAssetExportManager.exportToDirectory(resUrl, targetDir, options);
+    return MCAssetExportManager.getInstance().exportToDirectory(resUrl, targetDir, options);
   }
 
   /**
@@ -80,8 +83,8 @@ export namespace MCMediaCache {
    * @param targetDir 已导出媒体数据的目录绝对路径;
    * @returns Promise<string> 代理播放地址;
    * */
-  export function proxyDir(targetDir: string): Promise<string> {
-    throw new Error("Method not implemented.");
+  export async function proxyDir(targetDir: string): Promise<string> {
+    return MCAssetExportUtils.generateAssetProxyUrl(targetDir, await mTcpServer.start());
   }
 
   /** 标记是否"固定"; 缓存管理器会定期删除一些缓存, 如果你想要保留某些视频防止被删除可以提前将其设置为"固定"; */
@@ -162,7 +165,14 @@ export namespace MCMediaCache {
    * */
   export function setDataDecryptHandler(block: (resUrl: string, offset: number, data: ArrayBuffer) => Promise<void | ArrayBuffer>): void {
     MCConfigs.dataDecryptHandler = (request, offset, data) => {
-      return block(MCProxyURLUtils.parseTargetUrl(request.requestTarget), offset, data);
+      const proxyPath = request.requestTarget;
+      if ( proxyPath.startsWith(MCConsts.ROUTE_PATH_PROXY_URL) ) {
+        return block(MCProxyURLUtils.parseTargetUrl(request.requestTarget), offset, data);
+      }
+      else if ( proxyPath.startsWith(MCConsts.ROUTE_PATH_PROXY_DIR) ) {
+        return block(MCProxyDirUtils.parseTargetDir(request.requestTarget), offset, data);
+      }
+      return Promise.resolve();
     };
   }
 

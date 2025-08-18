@@ -119,7 +119,7 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
       // MCMedia 的内容下载完成后回调;
       proxyHandler = async (requestUrl, currentUrl, data) => {
         const content = MCUtils.bufferToString(data);
-        const proxyContent = await HLSParser.proxy(this.id, content, requestUrl, currentUrl, MCConfigs.variantStreamSelectionHandler, MCConfigs.renditionSelectionHandler);
+        const proxyContent = await HLSParser.proxy(content, this.id, requestUrl, currentUrl, MCConfigs.variantStreamSelectionHandler, MCConfigs.renditionSelectionHandler);
         await this.initializePlaylist(mediaId, proxyContent);
         return MCUtils.stringToBuffer(proxyContent);
       }
