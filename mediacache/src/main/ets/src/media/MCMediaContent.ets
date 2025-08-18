@@ -32,7 +32,7 @@ export class MCMediaContent implements IMCMediaContent {
 
     MCLogger.debug(MCLogModule.MCMediaContent, () => `[media: ${this.mediaId}, offset: ${this.contentOffset}] Instance created: {
       "filePath": "${this.filePath}",
-      "length": ${this.mLength || 0},
+      "length": ${this.mLength},
       "isTemp": ${this.mTemp}
     }`);
   }

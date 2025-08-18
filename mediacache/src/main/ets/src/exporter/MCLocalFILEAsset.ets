@@ -2,6 +2,7 @@ import { IMCAsset } from '../defines/IMCAsset';
 import { IMCMedia } from '../defines/IMCMedia';
 import { MCAssetType } from '../defines/MCAssetType';
 import { MCMediaKind } from '../defines/MCMediaKind';
+import { MCMediaContent } from '../media/MCMediaContent';
 import { MCMediaMetadataStore } from '../media/MCMediaContentProvider';
 import { MCReadwriteReference } from '../utils/MCReadwriteReference';
 import { MCLocalMedia } from './MCLocalMedia';
@@ -30,7 +31,8 @@ export class MCLocalFILEAsset extends MCReadwriteReference<MCLocalFILEAsset> imp
     }
     const metadata = entries[0];
     const contentPath = MCMediaExportPath.resolveContentDestPath(this.id, MCMediaKind.FILE, this.mDir);
-    this.mMedia = new MCLocalMedia(this.id, MCMediaKind.FILE, metadata, contentPath);
+    const content = new MCMediaContent(this.id, 0, contentPath, metadata.totalLength);
+    this.mMedia = new MCLocalMedia(this.id, MCMediaKind.FILE, metadata, content);
   }
 
   async getMediaByProxyPath(proxyPath: string): Promise<IMCMedia> {

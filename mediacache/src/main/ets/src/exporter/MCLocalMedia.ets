@@ -6,7 +6,6 @@ import { IMCMediaContent } from '../defines/IMCMediaContent';
 import { IMCMediaMetadata } from '../defines/IMCMediaMetadata';
 import { MCLogModule } from '../defines/MCLogModule';
 import { MCMediaKind } from '../defines/MCMediaKind';
-import { MCMediaContent } from '../media/MCMediaContent';
 import { MCMediaFileContentLoader } from '../media/MCMediaFileContentLoader';
 import { MCAbortSignal } from '../utils/MCAbortController';
 import MCLogger from '../utils/MCLogger';
@@ -21,13 +20,13 @@ export class MCLocalMedia extends MCReadwriteReference<MCLocalMedia> implements 
     id: string,
     mediaKind: MCMediaKind,
     metadata: IMCMediaMetadata,
-    filePath: string,
+    content: IMCMediaContent,
   ) {
     super();
     this.id = id;
     this.mediaKind = mediaKind;
     this.mMetadata = metadata;
-    this.mContent = new MCMediaContent(id, 0, filePath, metadata.totalLength);
+    this.mContent = content;
   }
 
   readonly id: string;
