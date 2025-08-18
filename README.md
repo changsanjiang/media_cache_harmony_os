@@ -10,6 +10,7 @@
   - HTTP Live Streaming 或者叫 m3u8; 在播放时通常会自动代理播放列表中的各个媒体片段;
 - 支持预缓存/预加载, 可缓存指定大小的数据或全部数据;
 - 支持数据加解密, 保存数据时加密, 读取数据时解密;
+- 支持导出, 将媒体数据导出到指定的目录;
 
 ---
 
@@ -26,7 +27,7 @@ ohpm i @sj/mediacache
 ```json
 {
   "dependencies": {
-    "@sj/mediacache": "^1.0.6"
+    "@sj/mediacache": "^1.0.7"
   }
 }
 ```
@@ -44,7 +45,7 @@ await MCMediaCache.prepare(getContext());
 
 #### 播放
 
-播放时需要通过代理地址进行播放; 所以在播放之前请使用该方法生成代理地址, 然后设置给播放器播放即可:
+播放时需要通过代理地址进行播放; 所以在播放之前请使用该方法生成代理地址, 然后设置给播放器播放即可实现边播放边缓存:
 ```ts
 // 原始地址
 const resUrl = 'http://www.example.com/video.mp4';
@@ -79,7 +80,44 @@ player.url = proxyUrl;
 
 ---
 
-#### 相关配置
+#### 导出数据
+
+- 导出: 导出媒体数据到指定目录, 导出过程中如果媒体数据仅存在部分缓存, 则会发起网络请求获取剩余数据, 如果缓存都已存在, 则不会请求网络;
+  ```ts
+  const ctx = this.getUIContext().getHostContext()!;
+  const targetDir = ctx.filesDir + '/my_exports/video1'; // 导出目录
+  const resUrl = 'http://www.example.com/video.mp4'; // 要导出的视频
+  
+  // 开始导出
+  MCMediaCache.exportToDirectory(resUrl, targetDir, {
+    conflictStrategy: MCCopyFileConflictStrategy.Overwrite,
+    onProgress: (progress) => {
+      console.log(`[export progress] ${progress}`);
+    }
+  }).then(() => {
+      console.log(`导出成功`);
+  }).catch((e: Error) => {
+    console.log(`导出失败: ${e.message}`);
+  });
+  ```
+- 播放: 播放导出的媒体数据, 通过代理指定目录使用返回的代理地址进行播放;
+  ```ts
+  // 代理指定目录进行播放, 返回代理地址;
+  // 当通过 exportToDirectory 导出媒体数据后, 可使用该接口生成代理地址进行播放;
+  const ctx = this.getUIContext().getHostContext()!;
+  const targetDir = ctx.filesDir + '/my_exports/video1'; // 导出目录
+  
+  // 获取代理地址
+  const proxyUrl = await MCMediaCache.proxyDir(targetDir);
+  
+  // 设置播放; 这里以 AVPlayer 为例, 直接设置代理地址播放即可;
+  const player: media.AVPlayer;
+  player.url = proxyUrl;
+  ```
+
+___
+
+#### 其他配置
 
 - 配置请求头: 发起请求前回调, 可以在回调中修改请求, 添加请求头, cookies等;
   ```ts
