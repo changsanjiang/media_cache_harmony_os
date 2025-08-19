@@ -5,7 +5,7 @@ import { MCLogLevel } from '../main/ets/src/defines/MCLogLevel';
 import MCLogger from '../main/ets/src/utils/MCLogger';
 import MCUtils from '../main/ets/src/utils/MCUtils';
 import { HLSPlaylist } from '../main/ets/src/asset/hls/HLSPlaylist';
-import HLSDefines from '../main/ets/src/defines/HLSDefines';
+import { HLSDefines } from '../main/ets/src/defines/HLSDefines';
 import { buffer, util } from '@kit.ArkTS';
 import HLSParser from '../main/ets/src/asset/hls/HLSParser';
 

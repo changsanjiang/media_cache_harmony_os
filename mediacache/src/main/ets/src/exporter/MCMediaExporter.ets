@@ -50,7 +50,7 @@ export class MCMediaExporter implements IMCMediaExporter {
       const prefecher = new MCMediaDataPrefetcher(
         this.mMedia,
         this.mRequest,
-        (receivedLength, expectedLength) => this.mOptions?.onProgress?.(receivedLength / expectedLength),
+        (receivedLength, expectedLength) => this.mOptions?.onProgress?.(receivedLength / expectedLength * 0.99),
         this.mOptions?.signal
       );
       await prefecher.prefetch();
@@ -64,5 +64,6 @@ export class MCMediaExporter implements IMCMediaExporter {
         conflictStrategy: this.mOptions?.conflictStrategy
       }
     );
+    this.mOptions?.onProgress?.(1.0);
   }
 }

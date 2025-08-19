@@ -1,5 +1,5 @@
 import { rcp } from '@kit.RemoteCommunicationKit';
-import HLSDefines from '../defines/HLSDefines';
+import { HLSRenditionSelectionHandler, HLSVariantStreamSelectionHandler } from '../defines/HLSDefines';
 import { IMCDataRequest } from '../defines/IMCDataRequest';
 import { MCAssetType } from '../defines/MCAssetType';
 import { MCDownloadRequest } from './MCDownloadRequest';
@@ -44,9 +44,9 @@ namespace MCConfigs {
    * */
   export let dataEncryptHandler: ((request: MCDownloadRequest, offset: number, data: ArrayBuffer) => Promise<void | ArrayBuffer>) | undefined = undefined;
 
-  export let variantStreamSelectionHandler: HLSDefines.VariantStreamSelectionHandler | undefined = undefined;
+  export let variantStreamSelectionHandler: HLSVariantStreamSelectionHandler | undefined = undefined;
 
-  export let renditionSelectionHandler: HLSDefines.RenditionSelectionHandler | undefined = undefined;
+  export let renditionSelectionHandler: HLSRenditionSelectionHandler | undefined = undefined;
 }
 
 export default MCConfigs;

@@ -1,5 +1,5 @@
 import { MCRange } from '../../utils/MCRange';
-import HLSDefines from '../../defines/HLSDefines';
+import { HLSDefines, HLSRenditionSelectionHandler, HLSVariantStreamSelectionHandler } from '../../defines/HLSDefines';
 import MCAssetUtils from '../MCAssetUtils';
 import { MCMediaKind } from '../../defines/MCMediaKind';
 import MCUtils from '../../utils/MCUtils';
@@ -32,7 +32,7 @@ namespace HLSParser {
   }
 
   // 代理 playlist; throw if error;
-  export async function proxy(playlist: string, assetId: string, originalUrl: string, currentUrl: string, variantStreamSelectionHandler?: HLSDefines.VariantStreamSelectionHandler, renditionSelectionHandler?: HLSDefines.RenditionSelectionHandler): Promise<string> {
+  export async function proxy(playlist: string, assetId: string, originalUrl: string, currentUrl: string, variantStreamSelectionHandler?: HLSVariantStreamSelectionHandler, renditionSelectionHandler?: HLSRenditionSelectionHandler): Promise<string> {
     try {
       // let decoder = util.TextDecoder.create('utf-8');
       // let rawContent = decoder.decodeToString(new Uint8Array(playlist));
@@ -497,7 +497,7 @@ namespace HLSParser {
     }
   }
 
-  function selectVariantStream(originalUrl: string, currentUrl: string, streams: HLSDefines.VariantStreamItem[], variantStreamSelectionHandler?: HLSDefines.VariantStreamSelectionHandler): HLSDefines.VariantStreamItem {
+  function selectVariantStream(originalUrl: string, currentUrl: string, streams: HLSDefines.VariantStreamItem[], variantStreamSelectionHandler?: HLSVariantStreamSelectionHandler): HLSDefines.VariantStreamItem {
     if ( variantStreamSelectionHandler ) {
       const stream = variantStreamSelectionHandler(originalUrl, currentUrl, streams);
       if ( stream ) return stream;
@@ -510,7 +510,7 @@ namespace HLSParser {
     return `${groupId}_${renditionType}`;
   }
 
-  function selectRendition(originalUrl: string, currentUrl: string, groups: Map<string, HLSDefines.RenditionGroup>, groupId: string, renditionType: HLSDefines.RenditionType, renditionSelectionHandler?: HLSDefines.RenditionSelectionHandler): HLSDefines.RenditionItem {
+  function selectRendition(originalUrl: string, currentUrl: string, groups: Map<string, HLSDefines.RenditionGroup>, groupId: string, renditionType: HLSDefines.RenditionType, renditionSelectionHandler?: HLSRenditionSelectionHandler): HLSDefines.RenditionItem {
     const key = generateRenditionGroupKey(groupId, renditionType);
     const group = groups.get(key);
     if ( !group ) {

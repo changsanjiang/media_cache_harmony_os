@@ -1,6 +1,6 @@
 import { HLSAsset } from '../asset/hls/HLSAsset';
 import { HLSPlaylist } from '../asset/hls/HLSPlaylist';
-import HLSDefines from '../defines/HLSDefines';
+import { HLSDefines } from '../defines/HLSDefines';
 import { IMCAssetPrefetcher } from '../defines/IMCAssetPrefetcher';
 import { IMCDataRequest } from '../defines/IMCDataRequest';
 import { toRequestRange } from '../defines/IMCHttpRequestRange';
@@ -227,17 +227,24 @@ export class HLSAssetPrefetcher implements IMCAssetPrefetcher<HLSAsset> {
     onProgress?: (progress: number) => void,
     signal?: MCAbortSignal
   ): Promise<void> {
-    const fetchProgresses: number[] = items.map(() => 0);
+    // 参与进度计算的项目
+    const progresses: Map<HLSDefines.Item, number> = new Map();
+    for (let item of items) {
+      if ( item.itemType == HLSDefines.ItemType.SEGMENT ) {
+        progresses.set(item, 0);
+      }
+    }
 
     // 并发控制
     let itemIndex = 0;
     while ( itemIndex < items.length ) {
       const batch = items.slice(itemIndex, itemIndex + concurrentPrefetchCount);
-      const fetches = batch.map((item, index) => this.prefetchItem(asset, item, additionalHeaders, (receivedLength: number, expectedLength: number) => {
-        const fetchIndex = itemIndex + index;
-        fetchProgresses[fetchIndex] = receivedLength / expectedLength;
-        onProgress?.(fetchProgresses.reduce((prev, cur) => prev + cur, 0) / fetchProgresses.length);
-      }, signal));
+      const fetches = batch.map(item => this.prefetchItem(asset, item, additionalHeaders, onProgress ? (receivedLength: number, expectedLength: number) => {
+        if ( progresses.has(item) ) {
+          progresses.set(item, receivedLength / expectedLength);
+          onProgress!(Array.from(progresses.values()).reduce((prev, cur) => prev + cur, 0) / progresses.size);
+        }
+      } : undefined, signal));
       await Promise.all(fetches);
       itemIndex += concurrentPrefetchCount;
     }

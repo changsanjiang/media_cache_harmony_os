@@ -1,0 +1,28 @@
+import { MCMediaCache } from '../../Index';
+
+@ComponentV2
+export struct CustomRequestPage {
+  private mPlaybackUrl: string = '';
+
+  async aboutToAppear(): Promise<void> {
+    await MCMediaCache.prepare(this.getUIContext().getHostContext()!);
+
+    // 设置自定义请求头
+    MCMediaCache.setRequestHandler((request) => {
+      request.setHeader('Authorization', 'Bearer fake-token-123');
+      request.setHeader('X-Custom-Client', 'HarmonyOS-Example');
+      console.info(`Custom headers injected ✅`);
+    });
+
+    // 需要播放的视频链接
+    const resUrl = "https://example.com/video/test.mp4";
+    // 生成代理播放链接
+    this.mPlaybackUrl = await MCMediaCache.proxy(resUrl);
+  }
+
+  build() {
+    Video({ src: this.mPlaybackUrl })
+      .height("60%")
+      .objectFit(ImageFit.Fill)
+  }
+}

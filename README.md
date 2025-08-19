@@ -1,6 +1,6 @@
 # MediaCache for HarmonyOS
 
-用于支持音视频的边播放边缓存; 旨在代理媒体数据请求并优先提供缓存数据, 从而减少网络流量并提高播放流畅度.
+用于支持音视频边播放边缓存(mp3、mp4、m3u8等); 旨在代理媒体数据请求并优先提供缓存数据, 从而减少网络流量并提高播放流畅度.
 
 ---
 
@@ -27,7 +27,7 @@ ohpm i @sj/mediacache
 ```json
 {
   "dependencies": {
-    "@sj/mediacache": "^1.0.7"
+    "@sj/mediacache": "^1.0.8"
   }
 }
 ```
@@ -172,3 +172,16 @@ ___
   MCMediaCache.setLogLevel(MCLogLevel.DEBUG); // 设置日志等级;
   MCMediaCache.setLogWhiteModules([MCLogModule.MCHttpConnectionHandler, MCLogModule.MCHttpResponse]) // 允许打印哪些模块的日志;
   ```
+
+___
+
+#### 项目地址
+
+- GitHub: [https://github.com/changsanjiang/media_cache_harmony_os](https://github.com/changsanjiang/media_cache_harmony_os)
+- Gitee: [https://gitee.com/changsanjiang/media_cache_harmony_os](https://gitee.com/changsanjiang/media_cache_harmony_os)
+
+___
+
+#### 问题反馈
+
+Q群: 1053841673

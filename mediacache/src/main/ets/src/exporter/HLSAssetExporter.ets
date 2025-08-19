@@ -10,7 +10,7 @@ import { HLSPlaylist } from '../asset/hls/HLSPlaylist';
 import MCUtils from '../utils/MCUtils';
 import { IMCMediaDataReader, MCMediaDataReader } from '../prefetcher/MCMediaDataReader';
 import { MCMediaExporter } from './MCMediaExporter';
-import HLSDefines from '../defines/HLSDefines';
+import { HLSDefines } from '../defines/HLSDefines';
 import { MCAssetExportInfo, MCMediaExportInfo } from './MCAssetExportInfo';
 import { MCAssetExportUtils } from './MCAssetExportUtils';
 import { MCCopyFileConflictStrategy } from '../defines/MCCopyFileConflictStrategy';
@@ -66,9 +66,18 @@ export class HLSAssetExporter implements IMCAssetExporter<HLSAsset> {
     // 如果存在ts片段, 就导出所有项目(keys、ts等)
     const segments = playlist.segments;
     if (segments && segments.length > 0) {
+      // 需要导出的项目
       const set: Set<string> = new Set();
+      // 参与进度计算的项目
+      // key: item.uri, value: progress;
+      const progresses: Map<string, number> = new Map();
       for (let item of allItems) {
-        if (item.uri) set.add(item.uri);
+        if (item.uri) {
+          set.add(item.uri);
+          if ( item.itemType == HLSDefines.ItemType.SEGMENT ) {
+            progresses.set(item.uri, 0);
+          }
+        }
       }
 
       // export targets
@@ -89,7 +98,10 @@ export class HLSAssetExporter implements IMCAssetExporter<HLSAsset> {
           {
             conflictStrategy: options?.conflictStrategy,
             onProgress: options?.onProgress ? (progress) => {
-              options.onProgress!((i + progress) / proxyPaths.length);
+              if ( progresses.has(proxyPath) ) {
+                progresses.set(proxyPath, progress);
+                options.onProgress!(Array.from(progresses.values()).reduce((prev, cur) => prev + cur, 0) / progresses.size);
+              }
             } : undefined,
             signal: options?.signal
           }

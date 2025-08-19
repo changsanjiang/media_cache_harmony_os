@@ -1,6 +1,6 @@
 import MCAssetCacheManager from './asset/cachemgr/MCAssetCacheManager';
 import MCAssetUtils from './asset/MCAssetUtils';
-import HLSDefines from './defines/HLSDefines';
+import { HLSRenditionSelectionHandler, HLSVariantStreamSelectionHandler } from './defines/HLSDefines';
 import { MCAssetCacheConfig } from './defines/MCAssetCacheConfig';
 import { MCAssetPrefetchOptions } from './defines/MCAssetPrefetchOptions';
 import { MCAssetType } from './defines/MCAssetType';
@@ -24,13 +24,17 @@ export namespace MCMediaCache {
   const mTcpServer = new MCTcpSocketServer();
   const mConnectionHandler = new MCHttpConnectionHandler();
 
-  /** 缓存管理配置; 缓存管理器会根据这个配置定期检测并删除一些缓存; */
+  /** 缓存管理配置; 缓存管理器会根据该配置, 定期检测并自动删除部分缓存文件; */
   export const cacheConfig: MCAssetCacheConfig = MCAssetCacheManager.config;
 
   let mPrepared = false;
   let mPreparePromise: Promise<void> | undefined = undefined;
 
-  /** 初始化; */
+  /**
+   * 初始化以启动代理、缓存管理器等;
+   *
+   * @note 请在使用其他接口之前调用;
+   * */
   export async function prepare(context: Context): Promise<void> {
     if ( mPrepared ) {
       return;
@@ -50,35 +54,46 @@ export namespace MCMediaCache {
     return promise;
   }
 
-  /** 生成代理播放地址, 播放器可以使用该地址播放; */
+  /**
+   * 生成代理播放地址;
+   *
+   * 播放器使用该地址播放即可实现 边播放边缓存;
+   */
   export async function proxy(resUrl: string): Promise<string> {
     return MCAssetUtils.generateAssetProxyUrl(resUrl, await mTcpServer.start());
   }
 
-  /** 预缓存; 预先缓存一部分数据到本地; */
+  /**
+   * 预缓存媒体数据;
+   *
+   * 可在播放前预先缓存一部分数据到本地, 以提升首帧加载速度和播放体验;
+   */
   export function prefetch(resUrl: string, options?: MCAssetPrefetchOptions): Promise<void> {
     return MCAssetPrefetchManager.prefetch(resUrl, options);
   }
 
   /**
-   * 导出媒体数据到指定目录;
+   * 导出媒体数据到指定目录(相当于把媒体数据下载到指定的目录);
    *
-   * 导出过程中如果媒体数据仅存在部分缓存, 则会发起网络请求获取剩余数据, 如果缓存都已存在, 则不会请求网络;
+   * - 如果媒体数据仅有部分缓存，将自动发起网络请求补齐剩余部分;
+   * - 如果缓存已完整存在，则不会请求网络;
    *
    * @param targetDir 导出目录的绝对路径;
    * @param options 导出选项(是否覆盖目录文件等选项);
    * @returns Promise<void>;
    *
-   * 导出的媒体数据可通过调用 proxyDir 代理目录后获取到代理地址进行播放;
+   * @note
+   * - 导出的媒体可通过调用 `proxyDir` 获取代理地址进行播放;
+   * - 对于 HLS (m3u8),建议先调用 `prefetch` 将所有片段预缓存, 再调用 `exportToDirectory`，可以提升导出效率;
    */
   export function exportToDirectory(resUrl: string, targetDir: string, options?: MCAssetExportOptions): Promise<void> {
     return MCAssetExportManager.getInstance().exportToDirectory(resUrl, targetDir, options);
   }
 
   /**
-   * 代理指定目录进行播放, 返回代理地址;
+   * 代理指定目录进行播放;
    *
-   * 当通过 exportToDirectory 导出媒体数据后, 可使用该接口生成代理地址进行播放;
+   * 当媒体数据通过 `exportToDirectory` 导出到本地后, 可以调用该接口生成代理地址用于播放;
    *
    * @param targetDir 已导出媒体数据的目录绝对路径;
    * @returns Promise<string> 代理播放地址;
@@ -87,29 +102,36 @@ export namespace MCMediaCache {
     return MCAssetExportUtils.generateAssetProxyUrl(targetDir, await mTcpServer.start());
   }
 
-  /** 标记是否"固定"; 缓存管理器会定期删除一些缓存, 如果你想要保留某些视频防止被删除可以提前将其设置为"固定"; */
+  /**
+   * 设置缓存是否固定(Pinned);
+   *
+   * 缓存管理器会定期清理部分缓存, 如果需要保留某些资源防止被删除, 可以将其设置为 "固定";
+   */
   export function setPinned(resUrl: string, isPinned: boolean): Promise<void> {
     return MCAssetCacheManager.setPinned(resUrl, isPinned);
   }
 
+  /** 判断某个缓存是否已被固定; */
   export function isPinned(resUrl: string): Promise<boolean> {
     return MCAssetCacheManager.isPinned(resUrl);
   }
 
-  /** 根据播放地址删除对应的缓存; */
-  export function removeCacheBy(resUrl: string): Promise<void> {
-    return MCAssetCacheManager.removeCacheBy(resUrl);
-  }
-
-  /** 删除本地缓存;
+  /**
+   * 删除本地缓存;
    *
-   * 通过`setPinned`被设置为"Pinned"的缓存不会被删除, 如需删除请通过`removeCacheBy`指定 url 来删除;
+   * 可删除缓存大小 = `totalCacheSize()` - `pinnedCacheSize()`;
    *
-   * 可删除的缓存大小 = totalCacheSize() - pinnedCacheSize();
-   *
-   * */
+   * @note
+   * - 通过 `setPinned` 设置为固定的缓存不会被删除;
+   * - 如需删除固定缓存(Pinned)，请使用 `removeCacheBy` 指定 URL 删除;
+   */
   export function removeCaches(): Promise<void> {
     return MCAssetCacheManager.removeCaches();
+  }
+
+  /** 删除指定的缓存; */
+  export function removeCacheBy(resUrl: string): Promise<void> {
+    return MCAssetCacheManager.removeCacheBy(resUrl);
   }
 
   /** 所有缓存的大小(包含被固定的缓存); */
@@ -143,15 +165,18 @@ export namespace MCMediaCache {
   }
 
   /**
-   * 向远程服务器发起请求前回调; 可以在回调中修改请求, 添加请求头等;
-   * */
+   * 请求拦截器;
+   *
+   * 在向远程服务器发起请求前触发, 可在回调中修改请求(例如添加请求头);
+   */
   export function setRequestHandler(block: (request: MCDownloadRequest) => void): void {
     MCConfigs.requestHandler = block;
   }
 
-  /** 对缓存数据加密; 将缓存数据加密保存到本地;
+  /** 对缓存数据加密;
    *
-   * 可直接修改 data, 也可以返回一个新的 ArrayBuffer(新 buffer 的数据长度不可改变, byteLength 必须与 data.byteLength 一致);
+   * - 可直接修改 data, 也可以返回一个新的 ArrayBuffer(新 buffer 的数据长度不可改变, byteLength 必须与 data.byteLength 一致);
+   * - 加密后的数据会被存储到本地;
    * */
   export function setDataEncryptHandler(block: (resUrl: string, offset: number, data: ArrayBuffer) => Promise<void | ArrayBuffer>): void {
     MCConfigs.dataEncryptHandler = (request, offset, data) => {
@@ -161,7 +186,8 @@ export namespace MCMediaCache {
 
   /** 对缓存数据解密;
    *
-   * 可直接修改 data, 也可以返回一个新的 ArrayBuffer(新 buffer 的数据长度不可改变, byteLength 必须与 data.byteLength 一致);
+   * - 可直接修改 data, 也可以返回一个新的 ArrayBuffer(新 buffer 的数据长度不可改变, byteLength 必须与 data.byteLength 一致);
+   * - 解密后的数据会被传递给播放器;
    * */
   export function setDataDecryptHandler(block: (resUrl: string, offset: number, data: ArrayBuffer) => Promise<void | ArrayBuffer>): void {
     MCConfigs.dataDecryptHandler = (request, offset, data) => {
@@ -200,12 +226,12 @@ export namespace MCMediaCache {
   }
 
   /** hls variant stream 选择器; */
-  export function setVariantStreamSelectionHandler(block: HLSDefines.VariantStreamSelectionHandler): void {
+  export function setVariantStreamSelectionHandler(block: HLSVariantStreamSelectionHandler): void {
     MCConfigs.variantStreamSelectionHandler = block;
   }
 
   /** hls rendition 选择器 */
-  export function setRenditionSelectionHandler(block: HLSDefines.RenditionSelectionHandler): void {
+  export function setRenditionSelectionHandler(block: HLSRenditionSelectionHandler): void {
     MCConfigs.renditionSelectionHandler = block;
   }
 

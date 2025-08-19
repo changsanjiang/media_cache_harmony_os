@@ -1,8 +1,28 @@
 import { MCRange } from '../utils/MCRange';
 import { url } from '@kit.ArkTS';
 
+/// 选一个媒体进行代理
+///
+/// 例如: 以下变体流 二选一, 选 low 还是 high;
+///
+/// #EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=640x360,CODECS="avc1.4d401e,mp4a.40.2",AUDIO="audio-group"
+/// https://example.com/low/index.m3u8
+///
+/// #EXT-X-STREAM-INF:BANDWIDTH=3000000,AVERAGE-BANDWIDTH=2500000,RESOLUTION=1280x720,FRAME-RATE=60,CODECS="avc1.4d4028,mp4a.40.2",AUDIO="audio-group",SUBTITLES="subs-group"
+/// https://example.com/high/index.m3u8
+export type HLSVariantStreamSelectionHandler = (playlistOriginalUrl: string, playlistCurrentUrl: string, variantStreams: HLSDefines.VariantStreamItem[]) => HLSDefines.VariantStreamItem;
+
+/// AUDIO 二选一
+/// #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="English",LANGUAGE="en",URI="audio_eng.m3u8"
+/// #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="Spanish",LANGUAGE="es",URI="audio_spa.m3u8"
+///
+/// SUBTITLES 二选一
+/// #EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="English",LANGUAGE="en",URI="subs_eng.m3u8"
+/// #EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="Spanish",LANGUAGE="es",URI="subs_spa.m3u8"
+export type HLSRenditionSelectionHandler = (playlistOriginalUrl: string, playlistCurrentUrl: string, renditionGroup: HLSDefines.RenditionGroup, renditionType: HLSDefines.RenditionType) => HLSDefines.RenditionItem;
+
 /** https://datatracker.ietf.org/doc/html/rfc8216#section-4; */
-namespace HLSDefines {
+export namespace HLSDefines {
   export enum ItemType {
     KEY, // #EXT-X-KEY
     INITIALIZATION, // #EXT-X-MAP
@@ -109,26 +129,6 @@ namespace HLSDefines {
     // getRenditionGroupBy(groupId: string, renditionType: RenditionType): RenditionGroup | undefined;
   }
 
-  /// 选一个媒体进行代理
-  ///
-  /// 例如: 以下变体流 二选一, 选 low 还是 high;
-  ///
-  /// #EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=640x360,CODECS="avc1.4d401e,mp4a.40.2",AUDIO="audio-group"
-  /// https://example.com/low/index.m3u8
-  ///
-  /// #EXT-X-STREAM-INF:BANDWIDTH=3000000,AVERAGE-BANDWIDTH=2500000,RESOLUTION=1280x720,FRAME-RATE=60,CODECS="avc1.4d4028,mp4a.40.2",AUDIO="audio-group",SUBTITLES="subs-group"
-  /// https://example.com/high/index.m3u8
-  export type VariantStreamSelectionHandler = (playlistOriginalUrl: string, playlistCurrentUrl: string, variantStreams: VariantStreamItem[]) => VariantStreamItem;
-
-  /// AUDIO 二选一
-  /// #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="English",LANGUAGE="en",URI="audio_eng.m3u8"
-  /// #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="Spanish",LANGUAGE="es",URI="audio_spa.m3u8"
-  ///
-  /// SUBTITLES 二选一
-  /// #EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="English",LANGUAGE="en",URI="subs_eng.m3u8"
-  /// #EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="Spanish",LANGUAGE="es",URI="subs_spa.m3u8"
-  export type RenditionSelectionHandler = (playlistOriginalUrl: string, playlistCurrentUrl: string, renditionGroup: RenditionGroup, renditionType: RenditionType) => RenditionItem;
-
   interface Attribute {
     // readonly pair: string;
 
@@ -213,5 +213,3 @@ namespace HLSDefines {
     return url.URL.parseURL(uri, playlistUrl).toString();
   }
 }
-
-export default HLSDefines;

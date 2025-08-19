@@ -1,4 +1,4 @@
-import HLSDefines from "../../defines/HLSDefines";
+import { HLSDefines } from "../../defines/HLSDefines";
 import { IMCAsset } from "../../defines/IMCAsset";
 import { IMCMedia } from "../../defines/IMCMedia";
 import { MCAssetType } from "../../defines/MCAssetType";

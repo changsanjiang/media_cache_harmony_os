@@ -1,4 +1,4 @@
-import HLSDefines from "../../defines/HLSDefines";
+import { HLSDefines } from "../../defines/HLSDefines";
 import HLSParser from "./HLSParser";
 
 export class HLSPlaylist implements HLSDefines.Playlist {

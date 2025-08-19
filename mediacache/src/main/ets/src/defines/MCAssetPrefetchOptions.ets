@@ -2,13 +2,13 @@ import { MCAbortSignal } from "../utils/MCAbortController";
 
 export interface MCAssetPrefetchOptions {
 
-  // 如果 prefetchSize 和 prefetchSegmentCount 都未设置, 将会预缓存资产中的所有媒体;
-
   /**
    * 预缓存指定大小(bytes)的的数据;
    *
    * 对于普通媒体文件的预缓存, 除非文件本身小于设置的预取大小, 否则按设置的字节数预取;
    * 对于流媒体(HLS)的预缓存, 会尝试预缓存多个段(ts)文件, 直到下载的数据总大小大于等于设置的预取大小;
+   *
+   * @note 如果 prefetchSize 和 prefetchSegmentCount 都未设置, 将会预缓存所有媒体数据;
    * */
   prefetchSize?: number;
 
@@ -19,6 +19,8 @@ export interface MCAssetPrefetchOptions {
    *
    * 对于普通媒体文件的预缓存, 因为只包含一个文件, 所以整个媒体文件将被缓存;
    * 对于流媒体(HLS)的预缓存, 会尝试预缓存的指定数量的段(ts)文件;
+   *
+   * @note 如果 prefetchSize 和 prefetchSegmentCount 都未设置, 将会预缓存所有媒体数据;
    * */
   prefetchSegmentCount?: number;
 
