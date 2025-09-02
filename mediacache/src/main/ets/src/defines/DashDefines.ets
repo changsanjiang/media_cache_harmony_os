@@ -1,0 +1,431 @@
+// https://standards.iso.org/ittf/PubliclyAvailableStandards/MPEG-DASH_schema_files/DASH-MPD.xsd
+export namespace DashDefines {
+  // 因为目的是要代理请求, 所以在建立模型时不会对所有属性建模, 仅选择需要的属性进行建模
+
+  // `minOccurs="0", maxOccurs="1"` 定义基数（cardinality）为 0 或 1, 代表该子元素最多只能定义一个
+  // `minOccurs="0" maxOccurs="unbounded"` 代表该子元素可以定义多个
+  // `minOccurs="0"` 未定义maxOccurs时默认值是1, 最多只能出现一次
+
+  /** MPD 根对象
+   <!--  MPD: main element  -->
+   <xs:element name="MPD" type="MPDtype"/>
+   <!--  MPD Type  -->
+   <xs:complexType name="MPDtype">
+     <xs:sequence>
+       <xs:element name="ProgramInformation" type="ProgramInformationType" minOccurs="0" maxOccurs="unbounded"/>
+       <xs:element name="BaseURL" type="BaseURLType" minOccurs="0" maxOccurs="unbounded"/>
+       <xs:element name="Location" type="xs:anyURI" minOccurs="0" maxOccurs="unbounded"/>
+       <xs:element name="Period" type="PeriodType" maxOccurs="unbounded"/>
+       <xs:element name="Metrics" type="MetricsType" minOccurs="0" maxOccurs="unbounded"/>
+       <xs:element name="EssentialProperty" type="DescriptorType" minOccurs="0" maxOccurs="unbounded"/>
+       <xs:element name="SupplementalProperty" type="DescriptorType" minOccurs="0" maxOccurs="unbounded"/>
+       <xs:element name="UTCTiming" type="DescriptorType" minOccurs="0" maxOccurs="unbounded"/>
+       <xs:any namespace="##other" processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+     </xs:sequence>
+     <xs:attribute name="id" type="xs:string"/>
+     <xs:attribute name="profiles" type="xs:string" use="required"/>
+     <xs:attribute name="type" type="PresentationType" default="static"/>
+     <xs:attribute name="availabilityStartTime" type="xs:dateTime"/>
+     <xs:attribute name="availabilityEndTime" type="xs:dateTime"/>
+     <xs:attribute name="publishTime" type="xs:dateTime"/>
+     <xs:attribute name="mediaPresentationDuration" type="xs:duration"/>
+     <xs:attribute name="minimumUpdatePeriod" type="xs:duration"/>
+     <xs:attribute name="minBufferTime" type="xs:duration" use="required"/>
+     <xs:attribute name="timeShiftBufferDepth" type="xs:duration"/>
+     <xs:attribute name="suggestedPresentationDelay" type="xs:duration"/>
+     <xs:attribute name="maxSegmentDuration" type="xs:duration"/>
+     <xs:attribute name="maxSubsegmentDuration" type="xs:duration"/>
+     <xs:anyAttribute namespace="##other" processContents="lax"/>
+   </xs:complexType>
+   * */
+  export interface MPDtype {
+    readonly baseURLs?: BaseURLType[]       // <xs:element name="BaseURL" type="BaseURLType" minOccurs="0" maxOccurs="unbounded"/>
+    readonly periods?: PeriodType[]         // <xs:element name="Period" type="PeriodType" maxOccurs="unbounded"/>
+    readonly type: PresentationType         // <xs:attribute name="type" type="PresentationType" default="static"/>
+  }
+
+  /** 一个 Period，DASH 流的时间分区
+   <!--  Period  -->
+   <xs:complexType name="PeriodType">
+     <xs:sequence>
+       <xs:element name="BaseURL" type="BaseURLType" minOccurs="0" maxOccurs="unbounded"/>
+       <xs:element name="SegmentBase" type="SegmentBaseType" minOccurs="0"/>
+       <xs:element name="SegmentList" type="SegmentListType" minOccurs="0"/>
+       <xs:element name="SegmentTemplate" type="SegmentTemplateType" minOccurs="0"/>
+       <xs:element name="AssetIdentifier" type="DescriptorType" minOccurs="0"/>
+       <xs:element name="EventStream" type="EventStreamType" minOccurs="0" maxOccurs="unbounded"/>
+       <xs:element name="AdaptationSet" type="AdaptationSetType" minOccurs="0" maxOccurs="unbounded"/>
+       <xs:element name="Subset" type="SubsetType" minOccurs="0" maxOccurs="unbounded"/>
+       <xs:element name="SupplementalProperty" type="DescriptorType" minOccurs="0" maxOccurs="unbounded"/>
+       <xs:any namespace="##other" processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+     </xs:sequence>
+     <xs:attribute ref="xlink:href"/>
+     <xs:attribute ref="xlink:actuate" default="onRequest"/>
+     <xs:attribute name="id" type="xs:string"/>
+     <xs:attribute name="start" type="xs:duration"/>
+     <xs:attribute name="duration" type="xs:duration"/>
+     <xs:attribute name="bitstreamSwitching" type="xs:boolean" default="false"/>
+     <xs:anyAttribute namespace="##other" processContents="lax"/>
+   </xs:complexType>
+   * */
+  export interface PeriodType {
+    readonly baseURLs?: BaseURLType[]                 // <xs:element name="BaseURL" type="BaseURLType" minOccurs="0" maxOccurs="unbounded"/>
+    // readonly SegmentBase:
+    // readonly SegmentList:
+    // readonly SegmentTemplate:
+    readonly adaptationSets?: AdaptationSetType[]     // <xs:element name="AdaptationSet" type="AdaptationSetType" minOccurs="0" maxOccurs="unbounded"/>
+    readonly id?: string                              // <xs:attribute name="id" type="xs:string"/>
+  }
+
+  /**
+   <!--  Representation base (common attributes and elements)  -->
+   <xs:complexType name="RepresentationBaseType">
+     <xs:sequence>
+       <xs:element name="FramePacking" type="DescriptorType" minOccurs="0" maxOccurs="unbounded"/>
+       <xs:element name="AudioChannelConfiguration" type="DescriptorType" minOccurs="0" maxOccurs="unbounded"/>
+       <xs:element name="ContentProtection" type="DescriptorType" minOccurs="0" maxOccurs="unbounded"/>
+       <xs:element name="EssentialProperty" type="DescriptorType" minOccurs="0" maxOccurs="unbounded"/>
+       <xs:element name="SupplementalProperty" type="DescriptorType" minOccurs="0" maxOccurs="unbounded"/>
+       <xs:element name="InbandEventStream" type="EventStreamType" minOccurs="0" maxOccurs="unbounded"/>
+       <xs:any namespace="##other" processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+     </xs:sequence>
+     <xs:attribute name="profiles" type="xs:string"/>
+     <xs:attribute name="width" type="xs:unsignedInt"/>
+     <xs:attribute name="height" type="xs:unsignedInt"/>
+     <xs:attribute name="sar" type="RatioType"/>
+     <xs:attribute name="frameRate" type="FrameRateType"/>
+     <xs:attribute name="audioSamplingRate" type="xs:string"/>
+     <xs:attribute name="mimeType" type="xs:string"/>
+     <xs:attribute name="segmentProfiles" type="xs:string"/>
+     <xs:attribute name="codecs" type="xs:string"/>
+     <xs:attribute name="maximumSAPPeriod" type="xs:double"/>
+     <xs:attribute name="startWithSAP" type="SAPType"/>
+     <xs:attribute name="maxPlayoutRate" type="xs:double"/>
+     <xs:attribute name="codingDependency" type="xs:boolean"/>
+     <xs:attribute name="scanType" type="VideoScanType"/>
+     <xs:anyAttribute namespace="##other" processContents="lax"/>
+   </xs:complexType>
+   * */
+  export interface RepresentationBaseType {
+    readonly width?: number                   // <xs:attribute name="width" type="xs:unsignedInt"/>
+    readonly height?: number                  // <xs:attribute name="height" type="xs:unsignedInt"/>
+    readonly frameRate?: FrameRateType        // <xs:attribute name="frameRate" type="FrameRateType"/>
+    readonly audioSamplingRate?: string       // <xs:attribute name="audioSamplingRate" type="xs:string"/>
+    readonly mimeType?: string                // <xs:attribute name="mimeType" type="xs:string"/>
+    readonly segmentProfiles?: string         // <xs:attribute name="segmentProfiles" type="xs:string"/>
+    readonly codecs?: string                  // <xs:attribute name="codecs" type="xs:string"/>
+  }
+
+  /** 一个 AdaptationSet，通常是一组相同类型的轨道（视频、音频、字幕）
+   <!--  Adaptation Set  -->
+   <xs:complexType name="AdaptationSetType">
+     <xs:complexContent>
+       <xs:extension base="RepresentationBaseType">
+       <xs:sequence>
+         <xs:element name="Accessibility" type="DescriptorType" minOccurs="0" maxOccurs="unbounded"/>
+         <xs:element name="Role" type="DescriptorType" minOccurs="0" maxOccurs="unbounded"/>
+         <xs:element name="Rating" type="DescriptorType" minOccurs="0" maxOccurs="unbounded"/>
+         <xs:element name="Viewpoint" type="DescriptorType" minOccurs="0" maxOccurs="unbounded"/>
+         <xs:element name="ContentComponent" type="ContentComponentType" minOccurs="0" maxOccurs="unbounded"/>
+         <xs:element name="BaseURL" type="BaseURLType" minOccurs="0" maxOccurs="unbounded"/>
+         <xs:element name="SegmentBase" type="SegmentBaseType" minOccurs="0"/>
+         <xs:element name="SegmentList" type="SegmentListType" minOccurs="0"/>
+         <xs:element name="SegmentTemplate" type="SegmentTemplateType" minOccurs="0"/>
+         <xs:element name="Representation" type="RepresentationType" minOccurs="0" maxOccurs="unbounded"/>
+       </xs:sequence>
+       <xs:attribute ref="xlink:href"/>
+       <xs:attribute ref="xlink:actuate" default="onRequest"/>
+       <xs:attribute name="id" type="xs:unsignedInt"/>
+       <xs:attribute name="group" type="xs:unsignedInt"/>
+       <xs:attribute name="lang" type="xs:language"/>
+       <xs:attribute name="contentType" type="xs:string"/>
+       <xs:attribute name="par" type="RatioType"/>
+       <xs:attribute name="minBandwidth" type="xs:unsignedInt"/>
+       <xs:attribute name="maxBandwidth" type="xs:unsignedInt"/>
+       <xs:attribute name="minWidth" type="xs:unsignedInt"/>
+       <xs:attribute name="maxWidth" type="xs:unsignedInt"/>
+       <xs:attribute name="minHeight" type="xs:unsignedInt"/>
+       <xs:attribute name="maxHeight" type="xs:unsignedInt"/>
+       <xs:attribute name="minFrameRate" type="FrameRateType"/>
+       <xs:attribute name="maxFrameRate" type="FrameRateType"/>
+       <xs:attribute name="segmentAlignment" type="ConditionalUintType" default="false"/>
+       <xs:attribute name="subsegmentAlignment" type="ConditionalUintType" default="false"/>
+       <xs:attribute name="subsegmentStartsWithSAP" type="SAPType" default="0"/>
+       <xs:attribute name="bitstreamSwitching" type="xs:boolean"/>
+     </xs:extension>
+     </xs:complexContent>
+   </xs:complexType>
+   * */
+  export interface AdaptationSetType extends RepresentationBaseType {
+    readonly baseURLs?: BaseURLType[]                     // <xs:element name="BaseURL" type="BaseURLType" minOccurs="0" maxOccurs="unbounded"/>
+    // readonly SegmentBase:                              // <xs:element name="SegmentBase" type="SegmentBaseType" minOccurs="0"/>
+    // readonly SegmentList:                              // <xs:element name="SegmentList" type="SegmentListType" minOccurs="0"/>
+    // readonly SegmentTemplate:                          // <xs:element name="SegmentTemplate" type="SegmentTemplateType" minOccurs="0"/>
+    readonly representations?: RepresentationType[]       // <xs:element name="Representation" type="RepresentationType" minOccurs="0" maxOccurs="unbounded"/>
+    readonly id?: number                                  // <xs:attribute name="id" type="xs:unsignedInt"/>
+    readonly group?: number                               // <xs:attribute name="group" type="xs:unsignedInt"/>
+    readonly lang?: string                                // <xs:attribute name="lang" type="xs:language"/>
+    readonly contentType?: string                         // <xs:attribute name="contentType" type="xs:string"/>
+    readonly par?: RatioType                              // <xs:attribute name="par" type="RatioType"/>
+    readonly minBandwidth?: number                        // <xs:attribute name="minBandwidth" type="xs:unsignedInt"/>
+    readonly maxBandwidth?: number                        // <xs:attribute name="maxBandwidth" type="xs:unsignedInt"/>
+    readonly minWidth?: number                            // <xs:attribute name="minWidth" type="xs:unsignedInt"/>
+    readonly maxWidth?: number                            // <xs:attribute name="maxWidth" type="xs:unsignedInt"/>
+    readonly minHeight?: number                           // <xs:attribute name="minHeight" type="xs:unsignedInt"/>
+    readonly maxHeight?: number                           // <xs:attribute name="maxHeight" type="xs:unsignedInt"/>
+    readonly minFrameRate?: FrameRateType                 // <xs:attribute name="minFrameRate" type="FrameRateType"/>
+    readonly maxFrameRate?: FrameRateType                 // <xs:attribute name="maxFrameRate" type="FrameRateType"/>
+    // readonly bitstreamSwitching: boolean // 只能选择一个Representation
+  }
+
+  /** 表示一个媒体表示 (Representation)
+   <!--  Representation  -->
+   <xs:complexType name="RepresentationType">
+     <xs:complexContent>
+       <xs:extension base="RepresentationBaseType">
+         <xs:sequence>
+           <xs:element name="BaseURL" type="BaseURLType" minOccurs="0" maxOccurs="unbounded"/>
+           <xs:element name="SubRepresentation" type="SubRepresentationType" minOccurs="0" maxOccurs="unbounded"/>
+           <xs:element name="SegmentBase" type="SegmentBaseType" minOccurs="0"/>
+           <xs:element name="SegmentList" type="SegmentListType" minOccurs="0"/>
+           <xs:element name="SegmentTemplate" type="SegmentTemplateType" minOccurs="0"/>
+         </xs:sequence>
+         <xs:attribute name="id" type="StringNoWhitespaceType" use="required"/>
+         <xs:attribute name="bandwidth" type="xs:unsignedInt" use="required"/>
+         <xs:attribute name="qualityRanking" type="xs:unsignedInt"/>
+         <xs:attribute name="dependencyId" type="StringVectorType"/>
+         <xs:attribute name="mediaStreamStructureId" type="StringVectorType"/>
+       </xs:extension>
+     </xs:complexContent>
+   </xs:complexType>
+   * */
+  export interface RepresentationType extends RepresentationBaseType {
+    readonly baseURLs?: BaseURLType[]                       // <xs:element name="BaseURL" type="BaseURLType" minOccurs="0" maxOccurs="unbounded"/>
+    // readonly SubRepresentation:                          // <xs:element name="SubRepresentation" type="SubRepresentationType" minOccurs="0" maxOccurs="unbounded"/>
+    // readonly SegmentBase:                                // <xs:element name="SegmentBase" type="SegmentBaseType" minOccurs="0"/>
+    // readonly SegmentList:                                // <xs:element name="SegmentList" type="SegmentListType" minOccurs="0"/>
+    readonly segmentTemplate?: SegmentTemplateType          // <xs:element name="SegmentTemplate" type="SegmentTemplateType" minOccurs="0"/>
+    readonly id: StringNoWhitespaceType                     // <xs:attribute name="id" type="StringNoWhitespaceType" use="required"/>
+    readonly bandwidth: number                              // <xs:attribute name="bandwidth" type="xs:unsignedInt" use="required"/>
+    /** qualityRanking
+     类型：整数
+     作用：表示该 Representation 在 同一 AdaptationSet 内的画质等级顺序
+     含义：
+      - 值越小 → 画质越低（低码率/低分辨率）
+      - 值越大 → 画质越高（高码率/高分辨率）
+     用途：
+      - 播放器可根据网络状况选择 合适的 Representation
+      - 对于 多层增强（Scalable Video Coding, SVC），这个属性指示层次优先级
+
+     示例:
+     <Representation id="360p" bandwidth="800000" qualityRanking="1"/>
+     <Representation id="720p" bandwidth="2000000" qualityRanking="2"/>
+     <Representation id="1080p" bandwidth="5000000" qualityRanking="3"/>
+     */
+    readonly qualityRanking?: number                        // <xs:attribute name="qualityRanking" type="xs:unsignedInt"/>
+
+    /** dependencyId
+     类型：字符串或列表
+     作用：指示该 Representation 依赖于哪个 Representation / SubRepresentation
+     含义：
+      - 在 SVC 或多轨道增强中，有些层或轨道必须依赖其他轨道
+      - 播放器在请求该 Representation 时，必须先获取依赖的 Representation
+     用途：
+      - 支持 分层解码
+      - 避免播放器单独播放增强层导致无法解码
+
+     示例:
+     <Representation id="enhancement" dependencyId="base"/>
+     */
+    readonly dependencyId?: StringVectorType                // <xs:attribute name="dependencyId" type="StringVectorType"/>
+
+    /** mediaStreamStructureId
+     类型：字符串
+     作用：标识该 Representation 属于哪条媒体流结构（stream structure）
+     含义：
+      - 主要用于 复杂 DASH 流 / 多角度 / 多轨道同步
+      - 同一 mediaStreamStructureId 下的 Representation 共享解码时间轴或流逻辑
+     用途：
+      - 播放器可以把属于同一结构的 Representation 当作一条逻辑流处理
+      - 有助于 多轨道同步播放 或 多层视频解码
+
+     示例:
+     <Representation id="360p" mediaStreamStructureId="video_stream1"/>
+     <Representation id="base" mediaStreamStructureId="video_stream1"/>
+     <Representation id="enhancement" mediaStreamStructureId="video_stream1"/>
+     */
+    readonly mediaStreamStructureId?: StringVectorType      // <xs:attribute name="mediaStreamStructureId" type="StringVectorType"/>
+  }
+
+  /**
+   <!--  Segment information base  -->
+   <xs:complexType name="SegmentBaseType">
+     <xs:sequence>
+       <xs:element name="Initialization" type="URLType" minOccurs="0"/>
+       <xs:element name="RepresentationIndex" type="URLType" minOccurs="0"/>
+       <xs:any namespace="##other" processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+     </xs:sequence>
+     <xs:attribute name="timescale" type="xs:unsignedInt"/>
+     <xs:attribute name="presentationTimeOffset" type="xs:unsignedLong"/>
+     <xs:attribute name="indexRange" type="xs:string"/>
+     <xs:attribute name="indexRangeExact" type="xs:boolean" default="false"/>
+     <xs:attribute name="availabilityTimeOffset" type="xs:double"/>
+     <xs:attribute name="availabilityTimeComplete" type="xs:boolean"/>
+     <xs:anyAttribute namespace="##other" processContents="lax"/>
+   </xs:complexType>
+   * */
+  export interface SegmentBaseType {
+    readonly initialization?: URLType             // <xs:element name="Initialization" type="URLType" minOccurs="0"/>
+    readonly RepresentationIndex?: URLType        // <xs:element name="RepresentationIndex" type="URLType" minOccurs="0"/>
+    // readonly timescale?: number                // <xs:attribute name="timescale" type="xs:unsignedInt"/>
+  }
+
+  /**
+   <!--  Multiple Segment information base  -->
+   <xs:complexType name="MultipleSegmentBaseType">
+     <xs:complexContent>
+       <xs:extension base="SegmentBaseType">
+         <xs:sequence>
+           <xs:element name="SegmentTimeline" type="SegmentTimelineType" minOccurs="0"/>
+           <xs:element name="BitstreamSwitching" type="URLType" minOccurs="0"/>
+         </xs:sequence>
+         <xs:attribute name="duration" type="xs:unsignedInt"/>
+         <xs:attribute name="startNumber" type="xs:unsignedInt"/>
+       </xs:extension>
+     </xs:complexContent>
+   </xs:complexType>
+   * */
+  export interface MultipleSegmentBaseType extends SegmentBaseType {
+    readonly segmentTimeline?: SegmentTimelineType    // <xs:element name="SegmentTimeline" type="SegmentTimelineType" minOccurs="0"/>
+    readonly duration?: number                        // <xs:attribute name="duration" type="xs:unsignedInt"/>
+    readonly startNumber?: number                     // <xs:attribute name="startNumber" type="xs:unsignedInt"/>
+  }
+
+  /**
+   <!--  Segment Template  -->
+   <xs:complexType name="SegmentTemplateType">
+     <xs:complexContent>
+      <xs:extension base="MultipleSegmentBaseType">
+       <xs:attribute name="media" type="xs:string"/>
+       <xs:attribute name="index" type="xs:string"/>
+       <xs:attribute name="initialization" type="xs:string"/>
+       <xs:attribute name="bitstreamSwitching" type="xs:string"/>
+      </xs:extension>
+     </xs:complexContent>
+   </xs:complexType>
+   * */
+  export interface SegmentTemplateType extends MultipleSegmentBaseType {
+    readonly media?: string                           // <xs:attribute name="media" type="xs:string"/>
+    readonly index?: string                           // <xs:attribute name="index" type="xs:string"/>
+    readonly initialization?: string                  // <xs:attribute name="initialization" type="xs:string"/>
+    // readonly bitstreamSwitching?: string
+  }
+
+  /**
+   <!--  Segment Timeline  -->
+   <xs:complexType name="SegmentTimelineType">
+     <xs:sequence>
+       <xs:element name="S" minOccurs="1" maxOccurs="unbounded">
+         <xs:complexType>
+           <xs:attribute name="t" type="xs:unsignedLong"/>
+           <xs:attribute name="n" type="xs:unsignedLong" use="optional"/>
+           <xs:attribute name="d" type="xs:unsignedLong" use="required"/>
+           <xs:attribute name="r" type="xs:integer" use="optional" default="0"/>
+           <xs:anyAttribute namespace="##other" processContents="lax"/>
+         </xs:complexType>
+       </xs:element>
+       <xs:any namespace="##other" processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+     </xs:sequence>
+     <xs:anyAttribute namespace="##other" processContents="lax"/>
+   </xs:complexType>
+   * */
+  export interface SegmentTimelineType {
+    readonly ss: S[]    // <xs:element name="S" minOccurs="1" maxOccurs="unbounded">
+  }
+
+  /**
+   <xs:element name="S" minOccurs="1" maxOccurs="unbounded">
+     <xs:complexType>
+     <xs:attribute name="t" type="xs:unsignedLong"/>
+     <xs:attribute name="n" type="xs:unsignedLong" use="optional"/>
+     <xs:attribute name="d" type="xs:unsignedLong" use="required"/>
+     <xs:attribute name="r" type="xs:integer" use="optional" default="0"/>
+     <xs:anyAttribute namespace="##other" processContents="lax"/>
+     </xs:complexType>
+   </xs:element>
+
+   | 属性    | use        | 是否必填 | 说明                                                     |
+   | ----- | ---------- | ---- | ------------------------------------------------------ |
+   | **t** | 默认（未写 use） | 可选   | 分片起始时间（单位由 timescale 定义），如果不写，播放器会按前一个 `<S>` 的结束时间顺序排列 |
+   | **n** | optional   | 可选   | 重复次数，表示该 `<S>` 元素重复多少次 `d` 时长的片段，默认值是 0（即不重复）          |
+   | **d** | required   | 必填   | 该分片的持续时间（duration），单位是 timescale 指定的时间单位               |
+   | **r** | optional   | 可选   | 重复次数（可为负数表示倒序重复），默认 0                                  |
+
+   注意：在 XSD 中，use="required" → 必填；
+   use="optional" 或未写 use → 可选；
+   default="值" → 如果不出现，使用默认值。
+   * */
+  export interface S {
+    readonly t?: number   // <xs:attribute name="t" type="xs:unsignedLong"/>
+    readonly n?: number   // <xs:attribute name="n" type="xs:unsignedLong" use="optional"/>
+    readonly d: number    // <xs:attribute name="d" type="xs:unsignedLong" use="required"/>
+    readonly r: number    // <xs:attribute name="r" type="xs:integer" use="optional" default="0"/>
+  }
+
+  /**
+   <!--  Presentation Type enumeration  -->
+   <xs:simpleType name="PresentationType">
+     <xs:restriction base="xs:string">
+       <xs:enumeration value="static"/>
+       <xs:enumeration value="dynamic"/>
+     </xs:restriction>
+   </xs:simpleType>
+   * */
+  export enum PresentationType {
+    STATIC = 'static',
+    DYNAMIC = 'dynamic',
+  }
+
+  /**
+   <!--  Base URL  -->
+   <xs:complexType name="BaseURLType">
+     <xs:simpleContent>
+       <xs:extension base="xs:anyURI">
+         <xs:attribute name="serviceLocation" type="xs:string"/>
+         <xs:attribute name="byteRange" type="xs:string"/>
+         <xs:attribute name="availabilityTimeOffset" type="xs:double"/>
+         <xs:attribute name="availabilityTimeComplete" type="xs:boolean"/>
+         <xs:anyAttribute namespace="##other" processContents="lax"/>
+       </xs:extension>
+     </xs:simpleContent>
+   </xs:complexType>
+   * */
+  export interface BaseURLType {
+
+  }
+
+  export interface FrameRateType {
+
+  }
+
+  export interface StringVectorType {
+
+  }
+
+  /**
+   <xs:simpleType name="StringNoWhitespaceType">
+     <xs:restriction base="xs:string">
+      <xs:pattern value="[^\r\n\t \p{Z}]*"/>
+     </xs:restriction>
+   </xs:simpleType>
+   */
+  export type StringNoWhitespaceType = string
+
+  export interface RatioType {
+
+  }
+
+  export interface URLType {
+
+  }
+}
