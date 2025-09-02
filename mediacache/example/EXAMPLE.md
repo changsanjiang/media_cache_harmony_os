@@ -18,7 +18,7 @@ examples/
 │   └── IdentifierPreprocPage.ets       # 资产标识预处理
 └── hls/
     ├── HlsVariantSelectionPage.ets     # HLS variant 选择, 在多码率流中选择一个(比如高码率或低码率)
-    └── HlsRenditionSelectionPage.ets   # HLS rendition 选择, 在音轨/字幕等多 renditions 中选择一个(比如选择西班牙语音轨，或者英语字幕)
+    └── HlsRenditionSelectionPage.ets   # HLS rendition 选择, 在音轨/字幕等多 renditions 中进行选择(比如选择英语音轨，英语字幕)
 ```
 
 ___

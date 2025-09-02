@@ -1,5 +1,6 @@
 import { MCCopyFileConflictStrategy, MCMediaCache } from '../../Index';
 
+/** 导出到指定目录 */
 @ComponentV2
 export struct ExportPage {
   private mLoading: boolean = true;

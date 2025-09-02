@@ -1,5 +1,6 @@
 import { MCMediaCache } from '../../Index';
 
+/** 代理播放示例 */
 @ComponentV2
 export struct ProxyPlayPage {
   private mProxyUrl: string = '';
