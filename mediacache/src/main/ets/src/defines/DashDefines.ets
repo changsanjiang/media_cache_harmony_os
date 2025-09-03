@@ -407,11 +407,11 @@ export namespace DashDefines {
    </xs:complexType>
    * */
   export interface BaseURLType extends XmlElement {
-    readonly value: string
-    readonly aServiceLocation?: string             // <xs:attribute name="serviceLocation" type="xs:string"/>
-    readonly aByteRange?: string                   // <xs:attribute name="byteRange" type="xs:string"/>
-    readonly aAvailabilityTimeOffset?: number      // <xs:attribute name="availabilityTimeOffset" type="xs:double"/>
-    readonly aAvailabilityTimeComplete?: boolean   // <xs:attribute name="availabilityTimeComplete" type="xs:boolean"/>
+    readonly value: string                          // <BaseURL>http://cdn.example.com/video/</BaseURL>
+    readonly aServiceLocation?: string              // <xs:attribute name="serviceLocation" type="xs:string"/>
+    readonly aByteRange?: string                    // <xs:attribute name="byteRange" type="xs:string"/>
+    readonly aAvailabilityTimeOffset?: number       // <xs:attribute name="availabilityTimeOffset" type="xs:double"/>
+    readonly aAvailabilityTimeComplete?: boolean    // <xs:attribute name="availabilityTimeComplete" type="xs:boolean"/>
   }
 
   /**
