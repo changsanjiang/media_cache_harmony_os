@@ -1,3 +1,5 @@
+import { MCRange } from "../utils/MCRange"
+
 // https://standards.iso.org/ittf/PubliclyAvailableStandards/MPEG-DASH_schema_files/DASH-MPD.xsd
 export namespace DashDefines {
   // 因为目的是要代理请求, 所以在建立模型时不会对所有属性建模, 仅选择需要的属性进行建模
@@ -5,6 +7,10 @@ export namespace DashDefines {
   // `minOccurs="0", maxOccurs="1"` 定义基数（cardinality）为 0 或 1, 代表该子元素最多只能定义一个
   // `minOccurs="0" maxOccurs="unbounded"` 代表该子元素可以定义多个
   // `minOccurs="0"` 未定义maxOccurs时默认值是1, 最多只能出现一次
+
+  export interface XmlElement {
+    readonly xmlRange: MCRange
+  }
 
   /** MPD 根对象
    <!--  MPD: main element  -->
@@ -38,7 +44,7 @@ export namespace DashDefines {
      <xs:anyAttribute namespace="##other" processContents="lax"/>
    </xs:complexType>
    * */
-  export interface MPDtype {
+  export interface MPDtype extends XmlElement {
     readonly eBaseURLs?: BaseURLType[]       // <xs:element name="BaseURL" type="BaseURLType" minOccurs="0" maxOccurs="unbounded"/>
     readonly ePeriods?: PeriodType[]         // <xs:element name="Period" type="PeriodType" maxOccurs="unbounded"/>
     readonly aType: PresentationType         // <xs:attribute name="type" type="PresentationType" default="static"/>
@@ -68,7 +74,7 @@ export namespace DashDefines {
      <xs:anyAttribute namespace="##other" processContents="lax"/>
    </xs:complexType>
    * */
-  export interface PeriodType {
+  export interface PeriodType extends XmlElement {
     readonly eBaseURLs?: BaseURLType[]                 // <xs:element name="BaseURL" type="BaseURLType" minOccurs="0" maxOccurs="unbounded"/>
     // readonly SegmentBase:
     // readonly SegmentList:
@@ -106,7 +112,7 @@ export namespace DashDefines {
      <xs:anyAttribute namespace="##other" processContents="lax"/>
    </xs:complexType>
    * */
-  export interface RepresentationBaseType {
+  export interface RepresentationBaseType extends XmlElement {
     readonly aWidth?: number                   // <xs:attribute name="width" type="xs:unsignedInt"/>
     readonly aHeight?: number                  // <xs:attribute name="height" type="xs:unsignedInt"/>
     readonly aFrameRate?: FrameRateType        // <xs:attribute name="frameRate" type="FrameRateType"/>
@@ -274,7 +280,7 @@ export namespace DashDefines {
      <xs:anyAttribute namespace="##other" processContents="lax"/>
    </xs:complexType>
    * */
-  export interface SegmentBaseType {
+  export interface SegmentBaseType extends XmlElement {
     readonly eInitialization?: URLType             // <xs:element name="Initialization" type="URLType" minOccurs="0"/>
     readonly eRepresentationIndex?: URLType        // <xs:element name="RepresentationIndex" type="URLType" minOccurs="0"/>
     // readonly aTimescale?: number                // <xs:attribute name="timescale" type="xs:unsignedInt"/>
@@ -339,8 +345,8 @@ export namespace DashDefines {
      <xs:anyAttribute namespace="##other" processContents="lax"/>
    </xs:complexType>
    * */
-  export interface SegmentTimelineType {
-    readonly eSegments: SegmentTimelineEntry[]    // <xs:element name="S" minOccurs="1" maxOccurs="unbounded">
+  export interface SegmentTimelineType extends XmlElement {
+    readonly eSs: S[]    // <xs:element name="S" minOccurs="1" maxOccurs="unbounded">
   }
 
   /**
@@ -365,7 +371,7 @@ export namespace DashDefines {
    use="optional" 或未写 use → 可选；
    default="值" → 如果不出现，使用默认值。
    * */
-  export interface SegmentTimelineEntry {
+  export interface S extends XmlElement {
     readonly aT?: number   // <xs:attribute name="t" type="xs:unsignedLong"/>
     readonly aN?: number   // <xs:attribute name="n" type="xs:unsignedLong" use="optional"/>
     readonly aD: number    // <xs:attribute name="d" type="xs:unsignedLong" use="required"/>
@@ -400,7 +406,7 @@ export namespace DashDefines {
      </xs:simpleContent>
    </xs:complexType>
    * */
-  export interface BaseURLType {
+  export interface BaseURLType extends XmlElement {
     readonly value: string
     readonly aServiceLocation?: string             // <xs:attribute name="serviceLocation" type="xs:string"/>
     readonly aByteRange?: string                   // <xs:attribute name="byteRange" type="xs:string"/>
