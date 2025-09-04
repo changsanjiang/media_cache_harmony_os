@@ -12,21 +12,29 @@ namespace MCUtils {
     return record;
   }
 
-  // Map转为Record
-  export function mapToRecord(map: Map<string, string>): Record<string, string> {
-    return Object.fromEntries(map.entries()) as Record<string, string>;
+  // 将 Map 转回 Record
+  export function mapToRecord<K extends string | number | symbol, V>(map: Map<K, V>): Record<K, V> {
+    return Object.fromEntries(map.entries()) as Record<K, V>;
   }
 
-  // Record转为Map
-  export function recordToMap(record: Record<string, string>): Map<string, string> {
-    let myMap: Map<string, string> = new Map();
+  // 将 Record 转成 Map
+  export function recordToMap<K extends string | number | symbol, V>(record: Partial<Record<K, V>>): Map<K, V> {
+    const map = new Map<K, V>();
     for (const key in record) {
-      myMap.set(key, record[key]);
+      map.set(key as K, record[key] as V);
     }
-    return myMap;
+    return map;
   }
 
-  export function modifyRecord(record: Record<string, string>, key: string, value: string | undefined): Record<string, string> {
+  // 修改 Record
+  export function editRecord<K extends string | number | symbol, V>(record: Partial<Record<K, V>>, edit: (map: Map<K, V>) => void): Record<K, V> {
+    let map = recordToMap(record);
+    edit(map);
+    return mapToRecord(map);
+  }
+
+  // 设置值
+  export function setRecordValue<K extends string | number | symbol, V>(record: Partial<Record<K, V>>, key: K, value: V | undefined): Record<K, V> {
     let map = recordToMap(record);
     value ? map.set(key, value) : map.delete(key);
     return mapToRecord(map);

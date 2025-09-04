@@ -4,6 +4,8 @@ import { MCAssetManager } from '../asset/MCAssetManager';
 import MCAssetUtils from '../asset/MCAssetUtils';
 import { MCAssetPrefetchOptions } from '../defines/MCAssetPrefetchOptions';
 import { MCAssetType } from '../defines/MCAssetType';
+import { MCAbortController } from '../utils/MCAbortController';
+import MCUtils from '../utils/MCUtils';
 import { FILEAssetPrefetcher } from './FILEAssetPrefetcher';
 import { HLSAssetPrefetcher } from './HLSAssetPrefetcher';
 import { MCAssetPrefetchUtils } from './MCAssetPrefetchUtils';
@@ -30,23 +32,33 @@ export namespace MCAssetPrefetchManager {
     const asset = await MCAssetManager.getInstance().getAssetByProxyPath(proxyPath);
     MCAssetPrefetchUtils.checkAbortSignal(signal);
 
+    const prefetchAbortController = new MCAbortController();
+    const prefetchAbortSignal = prefetchAbortController.signal;
+    const prefetchOptions = MCUtils.setRecordValue(options, 'signal', prefetchAbortSignal) as MCAssetPrefetchOptions;
+
+    signal?.addEventListener('aborted', (e) => prefetchAbortController.abort(e));
+
     // 根据资产类型进行预加载
     try {
       asset.readwriteRetain();
       switch (asset.type) {
         case MCAssetType.FILE_BASED: {
           const prefetcher = new FILEAssetPrefetcher();
-          await prefetcher.prefetch(asset as FILEAsset, proxyPath, options);
+          await prefetcher.prefetch(asset as FILEAsset, proxyPath, prefetchOptions);
           break;
         }
         case MCAssetType.HLS: {
           const prefetcher = new HLSAssetPrefetcher();
-          await prefetcher.prefetch(asset as HLSAsset, proxyPath, options);
+          await prefetcher.prefetch(asset as HLSAsset, proxyPath, prefetchOptions);
           break;
         }
         default:
           throw new Error(`Unsupported type: ${asset.type}`);
       }
+    }
+    catch (e) {
+      prefetchAbortController.abort(e);
+      throw e as Error;
     }
     finally {
       asset.readwriteRelease();

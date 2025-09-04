@@ -19,7 +19,7 @@ export class FILEAssetExporter implements IMCAssetExporter<FILEAsset> {
     // 导出媒体
     const media = await asset.getMediaByProxyPath(proxyPath);
     MCAssetPrefetchUtils.checkAbortSignal(signal);
-    const headers = options?.additionalHeaders ? MCUtils.modifyRecord(options.additionalHeaders, 'range', undefined) : undefined;
+    const headers = options?.additionalHeaders ? MCUtils.setRecordValue(options.additionalHeaders, 'range', undefined) : undefined;
     const mediaRequest: IMCDataRequest = {
       requestTarget: proxyPath,
       headers: headers,

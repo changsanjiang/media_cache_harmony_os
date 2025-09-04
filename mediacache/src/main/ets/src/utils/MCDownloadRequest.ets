@@ -21,11 +21,11 @@ export class MCDownloadRequest {
   }
 
   setHeader(key: string, value?: string): void {
-    this.mHeaders = MCUtils.modifyRecord(this.mHeaders ? this.mHeaders : {}, key, value);
+    this.mHeaders = MCUtils.setRecordValue(this.mHeaders ? this.mHeaders : {}, key, value);
   }
 
   setCookie(key: string, value?: string): void {
-    this.mCookies = MCUtils.modifyRecord(this.mCookies ? this.mCookies : {}, key, value);
+    this.mCookies = MCUtils.setRecordValue(this.mCookies ? this.mCookies : {}, key, value);
   }
 
   // 'bytes=xxx-xxx'

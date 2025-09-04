@@ -275,7 +275,7 @@ export class HLSAssetPrefetcher implements IMCAssetPrefetcher<HLSAsset> {
       if ( byteRange ) {
         const reqRange = toRequestRange(byteRange);
         const reqRangeHeader = reqRange.toRangeHeader();
-        headers = MCUtils.modifyRecord(headers ?? {}, 'range', reqRangeHeader);
+        headers = MCUtils.setRecordValue(headers ?? {}, 'range', reqRangeHeader);
       }
 
       const request: IMCDataRequest = {

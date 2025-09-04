@@ -451,6 +451,11 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
           throw new Error(`Byte range access is not supported for the requested content. Request range: ${JSON.stringify(requestRange)}, Metadata: ${JSON.stringify(this.mMetadata)}`);
         }
 
+        const contentType = responseHeaders['content-type'];
+        if ( contentType && contentType != this.mMetadata?.contentType ) {
+          throw new Error(`Invalid server response: Mismatched content type. Expected: ${this.mMetadata?.contentType}, Actual: ${contentType}, Request: ${JSON.stringify(request)}, Metadata: ${JSON.stringify(this.mMetadata)}`);
+        }
+
         const contentRangeHeader = responseHeaders['content-range'];
         if ( contentRangeHeader === undefined ) {
           throw new Error(`Response headers missing 'content-range' for the given request. Request: ${JSON.stringify(request)}, Response Headers: ${JSON.stringify(responseHeaders)}`);

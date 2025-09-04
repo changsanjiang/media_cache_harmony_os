@@ -40,7 +40,7 @@ export class FILEAssetPrefetcher implements IMCAssetPrefetcher<FILEAsset> {
       while (reqOffset < prefetchSize) {
         const rangeStart = reqOffset;
         const rangeEnd = Math.min(reqOffset + chunkSize, prefetchSize) - 1;
-        const headers = MCUtils.modifyRecord(options?.additionalHeaders ?? { }, 'range', `bytes=${rangeStart}-${rangeEnd}`);
+        const headers = MCUtils.setRecordValue(options?.additionalHeaders ?? { }, 'range', `bytes=${rangeStart}-${rangeEnd}`);
         const request: IMCDataRequest = {
           requestTarget: proxyPath,
           headers: headers,
@@ -74,7 +74,7 @@ export class FILEAssetPrefetcher implements IMCAssetPrefetcher<FILEAsset> {
     }
     // 请求所有数据
     else {
-      const headers = options?.additionalHeaders ? MCUtils.modifyRecord(options.additionalHeaders, 'range', undefined) : undefined;
+      const headers = options?.additionalHeaders ? MCUtils.setRecordValue(options.additionalHeaders, 'range', undefined) : undefined;
       const request: IMCDataRequest = {
         requestTarget: proxyPath,
         headers: headers,
