@@ -8,7 +8,7 @@ export namespace DashDefines {
   // `minOccurs="0" maxOccurs="unbounded"` 代表该子元素可以定义多个
   // `minOccurs="0"` 未定义maxOccurs时默认值是1, 最多只能出现一次
 
-  export interface XmlElement {
+  export interface Element {
     readonly xmlRange: MCRange
   }
 
@@ -44,10 +44,10 @@ export namespace DashDefines {
      <xs:anyAttribute namespace="##other" processContents="lax"/>
    </xs:complexType>
    * */
-  export interface MPDtype extends XmlElement {
-    readonly eBaseURLs?: BaseURLType[]       // <xs:element name="BaseURL" type="BaseURLType" minOccurs="0" maxOccurs="unbounded"/>
-    readonly ePeriods?: PeriodType[]         // <xs:element name="Period" type="PeriodType" maxOccurs="unbounded"/>
-    readonly aType: PresentationType         // <xs:attribute name="type" type="PresentationType" default="static"/>
+  export interface MPDElement extends Element {
+    readonly eBaseURLs?: BaseURLElement[]       // <xs:element name="BaseURL" type="BaseURLType" minOccurs="0" maxOccurs="unbounded"/>
+    readonly ePeriods?: PeriodElement[]         // <xs:element name="Period" type="PeriodType" maxOccurs="unbounded"/>
+    readonly aType: PresentationType            // <xs:attribute name="type" type="PresentationType" default="static"/>
   }
 
   /** 一个 Period，DASH 流的时间分区
@@ -74,13 +74,14 @@ export namespace DashDefines {
      <xs:anyAttribute namespace="##other" processContents="lax"/>
    </xs:complexType>
    * */
-  export interface PeriodType extends XmlElement {
-    readonly eBaseURLs?: BaseURLType[]                 // <xs:element name="BaseURL" type="BaseURLType" minOccurs="0" maxOccurs="unbounded"/>
-    // readonly SegmentBase:
-    // readonly SegmentList:
-    // readonly SegmentTemplate:
-    readonly eAdaptationSets?: AdaptationSetType[]     // <xs:element name="AdaptationSet" type="AdaptationSetType" minOccurs="0" maxOccurs="unbounded"/>
-    readonly aId?: string                              // <xs:attribute name="id" type="xs:string"/>
+  export interface PeriodElement extends Element {
+    readonly eBaseURLs?: BaseURLElement[]                   // <xs:element name="BaseURL" type="BaseURLType" minOccurs="0" maxOccurs="unbounded"/>
+    // 暂不处理继承
+    // readonly eSegmentBase?: SegmentBaseElement              // <xs:element name="SegmentBase" type="SegmentBaseType" minOccurs="0"/>
+    // readonly eSegmentList?: SegmentListElement            // <xs:element name="SegmentList" type="SegmentListType" minOccurs="0"/>
+    // readonly eSegmentTemplate?: SegmentTemplateElement      // <xs:element name="SegmentTemplate" type="SegmentTemplateType" minOccurs="0"/>
+    readonly eAdaptationSets?: AdaptationSetElement[]       // <xs:element name="AdaptationSet" type="AdaptationSetType" minOccurs="0" maxOccurs="unbounded"/>
+    // readonly aId?: string                                 // <xs:attribute name="id" type="xs:string"/>
   }
 
   /**
@@ -112,7 +113,7 @@ export namespace DashDefines {
      <xs:anyAttribute namespace="##other" processContents="lax"/>
    </xs:complexType>
    * */
-  export interface RepresentationBaseType extends XmlElement {
+  export interface RepresentationBaseType extends Element {
     readonly aWidth?: number                   // <xs:attribute name="width" type="xs:unsignedInt"/>
     readonly aHeight?: number                  // <xs:attribute name="height" type="xs:unsignedInt"/>
     readonly aFrameRate?: FrameRateType        // <xs:attribute name="frameRate" type="FrameRateType"/>
@@ -162,25 +163,26 @@ export namespace DashDefines {
      </xs:complexContent>
    </xs:complexType>
    * */
-  export interface AdaptationSetType extends RepresentationBaseType {
-    readonly eBaseURLs?: BaseURLType[]                     // <xs:element name="BaseURL" type="BaseURLType" minOccurs="0" maxOccurs="unbounded"/>
+  export interface AdaptationSetElement extends RepresentationBaseType {
+    readonly eBaseURLs?: BaseURLElement[]                     // <xs:element name="BaseURL" type="BaseURLType" minOccurs="0" maxOccurs="unbounded"/>
+    // 暂不处理继承
     // readonly SegmentBase:                              // <xs:element name="SegmentBase" type="SegmentBaseType" minOccurs="0"/>
     // readonly SegmentList:                              // <xs:element name="SegmentList" type="SegmentListType" minOccurs="0"/>
     // readonly SegmentTemplate:                          // <xs:element name="SegmentTemplate" type="SegmentTemplateType" minOccurs="0"/>
-    readonly eRepresentations?: RepresentationType[]       // <xs:element name="Representation" type="RepresentationType" minOccurs="0" maxOccurs="unbounded"/>
-    readonly aId?: number                                  // <xs:attribute name="id" type="xs:unsignedInt"/>
-    readonly aGroup?: number                               // <xs:attribute name="group" type="xs:unsignedInt"/>
-    readonly aLang?: string                                // <xs:attribute name="lang" type="xs:language"/>
-    readonly aContentType?: string                         // <xs:attribute name="contentType" type="xs:string"/>
-    readonly aPar?: RatioType                              // <xs:attribute name="par" type="RatioType"/>
-    readonly aMinBandwidth?: number                        // <xs:attribute name="minBandwidth" type="xs:unsignedInt"/>
-    readonly aMaxBandwidth?: number                        // <xs:attribute name="maxBandwidth" type="xs:unsignedInt"/>
-    readonly aMinWidth?: number                            // <xs:attribute name="minWidth" type="xs:unsignedInt"/>
-    readonly aMaxWidth?: number                            // <xs:attribute name="maxWidth" type="xs:unsignedInt"/>
-    readonly aMinHeight?: number                           // <xs:attribute name="minHeight" type="xs:unsignedInt"/>
-    readonly aMaxHeight?: number                           // <xs:attribute name="maxHeight" type="xs:unsignedInt"/>
-    readonly aMinFrameRate?: FrameRateType                 // <xs:attribute name="minFrameRate" type="FrameRateType"/>
-    readonly aMaxFrameRate?: FrameRateType                 // <xs:attribute name="maxFrameRate" type="FrameRateType"/>
+    readonly eRepresentations?: RepresentationElement[]       // <xs:element name="Representation" type="RepresentationType" minOccurs="0" maxOccurs="unbounded"/>
+    // readonly aId?: number                                  // <xs:attribute name="id" type="xs:unsignedInt"/>
+    // readonly aGroup?: number                               // <xs:attribute name="group" type="xs:unsignedInt"/>
+    // readonly aLang?: string                                // <xs:attribute name="lang" type="xs:language"/>
+    // readonly aContentType?: string                         // <xs:attribute name="contentType" type="xs:string"/>
+    // readonly aPar?: RatioType                              // <xs:attribute name="par" type="RatioType"/>
+    // readonly aMinBandwidth?: number                        // <xs:attribute name="minBandwidth" type="xs:unsignedInt"/>
+    // readonly aMaxBandwidth?: number                        // <xs:attribute name="maxBandwidth" type="xs:unsignedInt"/>
+    // readonly aMinWidth?: number                            // <xs:attribute name="minWidth" type="xs:unsignedInt"/>
+    // readonly aMaxWidth?: number                            // <xs:attribute name="maxWidth" type="xs:unsignedInt"/>
+    // readonly aMinHeight?: number                           // <xs:attribute name="minHeight" type="xs:unsignedInt"/>
+    // readonly aMaxHeight?: number                           // <xs:attribute name="maxHeight" type="xs:unsignedInt"/>
+    // readonly aMinFrameRate?: FrameRateType                 // <xs:attribute name="minFrameRate" type="FrameRateType"/>
+    // readonly aMaxFrameRate?: FrameRateType                 // <xs:attribute name="maxFrameRate" type="FrameRateType"/>
     // readonly bitstreamSwitching: boolean // 只能选择一个Representation
   }
 
@@ -205,14 +207,14 @@ export namespace DashDefines {
      </xs:complexContent>
    </xs:complexType>
    * */
-  export interface RepresentationType extends RepresentationBaseType {
-    readonly eBaseURLs?: BaseURLType[]                       // <xs:element name="BaseURL" type="BaseURLType" minOccurs="0" maxOccurs="unbounded"/>
-    // readonly SubRepresentation:                          // <xs:element name="SubRepresentation" type="SubRepresentationType" minOccurs="0" maxOccurs="unbounded"/>
-    // readonly SegmentBase:                                // <xs:element name="SegmentBase" type="SegmentBaseType" minOccurs="0"/>
-    // readonly SegmentList:                                // <xs:element name="SegmentList" type="SegmentListType" minOccurs="0"/>
-    readonly eSegmentTemplate?: SegmentTemplateType          // <xs:element name="SegmentTemplate" type="SegmentTemplateType" minOccurs="0"/>
-    readonly aId: StringNoWhitespaceType                     // <xs:attribute name="id" type="StringNoWhitespaceType" use="required"/>
-    readonly aBandwidth: number                              // <xs:attribute name="bandwidth" type="xs:unsignedInt" use="required"/>
+  export interface RepresentationElement extends RepresentationBaseType {
+    readonly eBaseURLs?: BaseURLElement[]                     // <xs:element name="BaseURL" type="BaseURLType" minOccurs="0" maxOccurs="unbounded"/>
+    // readonly SubRepresentation:                            // <xs:element name="SubRepresentation" type="SubRepresentationType" minOccurs="0" maxOccurs="unbounded"/>
+    // readonly SegmentBase:                                  // <xs:element name="SegmentBase" type="SegmentBaseType" minOccurs="0"/>
+    // readonly SegmentList:                                  // <xs:element name="SegmentList" type="SegmentListType" minOccurs="0"/>
+    readonly eSegmentTemplate?: SegmentTemplateElement        // <xs:element name="SegmentTemplate" type="SegmentTemplateType" minOccurs="0"/>
+    readonly aId: StringNoWhitespaceType                      // <xs:attribute name="id" type="StringNoWhitespaceType" use="required"/>
+    readonly aBandwidth: number                               // <xs:attribute name="bandwidth" type="xs:unsignedInt" use="required"/>
     /** qualityRanking
      类型：整数
      作用：表示该 Representation 在 同一 AdaptationSet 内的画质等级顺序
@@ -280,9 +282,9 @@ export namespace DashDefines {
      <xs:anyAttribute namespace="##other" processContents="lax"/>
    </xs:complexType>
    * */
-  export interface SegmentBaseType extends XmlElement {
-    readonly eInitialization?: URLType             // <xs:element name="Initialization" type="URLType" minOccurs="0"/>
-    readonly eRepresentationIndex?: URLType        // <xs:element name="RepresentationIndex" type="URLType" minOccurs="0"/>
+  export interface SegmentBaseElement extends Element {
+    readonly eInitialization?: URLTypeElement             // <xs:element name="Initialization" type="URLType" minOccurs="0"/>
+    readonly eRepresentationIndex?: URLTypeElement        // <xs:element name="RepresentationIndex" type="URLType" minOccurs="0"/>
     // readonly aTimescale?: number                // <xs:attribute name="timescale" type="xs:unsignedInt"/>
   }
 
@@ -301,11 +303,29 @@ export namespace DashDefines {
      </xs:complexContent>
    </xs:complexType>
    * */
-  export interface MultipleSegmentBaseType extends SegmentBaseType {
-    readonly eSegmentTimeline?: SegmentTimelineType    // <xs:element name="SegmentTimeline" type="SegmentTimelineType" minOccurs="0"/>
+  export interface MultipleSegmentBaseType extends SegmentBaseElement {
+    readonly eSegmentTimeline?: SegmentTimelineElement    // <xs:element name="SegmentTimeline" type="SegmentTimelineType" minOccurs="0"/>
     readonly aDuration?: number                        // <xs:attribute name="duration" type="xs:unsignedInt"/>
     readonly aStartNumber?: number                     // <xs:attribute name="startNumber" type="xs:unsignedInt"/>
   }
+
+  // /**
+  //  <!--  Segment List  -->
+  //  <xs:complexType name="SegmentListType">
+  //    <xs:complexContent>
+  //      <xs:extension base="MultipleSegmentBaseType">
+  //      <xs:sequence>
+  //       <xs:element name="SegmentURL" type="SegmentURLType" minOccurs="0" maxOccurs="unbounded"/>
+  //      </xs:sequence>
+  //      <xs:attribute ref="xlink:href"/>
+  //      <xs:attribute ref="xlink:actuate" default="onRequest"/>
+  //      </xs:extension>
+  //    </xs:complexContent>
+  //  </xs:complexType>
+  //  * */
+  // export interface SegmentListElement extends MultipleSegmentBaseType {
+  //
+  // }
 
   /**
    <!--  Segment Template  -->
@@ -320,7 +340,7 @@ export namespace DashDefines {
      </xs:complexContent>
    </xs:complexType>
    * */
-  export interface SegmentTemplateType extends MultipleSegmentBaseType {
+  export interface SegmentTemplateElement extends MultipleSegmentBaseType {
     readonly aMedia?: string                           // <xs:attribute name="media" type="xs:string"/>
     readonly aIndex?: string                           // <xs:attribute name="index" type="xs:string"/>
     readonly aInitialization?: string                  // <xs:attribute name="initialization" type="xs:string"/>
@@ -345,8 +365,8 @@ export namespace DashDefines {
      <xs:anyAttribute namespace="##other" processContents="lax"/>
    </xs:complexType>
    * */
-  export interface SegmentTimelineType extends XmlElement {
-    readonly eSs: S[]    // <xs:element name="S" minOccurs="1" maxOccurs="unbounded">
+  export interface SegmentTimelineElement extends Element {
+    readonly eSs: SElement[]    // <xs:element name="S" minOccurs="1" maxOccurs="unbounded">
   }
 
   /**
@@ -371,7 +391,7 @@ export namespace DashDefines {
    use="optional" 或未写 use → 可选；
    default="值" → 如果不出现，使用默认值。
    * */
-  export interface S extends XmlElement {
+  export interface SElement extends Element {
     readonly aT?: number   // <xs:attribute name="t" type="xs:unsignedLong"/>
     readonly aN?: number   // <xs:attribute name="n" type="xs:unsignedLong" use="optional"/>
     readonly aD: number    // <xs:attribute name="d" type="xs:unsignedLong" use="required"/>
@@ -406,12 +426,15 @@ export namespace DashDefines {
      </xs:simpleContent>
    </xs:complexType>
    * */
-  export interface BaseURLType extends XmlElement {
+  export interface BaseURLElement extends Element {
+    // 注意 value 中可能包含换行
+    // 在使用时要记得 trim();
     readonly value: string                          // <BaseURL>http://cdn.example.com/video/</BaseURL>
-    readonly aServiceLocation?: string              // <xs:attribute name="serviceLocation" type="xs:string"/>
+    readonly valueXmlRange: MCRange
+    // readonly aServiceLocation?: string              // <xs:attribute name="serviceLocation" type="xs:string"/>
     readonly aByteRange?: string                    // <xs:attribute name="byteRange" type="xs:string"/>
-    readonly aAvailabilityTimeOffset?: number       // <xs:attribute name="availabilityTimeOffset" type="xs:double"/>
-    readonly aAvailabilityTimeComplete?: boolean    // <xs:attribute name="availabilityTimeComplete" type="xs:boolean"/>
+    // readonly aAvailabilityTimeOffset?: number       // <xs:attribute name="availabilityTimeOffset" type="xs:double"/>
+    // readonly aAvailabilityTimeComplete?: boolean    // <xs:attribute name="availabilityTimeComplete" type="xs:boolean"/>
   }
 
   /**
@@ -465,7 +488,7 @@ export namespace DashDefines {
      <xs:anyAttribute namespace="##other" processContents="lax"/>
    </xs:complexType>
    * */
-  export interface URLType {
+  export interface URLTypeElement {
     readonly aSourceURL?: AnyURI   // <xs:attribute name="sourceURL" type="xs:anyURI"/>
     readonly aRange?: string       // <xs:attribute name="range" type="xs:string"/>
   }
