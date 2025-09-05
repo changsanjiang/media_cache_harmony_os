@@ -1,4 +1,4 @@
-import { MCLogLevel, MCLogModule, MCMediaCache, XmlUtils } from '@sj/mediacache';
+import { MCLogLevel, MCLogModule, MCMediaCache, DashParser, XmlUtils } from '@sj/mediacache';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { router } from '@kit.ArkUI';
 import BuildProfile from 'BuildProfile';
@@ -148,10 +148,10 @@ struct Index {
 
   async testDash() {
     const xmlText = `<?xml version="1.0" encoding="utf-8"?>
-<h1/>
+<!-- This is an example of an XML comment. -->
 <MPD xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:xlink="http://www.w3.org/1999/xlink" xsi:schemaLocation="urn:mpeg:DASH:schema:MPD:2011 http://standards.iso.org/ittf/PubliclyAvailableStandards/MPEG-DASH_schema_files/DASH-MPD.xsd" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT9M21.7S" maxSegmentDuration="PT5.0S"
  minBufferTime="PT15.1S">
-<ProgramInformation> </ProgramInformation>
+<ProgramInformation id="0"> </ProgramInformation>
 <ServiceDescription id="0"> </ServiceDescription>
 <BaseURL>http://cdn.example1.com/video/</BaseURL><BaseURL>
   http://cdn.example2.com/video/
@@ -206,7 +206,11 @@ struct Index {
 </MPD>`;
     console.log(`AAAA: TestDash`)
 
-    XmlUtils.parseXmlToTree(xmlText)
+    // const nodeTree = XmlUtils.parseXmlToTree(xmlText)
+    // console.log(`AAAA: ${nodeTree}`);
+
+    const element = DashParser.parse(xmlText);
+    console.log(`AAAA: ${element}`);
 
     // const mpd = DashParser.parse(xmlText);
     // console.log(`AAAA: mpd=${JSON.stringify(mpd)}`)

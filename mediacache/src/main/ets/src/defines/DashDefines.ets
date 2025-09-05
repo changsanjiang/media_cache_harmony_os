@@ -163,7 +163,8 @@ export namespace DashDefines {
      </xs:complexContent>
    </xs:complexType>
    * */
-  export interface AdaptationSetElement extends RepresentationBaseType {
+  // export interface AdaptationSetElement extends RepresentationBaseType {
+  export interface AdaptationSetElement extends Element {
     readonly eBaseURLs?: BaseURLElement[]                     // <xs:element name="BaseURL" type="BaseURLType" minOccurs="0" maxOccurs="unbounded"/>
     // 暂不处理继承
     // readonly SegmentBase:                              // <xs:element name="SegmentBase" type="SegmentBaseType" minOccurs="0"/>
@@ -173,7 +174,7 @@ export namespace DashDefines {
     // readonly aId?: number                                  // <xs:attribute name="id" type="xs:unsignedInt"/>
     // readonly aGroup?: number                               // <xs:attribute name="group" type="xs:unsignedInt"/>
     // readonly aLang?: string                                // <xs:attribute name="lang" type="xs:language"/>
-    // readonly aContentType?: string                         // <xs:attribute name="contentType" type="xs:string"/>
+    readonly aContentType?: string                         // <xs:attribute name="contentType" type="xs:string"/>
     // readonly aPar?: RatioType                              // <xs:attribute name="par" type="RatioType"/>
     // readonly aMinBandwidth?: number                        // <xs:attribute name="minBandwidth" type="xs:unsignedInt"/>
     // readonly aMaxBandwidth?: number                        // <xs:attribute name="maxBandwidth" type="xs:unsignedInt"/>
@@ -245,7 +246,7 @@ export namespace DashDefines {
      示例:
      <Representation id="enhancement" dependencyId="base"/>
      */
-    readonly aDependencyId?: StringVectorType                // <xs:attribute name="dependencyId" type="StringVectorType"/>
+    // readonly aDependencyId?: StringVectorType                // <xs:attribute name="dependencyId" type="StringVectorType"/>
 
     /** mediaStreamStructureId
      类型：字符串
@@ -262,7 +263,7 @@ export namespace DashDefines {
      <Representation id="base" mediaStreamStructureId="video_stream1"/>
      <Representation id="enhancement" mediaStreamStructureId="video_stream1"/>
      */
-    readonly aMediaStreamStructureId?: StringVectorType      // <xs:attribute name="mediaStreamStructureId" type="StringVectorType"/>
+    // readonly aMediaStreamStructureId?: StringVectorType      // <xs:attribute name="mediaStreamStructureId" type="StringVectorType"/>
   }
 
   /**

@@ -6,5 +6,5 @@ export { MCCopyFileConflictStrategy } from './src/main/ets/src/defines/MCCopyFil
 export { HLSVariantStreamSelectionHandler, HLSRenditionSelectionHandler, HLSDefines } from  './src/main/ets/src/defines/HLSDefines';
 
 // TODO('下一步需要移除, 当前测试时使用')
-export { DashParser } from './src/main/ets/src/asset/dash/DashParser';
-export { XmlUtils } from './src/main/ets/src/asset/dash/XmlUtils';
+export { DashParser } from './src/main/ets/src/asset/dash/DashParser2';
+export { XmlUtils } from './src/main/ets/src/asset/dash/XmlUtils2';

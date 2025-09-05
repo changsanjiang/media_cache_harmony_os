@@ -2,27 +2,19 @@ import { MCRange } from "../../utils/MCRange"
 import { util, xml } from '@kit.ArkTS';
 
 export namespace XmlUtils {
-
   /** XML 元素节点 */
   export interface XmlElementNode {
     readonly name: string;
     readonly depth: number;
-    readonly startLineNumber: number;
-    readonly startColumnNumber: number;
-
-    endLineNumber?: number;
-    endColumnNumber?: number;
-
-    // 整个元素在原始 xml 中的范围（从 '<' 到匹配的结束 '>' 之后）
-    xmlRange?: MCRange;
+    readonly children: XmlElementNode[]
 
     // 直接文本节点（不含子元素标签）的内容与范围
     innerText?: string;
-    innerTextRange?: MCRange;
-    innerTextLineNumber?: number;
-    innerTextColumnNumber?: number;
+    innerTextRange?: Range;
 
-    children: XmlElementNode[]
+    range?: Range;                     // 整个元素的范围
+    startTagRange?: Range;             // <tag ...> 的范围
+    endTagRange?: Range;               // </tag> 的范围（自闭合元素可为空）
   }
 
   /** 解析后的 XML 元素 */
@@ -31,6 +23,16 @@ export namespace XmlUtils {
     attributes: Record<string, string>; // 属性集合
     innerText?: string;                  // innerText，如果有
     innerTextRange?: MCRange;            // innerText 在原始片段中的范围
+  }
+
+  interface Position {
+    line: number;
+    column: number;
+  }
+
+  interface Range {
+    start: Position;
+    end: Position;
   }
 
   /** 构建 element 树 */
@@ -43,25 +45,28 @@ export namespace XmlUtils {
     const root: XmlElementNode = {
       name: "",
       depth: 0,
-      startLineNumber: 0,
-      startColumnNumber: 0,
       children: []
     };
 
     const xmlTextLines = xmlText.split(/\r?\n/);
+
+    const prevPosition: Position = {
+      line: 0,
+      column: 0,
+    };
 
     const stack: XmlElementNode[] = [root];
     const options: xml.ParseOptions = {
       supportDoctype: true,
       ignoreNameSpace: true,
       tokenValueCallbackFunction: (key, value) => {
+        console.log(`AAAA: key=${xml.EventType[key]}, [${value.getLineNumber()}, ${value.getColumnNumber()}]`)
+
         switch (key) {
           case xml.EventType.START_TAG: {
             const element: XmlElementNode = {
               name: value.getName(),
               depth: value.getDepth(),
-              startLineNumber: value.getLineNumber(),
-              startColumnNumber: value.getColumnNumber(),
               children: []
             };
             // 将新节点加入栈顶父节点的 children
@@ -69,6 +74,17 @@ export namespace XmlUtils {
             parent.children.push(element);
             // 当前节点入栈
             stack.push(element);
+
+            element.startTagRange = {
+              start: {
+                line: prevPosition.line,
+                column: prevPosition.column
+              },
+              end: {
+                line: value.getLineNumber(),
+                column: value.getColumnNumber(),
+              }
+            }
             break;
           }
 
@@ -76,20 +92,29 @@ export namespace XmlUtils {
             // 弹出栈顶节点，记录结束行列
             const element = stack.pop();
             if ( element ) {
-              element.endLineNumber = value.getLineNumber();
-              element.endColumnNumber = value.getColumnNumber();
-
-              element.xmlRange = getXmlElementRange(
-                element.name,
-                xmlText,
-                xmlTextLines,
-                element.startLineNumber,
-                element.startColumnNumber,
-                element.endLineNumber,
-                element.endColumnNumber
-              );
-
-              // element.innerTextRange =
+              // 判断是否是自闭标签
+              const endIndex = positionToIndex(xmlTextLines, value.getLineNumber(), value.getColumnNumber());
+              const substr = xmlText.substring(0, endIndex);
+              const isSelfClosingTag = substr.endsWith("/>");
+              if ( !isSelfClosingTag ) {
+                element.endTagRange = {
+                  start: {
+                    line: prevPosition.line,
+                    column: prevPosition.column
+                  },
+                  end: {
+                    line: value.getLineNumber(),
+                    column: value.getColumnNumber(),
+                  }
+                };
+                element.range = {
+                  start: element.startTagRange?.start!,
+                  end: element.endTagRange.end,
+                }
+              }
+              else {
+                element.range = element.startTagRange;
+              }
             }
             break;
           }
@@ -99,8 +124,16 @@ export namespace XmlUtils {
             const parent = stack[stack.length - 1];
             if ( parent ) {
               parent.innerText = value.getText();
-              parent.innerTextLineNumber = value.getLineNumber();
-              parent.innerTextColumnNumber = value.getColumnNumber();
+              parent.innerTextRange = {
+                start: {
+                  line: prevPosition.line,
+                  column: prevPosition.column
+                },
+                end: {
+                  line: value.getLineNumber(),
+                  column: value.getColumnNumber(),
+                }
+              }
             }
             break;
           }
@@ -108,6 +141,9 @@ export namespace XmlUtils {
           default:
             break;
         }
+
+        prevPosition.line = value.getLineNumber();
+        prevPosition.column = value.getColumnNumber();
         return true;
       }
     };
