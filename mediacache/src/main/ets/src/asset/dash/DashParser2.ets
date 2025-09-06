@@ -189,8 +189,57 @@ export namespace DashParser {
       throw new Error("xxx");
     }
 
+    const segmentTemplateNode = segmentTemplateNodes[0];
 
-    throw new Error("xxx");
+    return {
+      // eInitialization:
+      // eRepresentationIndex:
+      eSegmentTimeline: parseSegmentTimeline(segmentTemplateNode),
+      aDuration: toInt(segmentTemplateNode.attributes?.get("duration")),
+      aStartNumber: toInt(segmentTemplateNode.attributes?.get("startNumber")),
+      aMedia: segmentTemplateNode.attributes?.get("media"),
+      aIndex: segmentTemplateNode.attributes?.get("index"),
+      aInitialization: segmentTemplateNode.attributes?.get("initialization"),
+      xmlRange: segmentTemplateNode.range!
+    };
+  }
+
+  /** 解析 SegmentTimeline 节点 */
+  function parseSegmentTimeline(parentNode: XmlUtils.XmlElementNode): DashDefines.SegmentTimelineElement | undefined {
+    const segmentTimelineNodes = XmlUtils.findDirectChildrenByTagName(parentNode, "SegmentTemplate");
+    if ( segmentTimelineNodes.length == 0 ) {
+      return undefined;
+    }
+
+    if ( segmentTimelineNodes.length > 1 ) {
+      throw new Error("xxx");
+    }
+
+    const segmentTimelineNode = segmentTimelineNodes[0];
+    return {
+      eSs: parseSs(segmentTimelineNode),
+      xmlRange: segmentTimelineNode.range!,
+    }
+  }
+
+  /** 解析所有的 S 节点 */
+  function parseSs(parentNode: XmlUtils.XmlElementNode): DashDefines.SElement[] {
+    const sNodes = XmlUtils.findDirectChildrenByTagName(parentNode, "S");
+    if ( sNodes.length == 0 ) {
+      throw new Error("xxx");
+    }
+    return sNodes.map(node => parseS(node));
+  }
+
+  /** 解析 S 节点 */
+  function parseS(sNode: XmlUtils.XmlElementNode): DashDefines.SElement {
+    return {
+      aT: toInt(sNode.attributes?.get("t")),
+      aN: toInt(sNode.attributes?.get("n")),
+      aD: toInt(sNode.attributes?.get("d"))!,
+      aR: toInt(sNode.attributes?.get("r"))!,
+      xmlRange: sNode.range!,
+    };
   }
 
   function toInt(valueStr?: string): number | undefined {
