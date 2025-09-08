@@ -1,9 +1,9 @@
 import { DashDefines } from '../../defines/DashDefines';
-import { XmlUtils } from './XmlUtils2';
+import { XmlUtils } from './XmlUtils';
 
-export namespace DashParser {
+export namespace DashUtils {
   /** MPD 解析 */
-  export function parse(xmlText: string): DashDefines.MPDElement {
+  export function parse(xmlText: string): DashDefines.MPD {
     const nodeTree = XmlUtils.parseXmlToTree(xmlText);
     const mpdNodes = XmlUtils.findDirectChildrenByTagName(nodeTree, "MPD");
     const mpdNode = mpdNodes && mpdNodes.length == 1 ? mpdNodes[0] : undefined;
@@ -27,7 +27,6 @@ export namespace DashParser {
       eBaseURLs: baseURLs,
       ePeriods: periods,
       aType: DashDefines.PresentationType.STATIC,
-      xmlRange: mpdNode.range!
     };
   }
 
@@ -39,7 +38,7 @@ export namespace DashParser {
    *  <BaseURL>...</BaseURL>
    * </Parent>
    * */
-  function parseBaseURLs(parentNode: XmlUtils.XmlElementNode): DashDefines.BaseURLElement[] | undefined {
+  function parseBaseURLs(parentNode: DashDefines.XmlNode): DashDefines.BaseURL[] | undefined {
     const baseURLNodes = XmlUtils.findDirectChildrenByTagName(parentNode, "BaseURL");
     if ( baseURLNodes.length == 0 ) {
       return undefined;
@@ -54,7 +53,7 @@ export namespace DashParser {
    *  http://cdn.example.com/video/
    * </BaseURL>
    * */
-  function parseBaseURL(baseURLNode: XmlUtils.XmlElementNode): DashDefines.BaseURLElement {
+  function parseBaseURL(baseURLNode: DashDefines.XmlNode): DashDefines.BaseURL {
     const value = baseURLNode.innerText;
     const valueXmlRange = baseURLNode.innerTextRange;
     if ( !value || !valueXmlRange ) {
@@ -66,7 +65,6 @@ export namespace DashParser {
       value: value,
       valueXmlRange: valueXmlRange,
       aByteRange: byteRange,
-      xmlRange: baseURLNode.range!
     };
   }
 
@@ -78,7 +76,7 @@ export namespace DashParser {
    *  <Period>...</Period>
    * </Parent>
    * */
-  function parsePeriods(parentNode: XmlUtils.XmlElementNode): DashDefines.PeriodElement[] | undefined {
+  function parsePeriods(parentNode: DashDefines.XmlNode): DashDefines.Period[] | undefined {
     const periodNodes = XmlUtils.findDirectChildrenByTagName(parentNode, "Period");
     if ( periodNodes.length == 0 ) {
       return undefined;
@@ -91,13 +89,12 @@ export namespace DashParser {
    * xmlText:
    * <Period>...</Period>
    * */
-  function parsePeriod(periodNode: XmlUtils.XmlElementNode): DashDefines.PeriodElement {
+  function parsePeriod(periodNode: DashDefines.XmlNode): DashDefines.Period {
     const baseURLs = parseBaseURLs(periodNode);
     const adaptationSets = parseAdaptationSets(periodNode);
     return {
       eBaseURLs: baseURLs,
       eAdaptationSets: adaptationSets,
-      xmlRange: periodNode.range!,
     }
   }
 
@@ -109,7 +106,7 @@ export namespace DashParser {
    *  <AdaptationSet contentType="audio">...</AdaptationSet>
    * </Parent>
    * */
-  function parseAdaptationSets(parentNode: XmlUtils.XmlElementNode): DashDefines.AdaptationSetElement[] | undefined {
+  function parseAdaptationSets(parentNode: DashDefines.XmlNode): DashDefines.AdaptationSet[] | undefined {
     const adaptationSetNodes = XmlUtils.findDirectChildrenByTagName(parentNode, "AdaptationSet");
     if ( adaptationSetNodes.length == 0 ) {
       return undefined;
@@ -121,13 +118,12 @@ export namespace DashParser {
    *
    * <AdaptationSet contentType="video">...</AdaptationSet>
    * */
-  function parseAdaptationSet(adaptationSetNode: XmlUtils.XmlElementNode): DashDefines.AdaptationSetElement {
+  function parseAdaptationSet(adaptationSetNode: DashDefines.XmlNode): DashDefines.AdaptationSet {
     const baseURLs = parseBaseURLs(adaptationSetNode);
     const representations = parseRepresentations(adaptationSetNode);
     return {
       eBaseURLs: baseURLs,
       eRepresentations: representations,
-      xmlRange: adaptationSetNode.range!,
       aContentType: adaptationSetNode.attributes?.get("contentType")
     }
   }
@@ -140,7 +136,7 @@ export namespace DashParser {
    *  <Representation>...</Representation>
    * </Parent>
    * */
-  function parseRepresentations(parentNode: XmlUtils.XmlElementNode): DashDefines.RepresentationElement[] | undefined {
+  function parseRepresentations(parentNode: DashDefines.XmlNode): DashDefines.Representation[] | undefined {
     const representationNodes = XmlUtils.findDirectChildrenByTagName(parentNode, "Representation");
     if ( representationNodes.length == 0 ) {
       return undefined;
@@ -152,7 +148,7 @@ export namespace DashParser {
    *
    * <Representation id="360p" bandwidth="800000" qualityRanking="1"/>
    * */
-  function parseRepresentation(representationNode: XmlUtils.XmlElementNode): DashDefines.RepresentationElement {
+  function parseRepresentation(representationNode: DashDefines.XmlNode): DashDefines.Representation {
     const baseURLs = parseBaseURLs(representationNode);
     const segmentTemplate = parseSegmentTemplate(representationNode);
 
@@ -169,7 +165,6 @@ export namespace DashParser {
       aMimeType: representationNode.attributes?.get("mimeType"),
       aSegmentProfiles: representationNode.attributes?.get("segmentProfiles"),
       aCodecs: representationNode.attributes?.get("codecs"),
-      xmlRange: representationNode.range!,
     };
   }
 
@@ -179,7 +174,7 @@ export namespace DashParser {
   // }
 
   /** 解析 SegmentTemplate 节点 */
-  function parseSegmentTemplate(parentNode: XmlUtils.XmlElementNode): DashDefines.SegmentTemplateElement | undefined {
+  function parseSegmentTemplate(parentNode: DashDefines.XmlNode): DashDefines.SegmentTemplate | undefined {
     const segmentTemplateNodes = XmlUtils.findDirectChildrenByTagName(parentNode, "SegmentTemplate");
     if ( segmentTemplateNodes.length == 0 ) {
       return undefined;
@@ -200,12 +195,11 @@ export namespace DashParser {
       aMedia: segmentTemplateNode.attributes?.get("media"),
       aIndex: segmentTemplateNode.attributes?.get("index"),
       aInitialization: segmentTemplateNode.attributes?.get("initialization"),
-      xmlRange: segmentTemplateNode.range!
     };
   }
 
   /** 解析 SegmentTimeline 节点 */
-  function parseSegmentTimeline(parentNode: XmlUtils.XmlElementNode): DashDefines.SegmentTimelineElement | undefined {
+  function parseSegmentTimeline(parentNode: DashDefines.XmlNode): DashDefines.SegmentTimeline | undefined {
     const segmentTimelineNodes = XmlUtils.findDirectChildrenByTagName(parentNode, "SegmentTemplate");
     if ( segmentTimelineNodes.length == 0 ) {
       return undefined;
@@ -218,12 +212,11 @@ export namespace DashParser {
     const segmentTimelineNode = segmentTimelineNodes[0];
     return {
       eSs: parseSs(segmentTimelineNode),
-      xmlRange: segmentTimelineNode.range!,
     }
   }
 
   /** 解析所有的 S 节点 */
-  function parseSs(parentNode: XmlUtils.XmlElementNode): DashDefines.SElement[] {
+  function parseSs(parentNode: DashDefines.XmlNode): DashDefines.S[] {
     const sNodes = XmlUtils.findDirectChildrenByTagName(parentNode, "S");
     if ( sNodes.length == 0 ) {
       throw new Error("xxx");
@@ -232,13 +225,12 @@ export namespace DashParser {
   }
 
   /** 解析 S 节点 */
-  function parseS(sNode: XmlUtils.XmlElementNode): DashDefines.SElement {
+  function parseS(sNode: DashDefines.XmlNode): DashDefines.S {
     return {
       aT: toInt(sNode.attributes?.get("t")),
       aN: toInt(sNode.attributes?.get("n")),
       aD: toInt(sNode.attributes?.get("d"))!,
       aR: toInt(sNode.attributes?.get("r"))!,
-      xmlRange: sNode.range!,
     };
   }
 

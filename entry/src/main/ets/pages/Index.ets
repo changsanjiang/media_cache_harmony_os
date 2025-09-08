@@ -1,4 +1,4 @@
-import { MCLogLevel, MCLogModule, MCMediaCache, DashParser, XmlUtils } from '@sj/mediacache';
+import { MCLogLevel, MCLogModule, MCMediaCache, DashUtils, XmlUtils } from '@sj/mediacache';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { router } from '@kit.ArkUI';
 import BuildProfile from 'BuildProfile';
@@ -209,10 +209,10 @@ struct Index {
     // const nodeTree = XmlUtils.parseXmlToTree(xmlText)
     // console.log(`AAAA: ${nodeTree}`);
 
-    const element = DashParser.parse(xmlText);
+    const element = DashUtils.parse(xmlText);
     console.log(`AAAA: ${element}`);
 
-    // const mpd = DashParser.parse(xmlText);
+    // const mpd = DashUtils.parse(xmlText);
     // console.log(`AAAA: mpd=${JSON.stringify(mpd)}`)
     //
     // const urls = XmlUtils.findElementRanges(xmlText, "BaseURL");
