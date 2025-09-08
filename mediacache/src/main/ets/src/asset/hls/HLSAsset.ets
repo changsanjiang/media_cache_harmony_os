@@ -18,8 +18,8 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
   private mMedias: Map<string, IMCMedia> = new Map();
   private mPlaylists: Map<string, HLSPlaylist> = new Map();
   private mDir: string;
-  private mInitPromises: Map<string, Promise<IMCMedia>> = new Map();
   private mAbortController = new MCAbortController();
+  private mSerialPromise: Promise<void> = Promise.resolve();
 
   constructor(id: string, dir: string) {
     super();
@@ -57,24 +57,7 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
   }
 
   private async getMedia(mediaId: string, mediaKind: MCMediaKind): Promise<IMCMedia> {
-    let media: IMCMedia | undefined = this.mMedias.get(mediaId);
-    if ( media === undefined ) {
-      let promise = this.mInitPromises.get(mediaId);
-      if ( promise === undefined ) {
-        promise = this.initializeMedia(mediaId, mediaKind);
-        this.mInitPromises.set(mediaId, promise);
-        try {
-          media = await promise;
-        }
-        finally {
-          this.mInitPromises.delete(mediaId);
-        }
-      }
-      else {
-        media = await promise;
-      }
-    }
-    return media;
+    return this.enqueueTask(async () => this.mMedias.get(mediaId) ?? this.initializeMedia(mediaId, mediaKind));
   }
 
   /** Load playlist if content already assembled; */
@@ -230,6 +213,20 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
 
   async abort(error?: Error | undefined): Promise<void> {
     return this.mAbortController.abort(error);
+  }
+
+  private enqueueTask<T>(task: () => Promise<T>): Promise<T> {
+    const run = this.mSerialPromise
+      .catch((err: Error) => {  // swallow previous errors
+        console.error('Previous task failed:', err);
+      })
+      .then(() => task());
+
+    // Maintain the chain
+    this.mSerialPromise = run.then(() => {}, (err: Error) => {
+      console.error('Previous task failed:', err);
+    });
+    return run;
   }
 }
 

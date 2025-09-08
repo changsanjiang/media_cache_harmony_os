@@ -10,7 +10,11 @@ import { url } from '@kit.ArkTS';
 ///
 /// #EXT-X-STREAM-INF:BANDWIDTH=3000000,AVERAGE-BANDWIDTH=2500000,RESOLUTION=1280x720,FRAME-RATE=60,CODECS="avc1.4d4028,mp4a.40.2",AUDIO="audio-group",SUBTITLES="subs-group"
 /// https://example.com/high/index.m3u8
-export type HLSVariantStreamSelectionHandler = (playlistOriginalUrl: string, playlistCurrentUrl: string, variantStreams: HLSDefines.VariantStreamItem[]) => HLSDefines.VariantStreamItem;
+export type HLSVariantStreamSelectionHandler = (
+  playlistOriginalUrl: string,
+  playlistCurrentUrl: string,
+  variantStreams: HLSDefines.VariantStreamItem[]
+) => HLSDefines.VariantStreamItem;
 
 /// AUDIO 二选一
 /// #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="English",LANGUAGE="en",URI="audio_eng.m3u8"
@@ -19,7 +23,12 @@ export type HLSVariantStreamSelectionHandler = (playlistOriginalUrl: string, pla
 /// SUBTITLES 二选一
 /// #EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="English",LANGUAGE="en",URI="subs_eng.m3u8"
 /// #EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="Spanish",LANGUAGE="es",URI="subs_spa.m3u8"
-export type HLSRenditionSelectionHandler = (playlistOriginalUrl: string, playlistCurrentUrl: string, renditionGroup: HLSDefines.RenditionGroup, renditionType: HLSDefines.RenditionType) => HLSDefines.RenditionItem;
+export type HLSRenditionSelectionHandler = (
+  playlistOriginalUrl: string,
+  playlistCurrentUrl: string,
+  renditionGroup: HLSDefines.RenditionGroup,
+  renditionType: HLSDefines.RenditionType
+) => HLSDefines.RenditionItem;
 
 /** https://datatracker.ietf.org/doc/html/rfc8216#section-4; */
 export namespace HLSDefines {
