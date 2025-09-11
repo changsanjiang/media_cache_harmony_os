@@ -1,13 +1,31 @@
 import { HLSDefines, MCMediaCache } from '../../Index';
 
+/** HLS rendition 选择, 在音轨/字幕等多 renditions 中进行选择(比如选择英语音轨，英语字幕) */
 @ComponentV2
 export struct HlsRenditionSelectionPage {
   private mPlaybackUrl: string = "";
 
   async aboutToAppear(): Promise<void> {
+    // 初始化 MCMediaCache;
+    // 请在 app 启动后初始化一次即可;
     await MCMediaCache.prepare(this.getUIContext().getHostContext()!);
 
-    // 设置 Rendition 选择逻辑
+    // 配置衍生流选择器, 选择需要缓存的流(同一种类型只能选择一个流)
+    // 同样在 app 启动后配置一次即可;
+    //
+    // 如以下内容:
+    // #EXTM3U
+    // #EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=640x360
+    // low.m3u8
+    // #EXT-X-STREAM-INF:BANDWIDTH=1400000,RESOLUTION=1280x720
+    // high.m3u8
+    //
+    // #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="English",LANGUAGE="en",URI="eng.m3u8"
+    // #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="French",LANGUAGE="fr",URI="fre.m3u8"
+    //
+    // 其中:
+    // - low.m3u8、high.m3u8 → Variant Streams（变体流，多码率视频）
+    // - eng.m3u8、fre.m3u8 → Renditions（衍生流，如多语言音轨）
     MCMediaCache.setRenditionSelectionHandler((playlistOriginalUrl, playlistCurrentUrl, renditionGroup, renditionType) => {
       console.info(`[HLS Rendition] playlistOriginalUrl=${playlistOriginalUrl}, type=${renditionType}, groupId=${renditionGroup.groupId}`);
 

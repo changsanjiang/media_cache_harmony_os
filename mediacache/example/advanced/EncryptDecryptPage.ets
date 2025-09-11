@@ -1,13 +1,17 @@
 import { MCMediaCache } from '../../Index';
 
+/** 加解密处理 */
 @ComponentV2
 export struct EncryptDecryptPage {
   private mPlaybackUrl: string = '';
 
   async aboutToAppear(): Promise<void> {
+    // 初始化 MCMediaCache;
+    // 请在 app 启动后初始化一次即可;
     await MCMediaCache.prepare(this.getUIContext().getHostContext()!);
 
     // 设置数据加密逻辑
+    // 在 app 启动后配置一次即可;
     MCMediaCache.setDataEncryptHandler(async (url, offset, data) => {
       let view = new Uint8Array(data);
       for (let i = 0; i < view.length; i++) {
@@ -17,6 +21,7 @@ export struct EncryptDecryptPage {
     });
 
     // 设置数据解密逻辑
+    // 在 app 启动后配置一次即可;
     MCMediaCache.setDataDecryptHandler(async (url, offset, data) => {
       let view = new Uint8Array(data);
       for (let i = 0; i < view.length; i++) {

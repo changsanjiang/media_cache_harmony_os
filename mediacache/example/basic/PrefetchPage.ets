@@ -1,5 +1,6 @@
 import { MCMediaCache } from '../../Index';
 
+/** 预缓存示例 */
 @ComponentV2
 export struct PrefetchPage {
   private mLoading: boolean = true;
