@@ -29,18 +29,18 @@ namespace MCDownload {
       .then((res: rcp.Response) => toResponse(res));
   }
 
-  export function download(request: MCDownloadRequest, options: Options): Promise<Response> {
+  export function download(request: MCDownloadRequest, options?: Options): Promise<Response> {
     const config: rcp.Configuration = {
       tracing: {
         httpEventsHandler: {
-          onHeaderReceive: options.headersReceive,
-          onDataReceive: options.dataReceive,
-          onDataEnd: options.dataEnd,
+          onHeaderReceive: options?.headersReceive,
+          onDataReceive: options?.dataReceive,
+          onDataEnd: options?.dataEnd,
         }
       }
     };
     const req = new rcp.Request(request.url, 'GET', request.headers, undefined, request.cookies, undefined, config);
-    options.signal?.addEventListener('aborted', () => session.cancel(req));
+    options?.signal?.addEventListener('aborted', () => session.cancel(req));
     return session.fetch(req)
       .then((res: rcp.Response) => toResponse(res));
   }

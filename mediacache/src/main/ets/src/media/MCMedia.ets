@@ -137,9 +137,47 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   }
 
   // 探测元数据
-  probe(proxyRequest: IMCDataRequest, signal?: MCAbortSignal): Promise<IMCMediaMetadata> {
+  async probe(proxyRequest: IMCDataRequest, signal?: MCAbortSignal): Promise<IMCMediaMetadata> {
     if ( this.mMetadata ) {
       return Promise.resolve(this.mMetadata);
+    }
+
+    if ( this.mProxyHandler ) {
+      const url = MCProxyURLUtils.parseTargetUrl(proxyRequest.requestTarget);
+      if (!url) {
+        throw new MCDataResponseError(400, "Failed to restore URL from the provided request.");
+      }
+      const request = new MCDownloadRequest(url, proxyRequest.headers);
+      const response = await MCDownload.download(request, { signal: signal });
+      if ( this.mMetadata ) {
+        return this.mMetadata;
+      }
+
+      if ( response.statusCode !== 200 ) {
+        throw new MCDataResponseError(500, 'Content proxy mode requires HTTP status code 200'); // 内容代理仅支持200请求;
+      }
+
+      const data = response.body;
+      const content = await this.createContentAt(0, true);
+      if ( data ) {
+        const proxyData = await this.mProxyHandler(response.requestUrl, response.currentUrl, data);
+        const writer = content.createWriter();
+        await writer.writeData(proxyData, proxyData.byteLength);
+        await writer.close();
+      }
+      content.finalize();
+
+      const contentTypeHeader: string | undefined = response.headers['content-type'];
+      const contentType = contentTypeHeader || 'application/octet-stream';
+      const totalLength = content.length;
+      const metadata: IMCMediaMetadata = {
+        contentType: contentType,
+        totalLength: totalLength,
+        byteRangeAccessSupported: true,
+      };
+      this.mMetadata = metadata;
+      this.mMetadataFileSize = await this.mContentProvider.saveMetadata(metadata);
+      return metadata;
     }
 
     const proxyPath = proxyRequest.requestTarget;
