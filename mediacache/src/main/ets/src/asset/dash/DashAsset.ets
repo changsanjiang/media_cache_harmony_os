@@ -13,7 +13,7 @@ export class DashAsset extends MCReadwriteReference<DashAsset> implements IMCAss
   }
 
   readonly id: string;
-  type: MCAssetType = MCAssetType.FILE_BASED; // TODO: next 增加 DASH 类型;
+  type: MCAssetType = MCAssetType.DASH;
   isCached: boolean = false;
   currentCachedSize: number = 0;
 

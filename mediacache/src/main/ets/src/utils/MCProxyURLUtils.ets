@@ -47,7 +47,7 @@ export namespace MCProxyURLUtils {
     }
 
     const parts = proxyPath.split(`/`);
-    if (parts.length < 7) {
+    if ( parts.length < 7 ) {
       throw new Error(`Malformed proxy target: expected at least 7 parts in the proxyPath, but got ${parts.length}. Target: "${proxyPath}".`);
     }
 

@@ -41,7 +41,7 @@ export namespace MCAssetProxyUtils {
   }
 
   /**
-   * 确定资产类型; 判断 url 指向是基于文件的媒体还是一个 HLS 资源;
+   * 确定资产类型; 判断 url 指向是基于文件的媒体还是一个 HLS 资源 或 DASH 资源;
    * */
   async function determineAssetType(resUrl: string): Promise<MCAssetType> {
     if ( MCConfigs.assetTypeResolver ) {
