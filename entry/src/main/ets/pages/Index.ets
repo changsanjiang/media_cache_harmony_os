@@ -232,12 +232,13 @@ struct Index {
     // console.log(`AAAA: ${nodeTree}`);
 
     try {
-      const result = new DashParser().parse(xmlText, {
-        mpdOriginalUrl: "http://mpdOriginalUrl",
-        mpdCurrentUrl: "http://mpdCurrentUrl",
-        shouldTrim: true,
-        representationSelectionHandler: (mpdOriginalUrl, mpdCurrentUrl, adaptationSet) => adaptationSet.eRepresentations![0]
-      });
+      const result = DashParser.proxy(
+        xmlText,
+        "assetId",
+        "http://mpdOriginalUrl",
+        "http://mpdCurrentUrl"
+      );
+
       console.log(`AAAA: ${result}`);
     }
     catch (e) {

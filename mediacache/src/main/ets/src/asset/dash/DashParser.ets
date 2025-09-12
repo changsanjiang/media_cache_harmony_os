@@ -1,6 +1,9 @@
-import { DashXmlNode, DashElement, DashRepresentationSelectionHandler } from '../../defines/DashDefines';
+import { DashElement, DashRepresentationSelectionHandler, DashXmlNode } from '../../defines/DashDefines';
+import { HLSDefines } from '../../defines/HLSDefines';
 import MCArrayUtils from '../../utils/MCArrayUtils';
 import { MCRange } from '../../utils/MCRange';
+import MCUtils from '../../utils/MCUtils';
+import { DashPath } from './DashPath';
 import { XmlParser } from './XmlParser';
 
 export interface DashParseOptions {
@@ -16,7 +19,7 @@ export interface DashParseResult {
 }
 
 export namespace DashParser {
-  /** MPD 解析 */
+  /** MPD 解析; */
   export function parse(rawXml: string): DashParseResult {
     const parseResult = XmlParser.parse(rawXml);
     const mpdNode = parseResult.rootNode;
@@ -34,10 +37,7 @@ export namespace DashParser {
     }
   }
 
-  /** MPD 代理;
-   *
-   *
-   * */
+  /** MPD 代理; */
   export function proxy(
     rawXml: string,
     assetId: string,
@@ -54,45 +54,100 @@ export namespace DashParser {
     }
 
     const mpdNode = mpd.node;
-    let resultXml = compactXml
+    let proxyXml = compactXml
     for ( const p of periods ) {
-      const adaptationSets = p.eAdaptationSets;
-      if ( !adaptationSets || adaptationSets.length === 0 ) continue;
-
-      // 处理多码率流, 只能保留一个流进行缓存
-      for ( const set of adaptationSets ) {
-        if ( !set.eRepresentations || set.eRepresentations.length <= 1 ) continue;
-
-        // 选择要保留的 Representation
-        const selectedRepresentation = selectRepresentation(originalUrl, currentUrl, set, representationSelectionHandler);
-
-        const firstRepresentation = set.eRepresentations[0];
-        const lastRepresentation = set.eRepresentations[set.eRepresentations.length - 1];
-
-        // 计算全局起始索引
-        const firstStartIndex = XmlParser.computeStartIndex(mpdNode, firstRepresentation.node);
-        const selectedStartIndex = firstRepresentation != selectedRepresentation ? XmlParser.computeStartIndex(mpdNode, selectedRepresentation.node) : firstStartIndex;
-        const lastStartIndex = lastRepresentation != selectedRepresentation ? XmlParser.computeStartIndex(mpdNode, lastRepresentation.node) : selectedStartIndex;
-
-        // 前面需要删除的范围
-        const prevRange = new MCRange(firstStartIndex, selectedStartIndex - firstStartIndex);
-
-        // 后面需要删除的范围
-        const nextLocation = selectedStartIndex + selectedRepresentation.node.length;
-        const nextLength = lastStartIndex + lastRepresentation.node.length - nextLocation;
-        const nextRange = new MCRange(nextLocation, nextLength);
-        resultXml = removeRange(resultXml, nextRange);
-        resultXml = removeRange(resultXml, prevRange);
-
-        // 更新 AdaptationSet，只保留选中的 Representation
-        set.eRepresentations = [selectedRepresentation];
-      }
-
+      // 修剪, 多码率流仅能保留一个进行缓存
+      proxyXml = trimPeriod(proxyXml, p, mpdNode, originalUrl, currentUrl, representationSelectionHandler);
 
       // 处理 BaseURL, 替换为代理地址
-      
+      proxyXml = proxyPeriod(proxyXml, mpd, p, currentUrl, assetId);
     }
-    return resultXml;
+    return proxyXml;
+  }
+
+  function trimPeriod(
+    proxyXml: string,
+    period: _Period,
+    mpdNode: DashXmlNode,
+    originalUrl: string,
+    currentUrl: string,
+    representationSelectionHandler?: DashRepresentationSelectionHandler
+  ): string {
+    const adaptationSets = period.eAdaptationSets;
+    if ( !adaptationSets || adaptationSets.length === 0 )
+      return proxyXml;
+
+    // 处理多码率流, 只能保留一个流进行缓存
+    for ( const set of adaptationSets ) {
+      if ( !set.eRepresentations || set.eRepresentations.length <= 1 ) continue;
+
+      // 选择要保留的 Representation
+      const selectedRepresentation = selectRepresentation(originalUrl, currentUrl, set, representationSelectionHandler);
+
+      const firstRepresentation = set.eRepresentations[0];
+      const lastRepresentation = set.eRepresentations[set.eRepresentations.length - 1];
+
+      // 计算全局起始索引
+      const firstStartIndex = XmlParser.computeStartIndex(mpdNode, firstRepresentation.node);
+      const selectedStartIndex = firstRepresentation != selectedRepresentation ? XmlParser.computeStartIndex(mpdNode, selectedRepresentation.node) : firstStartIndex;
+      const lastStartIndex = lastRepresentation != selectedRepresentation ? XmlParser.computeStartIndex(mpdNode, lastRepresentation.node) : selectedStartIndex;
+
+      // 前面需要删除的范围
+      const prevRange = new MCRange(firstStartIndex, selectedStartIndex - firstStartIndex);
+
+      // 后面需要删除的范围
+      const nextLocation = selectedStartIndex + selectedRepresentation.node.length;
+      const nextLength = lastStartIndex + lastRepresentation.node.length - nextLocation;
+      const nextRange = new MCRange(nextLocation, nextLength);
+      proxyXml = removeRange(proxyXml, nextRange);
+      proxyXml = removeRange(proxyXml, prevRange);
+
+      // 更新 AdaptationSet，只保留选中的 Representation
+      set.eRepresentations = [selectedRepresentation];
+    }
+    return proxyXml;
+  }
+
+  function proxyPeriod(
+    proxyXml: string,
+    mpd: _MPD,
+    period: _Period,
+    currentUrl: string,
+    assetId: string,
+  ): string {
+    const mpdNode = mpd.node;
+    const periodNode = period.node;
+
+    const allBaseURLNodes = XmlParser.findAllNodes(periodNode, "BaseURL").reverse()
+    for ( const baseURLNode of allBaseURLNodes ) {
+      const uri = baseURLNode.innerText
+      if ( !uri ) continue;
+
+      const absUrl = HLSDefines.getAbsoluteUrl(uri, currentUrl);
+      const proxyPath = DashPath.generateBaseURLProxyPath(absUrl, assetId);
+      const absStartIndex = XmlParser.computeStartIndex(mpdNode, baseURLNode);
+      const location = absStartIndex + baseURLNode.startTagEndIndex;
+      const length = uri.length;
+
+      XmlParser.replaceInnerText(baseURLNode, proxyPath);
+      proxyXml = MCUtils.replaceCharactersInRange(proxyXml, [location, length], proxyPath);
+    }
+
+    if ( period.eBaseURLs?.length == 0 ) {
+      // 插入一个 BaseURL 的代理节点
+      const proxyPath = DashPath.generateBaseURLProxyPath(currentUrl, assetId);
+      const result = XmlParser.createBaseURLNode(proxyPath);
+      const baseURLNode = result.node;
+      const baseURLCompactXml = result.compactXml;
+
+      period.eBaseURLs = [new _BaseURL(baseURLNode)];
+      XmlParser.insertBaseURLNode(periodNode, baseURLNode);
+      const absStartIndex = XmlParser.computeStartIndex(mpdNode, baseURLNode);
+
+      const location = absStartIndex;
+      proxyXml = MCUtils.replaceCharactersInRange(proxyXml, [location, 0], baseURLCompactXml);
+    }
+    return proxyXml;
   }
 
   // adaptationSet.eRepresentations 必定有值, 并且 length > 1;
@@ -136,7 +191,7 @@ export namespace DashParser {
   }
 
   class _Period extends _DashElement implements DashElement.Period {
-    readonly eBaseURLs?: readonly _BaseURL[];
+    eBaseURLs?: readonly _BaseURL[];
     readonly eAdaptationSets?: readonly _AdaptationSet[] | undefined;
 
     constructor(node: DashXmlNode) {

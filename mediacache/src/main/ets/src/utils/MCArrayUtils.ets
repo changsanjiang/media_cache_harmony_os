@@ -32,6 +32,10 @@ namespace MCArrayUtils {
     }
     return -1;
   }
+
+  export function add<T>(array: T[], value: T, index?: number): void {
+    array.splice(Math.min(index ?? array.length, array.length), 0, value);
+  }
 }
 
 export default MCArrayUtils;

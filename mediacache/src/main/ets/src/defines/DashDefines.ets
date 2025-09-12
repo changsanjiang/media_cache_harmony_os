@@ -13,7 +13,7 @@ export interface DashXmlNode {
   readonly tagName: string;
   readonly attributes?: Map<string, string>;
   readonly children: DashXmlNode[];
-  readonly innerText?: string;
+  readonly innerText?: string; // trimmed
 
   /** <tag ...> 的结束位置（相对节点自身起始位置） */
   readonly startTagEndIndex: number;

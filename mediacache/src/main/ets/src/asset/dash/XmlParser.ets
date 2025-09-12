@@ -1,15 +1,23 @@
 import { util, xml } from '@kit.ArkTS';
 import { DashXmlNode } from '../../defines/DashDefines';
+import MCArrayUtils from '../../utils/MCArrayUtils';
 
 export namespace XmlParser {
   export const xmlDeclaration = '<?xml version="1.0" encoding="utf-8"?>';
 
   /** 解析结果 */
   export interface XmlParseResult {
-    /** 压缩后的 XML 文本 */
-    compactXml: string;
     /** 根节点 */
     rootNode: DashXmlNode;
+    /** 压缩后的 XML 文本 */
+    compactXml: string;
+  }
+
+  export interface CreatedXmlNodeResult {
+    /** 节点对象（可插入到树中） */
+    node: DashXmlNode;
+    /** 该节点对应的 XML 文本 */
+    compactXml: string;
   }
 
   /**
@@ -128,6 +136,16 @@ export namespace XmlParser {
     return parent.children.filter(node => node.tagName === tagName);
   }
 
+  /** 遍历整棵树(DFS), 返回所有 tagName 的节点; */
+  export function findAllNodes(
+    root: DashXmlNode,
+    tagName: string
+  ): DashXmlNode[] {
+    const result: DashXmlNode[] = [];
+    findAllNodesRecursive(root, tagName, result);
+    return result;
+  }
+
   /**
    * 计算 descendant 节点在整个 XML 文本中的绝对起始索引
    * @param root 根节点
@@ -139,6 +157,61 @@ export namespace XmlParser {
     descendant: DashXmlNode,
   ): number {
     return computeStartIndexRecursive(root, descendant, xmlDeclaration.length);
+  }
+
+  export function replaceInnerText(
+    node: DashXmlNode,
+    innerText: string
+  ) {
+    const n = node as _DashXmlNode;
+    if ( n.innerText ) {
+      n.length -= n.innerText.length;
+    }
+
+    n.innerText = innerText;
+    n.length = innerText.length;
+  }
+
+  export function createBaseURLNode(
+    url: string,
+  ): CreatedXmlNodeResult {
+    const tagName = "BaseURL";
+    const startTag = `<${tagName}>`;
+    const endTag = `</${tagName}>`;
+    const compactXml = `${startTag}${url}${endTag}`;
+
+    const node = new _DashXmlNode(tagName);
+    node.startTagEndIndex = startTag.length;
+    node.innerText = url;
+    node.innerTextStartIndex = node.startTagEndIndex;
+    node.length = compactXml.length;
+    return {
+      node,
+      compactXml,
+    };
+  }
+
+  export function insertBaseURLNode(
+    periodNode: DashXmlNode,
+    baseURLNode: DashXmlNode,
+  ) {
+    // insert to node tree
+    MCArrayUtils.add(periodNode.children, baseURLNode, 0);
+
+    // update length
+    const p = periodNode as _DashXmlNode;
+    p.length += baseURLNode.length;
+  }
+
+  /** DFS */
+  function findAllNodesRecursive(node: DashXmlNode, tagName: string, result: DashXmlNode[]) {
+    if ( node.tagName === tagName ) {
+      result.push(node);
+    }
+
+    for ( const child of node.children ) {
+      findAllNodesRecursive(child, tagName, result);
+    }
   }
 
   /** DFS, Depth-First Search
