@@ -56,7 +56,6 @@ export class MCHttpResponse implements IMCHttpResponse {
       let proxyPath = this.mRequest.requestTarget;
       if ( proxyPath.startsWith(MCConsts.ROUTE_PATH_PROXY_BASED) ) {
         proxyPath = await MCProxyBaseUtils.convertToProxyPath(proxyPath);
-        this.mRequest.requestTarget = proxyPath;
       }
 
       if ( proxyPath.startsWith(MCConsts.ROUTE_PATH_PROXY_URL) ) {
@@ -77,7 +76,7 @@ export class MCHttpResponse implements IMCHttpResponse {
       }
 
       this.mFetcher = new MCAssetDataFetcher(this.mClientId, asset, {
-        requestTarget: this.mRequest.requestTarget,
+        requestTarget: proxyPath,
         headers: this.mRequest.headers
       });
       MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Instantiated data fetcher`);
