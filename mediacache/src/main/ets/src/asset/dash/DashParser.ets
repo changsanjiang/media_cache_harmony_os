@@ -1,5 +1,4 @@
 import { DashElement, DashRepresentationSelectionHandler, DashXmlNode } from '../../defines/DashDefines';
-import { HLSDefines } from '../../defines/HLSDefines';
 import MCArrayUtils from '../../utils/MCArrayUtils';
 import { MCRange } from '../../utils/MCRange';
 import MCUtils from '../../utils/MCUtils';
@@ -119,13 +118,15 @@ export namespace DashParser {
     const mpdNode = mpd.node;
     const periodNode = period.node;
 
+    const baseUrl = url.URL.parseURL("../", currentUrl).toString();
+
     const allBaseURLNodes = XmlParser.findAllNodes(periodNode, "BaseURL").reverse()
     for ( const baseURLNode of allBaseURLNodes ) {
       const uri = baseURLNode.innerText
       if ( !uri ) continue;
 
       // 将基地址替换成代理地址
-      const absUrl = HLSDefines.getAbsoluteUrl(uri, currentUrl);
+      const absUrl = url.URL.parseURL(uri, baseUrl).toString();
       const proxyPath = DashProxyUtils.generateBaseProxyPath(absUrl, assetId);
       const absStartIndex = XmlParser.computeStartIndex(mpdNode, baseURLNode);
       const location = absStartIndex + baseURLNode.startTagEndIndex;
@@ -137,7 +138,6 @@ export namespace DashParser {
 
     if ( period.eBaseURLs?.length == 0 ) {
       // 插入一个 BaseURL 的代理节点
-      const baseUrl = url.URL.parseURL("../", currentUrl).toString();
       const proxyPath = DashProxyUtils.generateBaseProxyPath(baseUrl, assetId);
       const result = XmlParser.createBaseURLNode(proxyPath);
       const baseURLNode = result.node;
