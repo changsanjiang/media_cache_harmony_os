@@ -5,45 +5,35 @@ import MCConfigs from '../utils/MCConfigs';
 import { MCProxyURLUtils } from '../utils/MCProxyURLUtils';
 import MCUtils from '../utils/MCUtils';
 
-namespace MCAssetUtils {
+export namespace MCAssetProxyUtils {
   /**
-   * 生成代理地址; 该方法会识别 url 指向的资源是基于文件的媒体还是一个 HLS 资源;
+   * 生成代理地址; 该方法会识别 url 指向的资源是基于文件的媒体还是一个 HLS 资源 或 DASH 资源;
    *
    * 返回资产的代理地址(媒体id和资产id一致), 通过它来访问内部的缓存;
    * */
   export async function generateAssetProxyUrl(resUrl: string, localServerPort: number): Promise<string> {
     const assetType = await determineAssetType(resUrl);
     const assetId = await generateAssetId(resUrl);
-    const mediaKind = assetType === MCAssetType.HLS ? MCMediaKind.PLAYLIST : MCMediaKind.FILE;
+    const mediaKind = assetType === MCAssetType.FILE_BASED ? MCMediaKind.FILE : MCMediaKind.PLAYLIST;
     const mediaId = assetId; // 根文件的媒体id和资产id一致;
     return MCProxyURLUtils.generateProxyUrl(resUrl, assetId, assetType, mediaId, mediaKind, localServerPort);
   }
 
   /**
-   * 生成代理路径; 该方法会识别 url 指向的资源是基于文件的媒体还是一个 HLS 资源;
+   * 生成代理路径; 该方法会识别 url 指向的资源是基于文件的媒体还是一个 HLS 资源 或 DASH 资源;
    *
    * 返回资产的代理路径(媒体id和资产id一致), 通过它来访问内部的缓存;
    * */
   export async function generateAssetProxyPath(resUrl: string): Promise<string> {
     const assetType = await determineAssetType(resUrl);
     const assetId = await generateAssetId(resUrl);
-    const mediaKind = assetType === MCAssetType.HLS ? MCMediaKind.PLAYLIST : MCMediaKind.FILE;
+    const mediaKind = assetType === MCAssetType.FILE_BASED ? MCMediaKind.FILE : MCMediaKind.PLAYLIST;
     const mediaId = assetId; // 根文件的媒体id和资产id一致;
     return MCProxyURLUtils.generateProxyPath(resUrl, assetId, assetType, mediaId, mediaKind);
   }
 
   /**
-   * 为 hls 的媒体生成代理路径;
-   *
-   * 代理 hls 中的各个媒体片段;
-   * */
-  export async function generateProxyPathForHLSMedia(assetId: string, mediaKind: MCMediaKind, mediaUrl: string): Promise<string> {
-    const mediaId = await generateMediaId(mediaUrl);
-    return MCProxyURLUtils.generateProxyPath(mediaUrl, assetId, MCAssetType.HLS, mediaId, mediaKind);
-  }
-
-  /**
-   * 资产唯一标识符;
+   * 为每个资产生成一个唯一标识符;
    * */
   export async function generateAssetId(resUrl: string): Promise<string> {
     const target = MCConfigs.assetIdentifierPreprocessor ? (await MCConfigs.assetIdentifierPreprocessor(resUrl)) : resUrl;
@@ -65,15 +55,10 @@ namespace MCAssetUtils {
     if ( pathname.endsWith('.m3u8') || pathname.endsWith('.m3u') ) {
       return MCAssetType.HLS;
     }
+
+    if ( pathname.endsWith(".mpd" ) ) {
+      return MCAssetType.DASH;
+    }
     return MCAssetType.FILE_BASED;
   }
-
-  /**
-   * 为媒体生成一个唯一标识符;
-   * */
-  async function generateMediaId(resUrl: string): Promise<string> {
-    return MCUtils.hash(resUrl);
-  }
 }
-
-export default MCAssetUtils;

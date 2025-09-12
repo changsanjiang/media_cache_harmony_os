@@ -1,7 +1,7 @@
 import { FILEAsset } from '../asset/filebased/FILEAsset';
 import { HLSAsset } from '../asset/hls/HLSAsset';
 import { MCAssetManager } from '../asset/MCAssetManager';
-import MCAssetUtils from '../asset/MCAssetUtils';
+import { MCAssetProxyUtils } from '../asset/MCAssetProxyUtils';
 import { MCAssetPrefetchOptions } from '../defines/MCAssetPrefetchOptions';
 import { MCAssetType } from '../defines/MCAssetType';
 import { MCAbortController } from '../utils/MCAbortController';
@@ -26,7 +26,7 @@ export namespace MCAssetPrefetchManager {
     const signal = options?.signal;
     MCAssetPrefetchUtils.checkAbortSignal(signal);
 
-    const proxyPath = await MCAssetUtils.generateAssetProxyPath(resUrl);
+    const proxyPath = await MCAssetProxyUtils.generateAssetProxyPath(resUrl);
 
     // 获取资产
     const asset = await MCAssetManager.getInstance().getAssetByProxyPath(proxyPath);

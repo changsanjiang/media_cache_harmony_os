@@ -2,7 +2,7 @@ import { IMCAsset } from "../../defines/IMCAsset";
 import { MCAssetManager } from "../MCAssetManager";
 import MCFileIOUtils from "../../utils/MCFileIOUtils";
 import MCAssetStateRepository from "../cachestate/MCAssetStateRepository";
-import MCAssetUtils from "../MCAssetUtils";
+import { MCAssetProxyUtils } from "../MCAssetProxyUtils";
 import MCAssetAccessLogRepository from "../cachestate/MCAssetAccessLogRepository";
 import { MCAssetCacheConfig } from "../../defines/MCAssetCacheConfig";
 import MCLogger from "../../utils/MCLogger";
@@ -52,7 +52,7 @@ namespace MCAssetCacheManager {
   /** 设置资产固定状态 */
   export async function setPinned(resUrl: string, isPinned: boolean): Promise<void> {
     try {
-      const assetId = await MCAssetUtils.generateAssetId(resUrl);
+      const assetId = await MCAssetProxyUtils.generateAssetId(resUrl);
       await MCAssetStateRepository.setPinned(assetId, isPinned);
       MCLogger.info(MCLogModule.MCAssetCacheManager, () => `[AssetId: ${assetId}] Set pinned state to: ${isPinned}`);
     }
@@ -65,7 +65,7 @@ namespace MCAssetCacheManager {
   /** 检查资产是否固定 */
   export async function isPinned(resUrl: string): Promise<boolean> {
     try {
-      const assetId = await MCAssetUtils.generateAssetId(resUrl);
+      const assetId = await MCAssetProxyUtils.generateAssetId(resUrl);
       const pinned = MCAssetStateRepository.isPinned(assetId);
       MCLogger.debug(MCLogModule.MCAssetCacheManager, () => `[AssetId: ${assetId}] isPinned query result: ${pinned}`);
       return pinned;
@@ -108,7 +108,7 @@ namespace MCAssetCacheManager {
   /** 删除单个缓存 */
   export async function removeCacheBy(resUrl: string): Promise<void> {
     try {
-      const assetId = await MCAssetUtils.generateAssetId(resUrl);
+      const assetId = await MCAssetProxyUtils.generateAssetId(resUrl);
       await evictAssets([assetId]);
       MCLogger.info(MCLogModule.MCAssetCacheManager, () => `[AssetId: ${assetId}] Cache removed successfully.`);
     }

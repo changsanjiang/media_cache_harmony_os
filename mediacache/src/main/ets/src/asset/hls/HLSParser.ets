@@ -1,9 +1,9 @@
 import { MCRange } from '../../utils/MCRange';
 import { HLSDefines, HLSRenditionSelectionHandler, HLSVariantStreamSelectionHandler } from '../../defines/HLSDefines';
-import MCAssetUtils from '../MCAssetUtils';
 import { MCMediaKind } from '../../defines/MCMediaKind';
 import MCUtils from '../../utils/MCUtils';
 import { MCAssetExportUtils } from '../../exporter/MCAssetExportUtils';
+import { HLSProxyUtils } from './HLSProxyUtils';
 
 namespace HLSParser {
 
@@ -129,7 +129,7 @@ namespace HLSParser {
                 mediaKind = MCMediaKind.PLAYLIST;
               }
             }
-            const proxyPath = await MCAssetUtils.generateProxyPathForHLSMedia(assetId, mediaKind, absoluteUrl);
+            const proxyPath = await HLSProxyUtils.generateProxyPathForHLSMedia(assetId, mediaKind, absoluteUrl);
             proxyPlaylist = MCUtils.replaceCharactersInRange(proxyPlaylist, [item.uriRange!.location, uri.length], proxyPath);
           }
         }

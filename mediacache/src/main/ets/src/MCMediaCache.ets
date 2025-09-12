@@ -1,5 +1,5 @@
 import MCAssetCacheManager from './asset/cachemgr/MCAssetCacheManager';
-import MCAssetUtils from './asset/MCAssetUtils';
+import { MCAssetProxyUtils } from './asset/MCAssetProxyUtils';
 import { HLSRenditionSelectionHandler, HLSVariantStreamSelectionHandler } from './defines/HLSDefines';
 import { MCAssetCacheConfig } from './defines/MCAssetCacheConfig';
 import { MCAssetPrefetchOptions } from './defines/MCAssetPrefetchOptions';
@@ -60,7 +60,7 @@ export namespace MCMediaCache {
    * 播放器使用该地址播放即可实现 边播放边缓存;
    */
   export async function proxy(resUrl: string): Promise<string> {
-    return MCAssetUtils.generateAssetProxyUrl(resUrl, await mTcpServer.start());
+    return MCAssetProxyUtils.generateAssetProxyUrl(resUrl, await mTcpServer.start());
   }
 
   /**

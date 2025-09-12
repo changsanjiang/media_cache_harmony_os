@@ -1,7 +1,7 @@
 import { FILEAsset } from "../asset/filebased/FILEAsset";
 import { HLSAsset } from "../asset/hls/HLSAsset";
 import { MCAssetManager } from "../asset/MCAssetManager";
-import MCAssetUtils from "../asset/MCAssetUtils";
+import { MCAssetProxyUtils } from "../asset/MCAssetProxyUtils";
 import { MCAssetExportOptions } from "../defines/MCAssetExportOptions";
 import { MCAssetType } from "../defines/MCAssetType";
 import { MCAssetPrefetchUtils } from "../prefetcher/MCAssetPrefetchUtils";
@@ -58,7 +58,7 @@ export class MCAssetExportManager implements IMCAssetExportManager {
     }
 
     // 获取资产
-    const proxyPath = await MCAssetUtils.generateAssetProxyPath(resUrl);
+    const proxyPath = await MCAssetProxyUtils.generateAssetProxyPath(resUrl);
     const asset = await MCAssetManager.getInstance().getAssetByProxyPath(proxyPath);
     MCAssetPrefetchUtils.checkAbortSignal(signal);
 
