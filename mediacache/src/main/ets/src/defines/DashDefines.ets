@@ -1,11 +1,11 @@
-import { MCRange } from "../utils/MCRange";
-
-// https://standards.iso.org/ittf/PubliclyAvailableStandards/MPEG-DASH_schema_files/DASH-MPD.xsd
-
+/** Dash representation 选择器;
+ *
+ * 对于多码率流, 必须做出选择, 选出一个需要缓存的流;
+ * */
 export type DashRepresentationSelectionHandler = (
   mpdOriginalUrl: string,
   mpdCurrentUrl: string,
-  adaptationSet: DashElement.AdaptationSet,
+  adaptationSet: DashElement.AdaptationSet, // adaptationSet.eRepresentations 必定有值, 并且 length > 1;
 ) => DashElement.Representation
 
 /** XML 节点; */
@@ -23,7 +23,10 @@ export interface DashXmlNode {
   readonly length: number;
 }
 
-/** Dash 对象; */
+/** Dash 对象;
+ *
+ * https://standards.iso.org/ittf/PubliclyAvailableStandards/MPEG-DASH_schema_files/DASH-MPD.xsd
+ * */
 export namespace DashElement {
   // 因为目的是要代理请求, 所以在建立模型时不会对所有属性建模, 仅选择可能需要的属性
 

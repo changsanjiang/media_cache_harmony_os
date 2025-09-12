@@ -32,7 +32,14 @@ namespace HLSParser {
   }
 
   // 代理 playlist; throw if error;
-  export async function proxy(playlist: string, assetId: string, originalUrl: string, currentUrl: string, variantStreamSelectionHandler?: HLSVariantStreamSelectionHandler, renditionSelectionHandler?: HLSRenditionSelectionHandler): Promise<string> {
+  export async function proxy(
+    playlist: string,
+    assetId: string,
+    originalUrl: string,
+    currentUrl: string,
+    variantStreamSelectionHandler?: HLSVariantStreamSelectionHandler,
+    renditionSelectionHandler?: HLSRenditionSelectionHandler
+  ): Promise<string> {
     try {
       // let decoder = util.TextDecoder.create('utf-8');
       // let rawContent = decoder.decodeToString(new Uint8Array(playlist));

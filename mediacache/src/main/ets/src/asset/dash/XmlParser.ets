@@ -1,6 +1,5 @@
 import { util, xml } from '@kit.ArkTS';
 import { DashXmlNode } from '../../defines/DashDefines';
-import { _DashXmlNode } from './DashModel';
 
 export namespace XmlParser {
   export const xmlDeclaration = '<?xml version="1.0" encoding="utf-8"?>';
@@ -167,5 +166,28 @@ export namespace XmlParser {
       offset += child.length;
     }
     return -1;
+  }
+
+  class _DashXmlNode implements DashXmlNode {
+    tagName: string;
+    attributes?: Map<string, string>;
+    children: _DashXmlNode[] = [];
+    innerText?: string | undefined;
+    startTagEndIndex: number = 0;  // 相对于node自身的位置;
+    innerTextStartIndex: number = 0; // 相对于node自身的位置;
+    length: number = 0;
+
+    nodeStartIndex: number = 0; // 节点绝对起点位置;
+
+    constructor(name: string) {
+      this.tagName = name;
+    }
+
+    addAttribute(key: string, value: string) {
+      if ( this.attributes == undefined ) {
+        this.attributes = new Map();
+      }
+      this.attributes.set(key, value);
+    }
   }
 }

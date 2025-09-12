@@ -10,15 +10,18 @@ namespace MCArrayUtils {
     return results;
   }
 
-  export function firstOrUndefined<T>(array: T[], block: (value: T, index: number) => boolean): T | undefined {
-    let first: T | undefined = undefined;
-    for (let i = 0; i < array.length; i++) {
-      if ( block(array[i], i) ) {
-        first = array[i];
-        break;
+  export function firstOrUndefined<T>(array: T[], block?: (value: T, index: number) => boolean): T | undefined {
+    if ( block ) {
+      let first: T | undefined = undefined;
+      for (let i = 0; i < array.length; i++) {
+        if ( block(array[i], i) ) {
+          first = array[i];
+          break;
+        }
       }
+      return first;
     }
-    return first;
+    return array.length > 0 ? array[0] : undefined;
   }
 
   export function remove<T>(array: T[], element: T): number {

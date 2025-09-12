@@ -1,7 +1,6 @@
 import { DashXmlNode, DashElement, DashRepresentationSelectionHandler } from '../../defines/DashDefines';
+import MCArrayUtils from '../../utils/MCArrayUtils';
 import { MCRange } from '../../utils/MCRange';
-import { _AdaptationSet, _BaseURL, _Period, _Representation, _S, _SegmentTemplate,
-  _SegmentTimeline } from './DashModel';
 import { XmlParser } from './XmlParser';
 
 export interface DashParseOptions {
@@ -12,23 +11,13 @@ export interface DashParseOptions {
 }
 
 export interface DashParseResult {
-  /** 修剪或解析后的 MPD 对象 */
   mpd: DashElement.MPD;
-
-  /** 修剪 XML 文本, 多码率流只能选择一个进行播放; */
-  trimmedXml: string;
+  compactXml: string; // 删除了换行、空格
 }
 
-export class DashParser {
-  private mParseOptions?: DashParseOptions = undefined;
-
+export namespace DashParser {
   /** MPD 解析 */
-  parse(
-    rawXml: string,
-    options?: DashParseOptions,
-  ): DashParseResult {
-    this.mParseOptions = options;
-
+  export function parse(rawXml: string): DashParseResult {
     const parseResult = XmlParser.parse(rawXml);
     const mpdNode = parseResult.rootNode;
     const compactXml = parseResult.compactXml;
@@ -38,55 +27,52 @@ export class DashParser {
       throw new Error("Unsupported MPD type: dynamic (live not supported yet)"); // 目前暂不支持解析直播类型的配置文件
     }
 
-    const baseURLs = this.parseBaseURLs(mpdNode);
-    const periods = this.parsePeriods(mpdNode);
-    const mpd: DashElement.MPD = {
-      eBaseURLs: baseURLs,
-      ePeriods: periods,
-      node: mpdNode,
-    };
-
-    const trimmedXml = periods ? this.trimMpdXmlIfNeeded(compactXml, periods, mpdNode) : compactXml;
+    const mpd = new _MPD(mpdNode);
     return {
       mpd,
-      trimmedXml,
-    };
+      compactXml
+    }
   }
 
-  /** 修剪 MPD XML; */
-  private trimMpdXmlIfNeeded(
-    mpdXmlText: string,
-    periods: _Period[],
-    nodeTree: DashXmlNode,
-  ) {
+  /** MPD 代理;
+   *
+   *
+   * */
+  export function proxy(
+    rawXml: string,
+    assetId: string,
+    originalUrl: string,
+    currentUrl: string,
+    representationSelectionHandler?: DashRepresentationSelectionHandler
+  ): string {
+    const result = parse(rawXml);
+    const mpd = result.mpd as _MPD;
+    const compactXml = result.compactXml;
+    const periods = mpd.ePeriods;
     if ( !periods || periods.length === 0 ) {
-      return mpdXmlText;
+      return compactXml;
     }
 
-    const opts = this.mParseOptions;
-    if ( !opts || !opts.shouldTrim || !opts.representationSelectionHandler ) {
-      return mpdXmlText;
-    }
-
-    let resultXml = mpdXmlText
-
+    const mpdNode = mpd.node;
+    let resultXml = compactXml
     for ( const p of periods ) {
       const adaptationSets = p.eAdaptationSets;
       if ( !adaptationSets || adaptationSets.length === 0 ) continue;
 
+      // 处理多码率流, 只能保留一个流进行缓存
       for ( const set of adaptationSets ) {
         if ( !set.eRepresentations || set.eRepresentations.length <= 1 ) continue;
 
         // 选择要保留的 Representation
-        const selectedRepresentation = opts.representationSelectionHandler(opts.mpdOriginalUrl, opts.mpdCurrentUrl, set);
+        const selectedRepresentation = selectRepresentation(originalUrl, currentUrl, set, representationSelectionHandler);
 
         const firstRepresentation = set.eRepresentations[0];
         const lastRepresentation = set.eRepresentations[set.eRepresentations.length - 1];
 
         // 计算全局起始索引
-        const firstStartIndex = XmlParser.computeStartIndex(nodeTree, firstRepresentation.node);
-        const selectedStartIndex = firstRepresentation != selectedRepresentation ? XmlParser.computeStartIndex(nodeTree, selectedRepresentation.node) : firstStartIndex;
-        const lastStartIndex = lastRepresentation != selectedRepresentation ? XmlParser.computeStartIndex(nodeTree, lastRepresentation.node) : selectedStartIndex;
+        const firstStartIndex = XmlParser.computeStartIndex(mpdNode, firstRepresentation.node);
+        const selectedStartIndex = firstRepresentation != selectedRepresentation ? XmlParser.computeStartIndex(mpdNode, selectedRepresentation.node) : firstStartIndex;
+        const lastStartIndex = lastRepresentation != selectedRepresentation ? XmlParser.computeStartIndex(mpdNode, lastRepresentation.node) : selectedStartIndex;
 
         // 前面需要删除的范围
         const prevRange = new MCRange(firstStartIndex, selectedStartIndex - firstStartIndex);
@@ -95,18 +81,164 @@ export class DashParser {
         const nextLocation = selectedStartIndex + selectedRepresentation.node.length;
         const nextLength = lastStartIndex + lastRepresentation.node.length - nextLocation;
         const nextRange = new MCRange(nextLocation, nextLength);
-        resultXml = this.removeRange(resultXml, nextRange);
-        resultXml = this.removeRange(resultXml, prevRange);
+        resultXml = removeRange(resultXml, nextRange);
+        resultXml = removeRange(resultXml, prevRange);
 
         // 更新 AdaptationSet，只保留选中的 Representation
         set.eRepresentations = [selectedRepresentation];
       }
+
+
+      // 处理 BaseURL, 替换为代理地址
+      
     }
     return resultXml;
   }
 
-  private removeRange(xml: string, range: MCRange) {
+  // adaptationSet.eRepresentations 必定有值, 并且 length > 1;
+  function selectRepresentation(
+    originalUrl: string,
+    currentUrl: string,
+    adaptationSet: _AdaptationSet,
+    representationSelectionHandler?: DashRepresentationSelectionHandler
+  ): _Representation {
+    const representations = adaptationSet.eRepresentations!;
+    if ( representationSelectionHandler ) {
+      const r = representationSelectionHandler(originalUrl, currentUrl, adaptationSet);
+      if ( r ) return r;
+    }
+    return representations[Math.floor((representations.length / 2))];
+  }
+
+  function removeRange(xml: string, range: MCRange) {
     if ( range.length <= 0 ) return xml;
     return xml.slice(0, range.location) + xml.slice(range.max);
+  }
+
+  class _DashElement implements DashElement.Element {
+    node: DashXmlNode;
+
+    constructor(node: DashXmlNode) {
+      this.node = node;
+    }
+  }
+
+  class _MPD extends _DashElement implements DashElement.MPD {
+    readonly eBaseURLs?: readonly _BaseURL[] | undefined;
+    readonly ePeriods?: readonly _Period[] | undefined;
+
+    constructor(node: DashXmlNode) {
+      super(node);
+
+      this.eBaseURLs = XmlParser.findDirectChildrenByTagName(node, "BaseURL").map(it => new _BaseURL(it));
+      this.ePeriods = XmlParser.findDirectChildrenByTagName(node, "Period").map(it => new _Period(it));
+    }
+  }
+
+  class _Period extends _DashElement implements DashElement.Period {
+    readonly eBaseURLs?: readonly _BaseURL[];
+    readonly eAdaptationSets?: readonly _AdaptationSet[] | undefined;
+
+    constructor(node: DashXmlNode) {
+      super(node);
+
+      this.eBaseURLs = XmlParser.findDirectChildrenByTagName(node, "BaseURL").map(it => new _BaseURL(it));
+      this.eAdaptationSets = XmlParser.findDirectChildrenByTagName(node, "AdaptationSet").map(it => new _AdaptationSet(it));
+    }
+  }
+
+  class _AdaptationSet extends _DashElement implements DashElement.AdaptationSet {
+    readonly eBaseURLs?: readonly _BaseURL[] | undefined;
+    eRepresentations?: readonly _Representation[];
+
+    constructor(node: DashXmlNode) {
+      super(node);
+
+      this.eBaseURLs = XmlParser.findDirectChildrenByTagName(node, "BaseURL").map(it => new _BaseURL(it));
+      this.eRepresentations = XmlParser.findDirectChildrenByTagName(node, "Representation").map(it => new _Representation(it));
+    }
+  }
+
+  class _Representation extends _DashElement implements DashElement.Representation {
+    readonly eBaseURLs?: readonly _BaseURL[] | undefined;
+    readonly eSegmentTemplate?: _SegmentTemplate;
+
+    constructor(node: DashXmlNode) {
+      super(node);
+
+      this.eBaseURLs = XmlParser.findDirectChildrenByTagName(node, "BaseURL").map(it => new _BaseURL(it));
+      this.eSegmentTemplate = MCArrayUtils.firstOrUndefined(XmlParser.findDirectChildrenByTagName(node, "SegmentTemplate").map(it => new _SegmentTemplate(it)));
+    }
+  }
+
+  class _SegmentBase extends _DashElement implements DashElement.SegmentBase {
+    readonly eInitialization?: _URLType;
+    readonly eRepresentationIndex?: _URLType;
+
+    constructor(node: DashXmlNode) {
+      super(node);
+
+      this.eInitialization = MCArrayUtils.firstOrUndefined(XmlParser.findDirectChildrenByTagName(node, "Initialization").map(it => new _URLType(it)));
+      this.eRepresentationIndex = MCArrayUtils.firstOrUndefined(XmlParser.findDirectChildrenByTagName(node, "RepresentationIndex").map(it => new _URLType(it)));
+    }
+  }
+
+  class _MultipleSegmentBase extends _SegmentBase implements DashElement.MultipleSegmentBase {
+    readonly eSegmentTimeline?: _SegmentTimeline;
+    readonly aStartNumber?: number;
+
+    constructor(node: DashXmlNode) {
+      super(node);
+
+      this.aStartNumber = toInt(node.attributes?.get("startNumber"));
+      this.eSegmentTimeline = MCArrayUtils.firstOrUndefined(XmlParser.findDirectChildrenByTagName(node, "SegmentTimeline").map(it => new _SegmentTimeline(it)));
+    }
+  }
+
+  class _SegmentTemplate extends _MultipleSegmentBase implements DashElement.SegmentTemplate {
+    readonly aMedia?: string;
+    readonly aIndex?: string;
+    readonly aInitialization?: string;
+
+    constructor(node: DashXmlNode) {
+      super(node);
+      this.aMedia = node.attributes?.get("media");
+      this.aIndex = node.attributes?.get("index");
+      this.aInitialization = node.attributes?.get("initialization");
+    }
+  }
+
+  class _SegmentTimeline extends _DashElement implements DashElement.SegmentTimeline {
+    readonly eSs: readonly _S[];
+
+    constructor(node: DashXmlNode) {
+      super(node);
+
+      this.eSs = XmlParser.findDirectChildrenByTagName(node, "S").map(it => new _S(it));
+    }
+  }
+
+  class _S extends _DashElement implements DashElement.S {
+
+  }
+
+  class _BaseURL extends _DashElement implements DashElement.BaseURL {
+    value: string;
+    aByteRange?: string | undefined;
+
+    constructor(node: DashXmlNode) {
+      super(node);
+      this.value = node.innerText!;
+    }
+  }
+
+  class _URLType extends _DashElement implements DashElement.URLType {
+    aSourceURL?: DashElement.AnyURI;
+    aRange?: string;
+  }
+
+  function toInt(valueStr?: string): number | undefined {
+    const str = valueStr?.trim();
+    return str ? parseInt(str) : undefined;
   }
 }
