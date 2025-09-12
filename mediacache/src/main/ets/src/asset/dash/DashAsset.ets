@@ -66,10 +66,10 @@ export class DashAsset extends MCReadwriteReference<DashAsset> implements IMCAss
   }
 
   private async getMedia(mediaId: string, mediaKind: MCMediaKind): Promise<IMCMedia> {
-    return this.enqueueTask(async () => this.mMedias.get(mediaId) ?? this.initializeMedia(mediaId, mediaKind));
+    return this.enqueueTask(async () => this.mMedias.get(mediaId) ?? this.prepareMedia(mediaId, mediaKind));
   }
 
-  private async initializeMedia(mediaId: string, mediaKind: MCMediaKind): Promise<IMCMedia> {
+  private async prepareMedia(mediaId: string, mediaKind: MCMediaKind): Promise<IMCMedia> {
     let proxyHandler: ((requestUrl: string, currentUrl: string, data: ArrayBuffer) => Promise<ArrayBuffer>) | undefined = undefined;
     // 代理 playlist
     if ( mediaKind === MCMediaKind.PLAYLIST ) {
@@ -100,5 +100,9 @@ export class DashAsset extends MCReadwriteReference<DashAsset> implements IMCAss
       console.error('Previous task failed:', err);
     });
     return run;
+  }
+
+  private prepareMedias() {
+
   }
 }
