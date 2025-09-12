@@ -56,6 +56,7 @@ export class MCHttpResponse implements IMCHttpResponse {
       let proxyPath = this.mRequest.requestTarget;
       if ( proxyPath.startsWith(MCConsts.ROUTE_PATH_PROXY_BASED) ) {
         proxyPath = await MCProxyBaseUtils.convertToProxyPath(proxyPath);
+        this.mRequest.requestTarget = proxyPath;
       }
 
       if ( proxyPath.startsWith(MCConsts.ROUTE_PATH_PROXY_URL) ) {

@@ -17,7 +17,7 @@ export namespace MCProxyBaseUtils {
     assetId: string,
     assetType: MCAssetType
   ): string {
-    return `${MCConsts.ROUTE_PATH_PROXY_BASED}/${assetType}/${assetId}/${encodeURIComponent(baseUrl)}`;
+    return `${MCConsts.ROUTE_PATH_PROXY_BASED}/${assetType}/${assetId}/${encodeURIComponent(baseUrl)}/`;
   }
 
   /**
@@ -80,7 +80,7 @@ export namespace MCProxyBaseUtils {
       throw new Error(`Invalid baseUrl: expected non-empty string at position 4, got "${parts[4]}". Target: "${basedProxyPath}".`);
     }
 
-    const targetPath = '/' + parts.slice(5).join('/');
+    const targetPath = parts.slice(5).join('/');
     return {
       baseUrl: baseUrl,
       assetId: assetId,
