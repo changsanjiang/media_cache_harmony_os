@@ -108,6 +108,8 @@ export class MCAssetExportManager implements IMCAssetExportManager {
       case MCAssetType.HLS:
         asset = new MCLocalHLSAsset(assetId, assetDir);
         break;
+      case MCAssetType.DASH:
+        throw new Error(`TODO(DASH)`);
     }
     await asset.prepare();
 

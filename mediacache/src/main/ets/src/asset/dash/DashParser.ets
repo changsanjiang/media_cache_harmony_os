@@ -3,7 +3,7 @@ import { HLSDefines } from '../../defines/HLSDefines';
 import MCArrayUtils from '../../utils/MCArrayUtils';
 import { MCRange } from '../../utils/MCRange';
 import MCUtils from '../../utils/MCUtils';
-import { DashPath } from './DashPath';
+import { DashProxyUtils } from './DashProxyUtils';
 import { XmlParser } from './XmlParser';
 
 export interface DashParseOptions {
@@ -123,8 +123,9 @@ export namespace DashParser {
       const uri = baseURLNode.innerText
       if ( !uri ) continue;
 
+      // 将基地址替换成代理地址
       const absUrl = HLSDefines.getAbsoluteUrl(uri, currentUrl);
-      const proxyPath = DashPath.generateBaseURLProxyPath(absUrl, assetId);
+      const proxyPath = DashProxyUtils.generateBaseProxyPath(absUrl, assetId);
       const absStartIndex = XmlParser.computeStartIndex(mpdNode, baseURLNode);
       const location = absStartIndex + baseURLNode.startTagEndIndex;
       const length = uri.length;
@@ -135,7 +136,7 @@ export namespace DashParser {
 
     if ( period.eBaseURLs?.length == 0 ) {
       // 插入一个 BaseURL 的代理节点
-      const proxyPath = DashPath.generateBaseURLProxyPath(currentUrl, assetId);
+      const proxyPath = DashProxyUtils.generateBaseProxyPath(currentUrl, assetId);
       const result = XmlParser.createBaseURLNode(proxyPath);
       const baseURLNode = result.node;
       const baseURLCompactXml = result.compactXml;
