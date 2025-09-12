@@ -3,6 +3,7 @@ import { MCMediaKind } from "../defines/MCMediaKind";
 import MCConsts from "./MCConsts";
 import { MCMediaIdGenerator } from "./MCMediaIdGenerator";
 import { MCProxyURLUtils } from "./MCProxyURLUtils";
+import { url } from "@kit.ArkTS";
 
 export namespace MCProxyBaseUtils {
   /**
@@ -31,7 +32,7 @@ export namespace MCProxyBaseUtils {
     mediaKind: MCMediaKind = MCMediaKind.FILE,
   ): Promise<string> {
     const info = parse(basedProxyPath);
-    const mediaUrl = info.baseUrl + info.targetPath;
+    const mediaUrl = url.URL.parseURL(info.targetPath, info.baseUrl).toString();
     const mediaId = await MCMediaIdGenerator.generate(mediaUrl);
     return MCProxyURLUtils.generateProxyPath(
       mediaUrl,

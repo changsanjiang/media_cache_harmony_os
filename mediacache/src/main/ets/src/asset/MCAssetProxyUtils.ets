@@ -14,7 +14,16 @@ export namespace MCAssetProxyUtils {
   export async function generateAssetProxyUrl(resUrl: string, localServerPort: number): Promise<string> {
     const assetType = await determineAssetType(resUrl);
     const assetId = await generateAssetId(resUrl);
-    const mediaKind = assetType === MCAssetType.FILE_BASED ? MCMediaKind.FILE : MCMediaKind.PLAYLIST;
+    let mediaKind: MCMediaKind;
+    switch (assetType) {
+      case MCAssetType.FILE_BASED:
+        mediaKind = MCMediaKind.FILE;
+        break;
+      case MCAssetType.HLS:
+      case MCAssetType.DASH:
+        mediaKind = MCMediaKind.PLAYLIST;
+        break;
+    }
     const mediaId = assetId; // 根文件的媒体id和资产id一致;
     return MCProxyURLUtils.generateProxyUrl(resUrl, assetId, assetType, mediaId, mediaKind, localServerPort);
   }
@@ -27,7 +36,16 @@ export namespace MCAssetProxyUtils {
   export async function generateAssetProxyPath(resUrl: string): Promise<string> {
     const assetType = await determineAssetType(resUrl);
     const assetId = await generateAssetId(resUrl);
-    const mediaKind = assetType === MCAssetType.FILE_BASED ? MCMediaKind.FILE : MCMediaKind.PLAYLIST;
+    let mediaKind: MCMediaKind;
+    switch (assetType) {
+      case MCAssetType.FILE_BASED:
+        mediaKind = MCMediaKind.FILE;
+        break;
+      case MCAssetType.HLS:
+      case MCAssetType.DASH:
+        mediaKind = MCMediaKind.PLAYLIST;
+        break;
+    }
     const mediaId = assetId; // 根文件的媒体id和资产id一致;
     return MCProxyURLUtils.generateProxyPath(resUrl, assetId, assetType, mediaId, mediaKind);
   }

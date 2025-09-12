@@ -15,6 +15,7 @@ import { MCProxyURLUtils } from '../utils/MCProxyURLUtils';
 import MCConsts from '../utils/MCConsts';
 import { IMCAsset } from '../defines/IMCAsset';
 import { MCAssetExportManager } from '../exporter/MCAssetExportManager';
+import { MCProxyBaseUtils } from '../utils/MCProxyBaseUtils';
 
 export class MCHttpResponse implements IMCHttpResponse {
   private mClientId: number;
@@ -52,7 +53,11 @@ export class MCHttpResponse implements IMCHttpResponse {
     MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Starting preparation for request: ${JSON.stringify(this.mRequest)}`);
     try {
       let asset: IMCAsset;
-      const proxyPath = this.mRequest.requestTarget;
+      let proxyPath = this.mRequest.requestTarget;
+      if ( proxyPath.startsWith(MCConsts.ROUTE_PATH_PROXY_BASED) ) {
+        proxyPath = await MCProxyBaseUtils.convertToProxyPath(proxyPath);
+      }
+
       if ( proxyPath.startsWith(MCConsts.ROUTE_PATH_PROXY_URL) ) {
         asset = await MCAssetManager.getInstance().getAssetByProxyPath(proxyPath);
       }

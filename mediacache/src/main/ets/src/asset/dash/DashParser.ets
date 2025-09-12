@@ -5,6 +5,7 @@ import { MCRange } from '../../utils/MCRange';
 import MCUtils from '../../utils/MCUtils';
 import { DashProxyUtils } from './DashProxyUtils';
 import { XmlParser } from './XmlParser';
+import { url } from '@kit.ArkTS';
 
 export interface DashParseOptions {
   readonly mpdOriginalUrl: string;
@@ -134,20 +135,21 @@ export namespace DashParser {
       proxyXml = MCUtils.replaceCharactersInRange(proxyXml, [location, length], proxyPath);
     }
 
-    if ( period.eBaseURLs?.length == 0 ) {
-      // 插入一个 BaseURL 的代理节点
-      const proxyPath = DashProxyUtils.generateBaseProxyPath(currentUrl, assetId);
-      const result = XmlParser.createBaseURLNode(proxyPath);
-      const baseURLNode = result.node;
-      const baseURLCompactXml = result.compactXml;
-
-      period.eBaseURLs = [new _BaseURL(baseURLNode)];
-      XmlParser.insertBaseURLNode(periodNode, baseURLNode);
-      const absStartIndex = XmlParser.computeStartIndex(mpdNode, baseURLNode);
-
-      const location = absStartIndex;
-      proxyXml = MCUtils.replaceCharactersInRange(proxyXml, [location, 0], baseURLCompactXml);
-    }
+    // if ( period.eBaseURLs?.length == 0 ) {
+    //   // 插入一个 BaseURL 的代理节点
+    //   const baseUrl = url.URL.parseURL("../", currentUrl).toString();
+    //   const proxyPath = DashProxyUtils.generateBaseProxyPath(baseUrl, assetId);
+    //   const result = XmlParser.createBaseURLNode(proxyPath);
+    //   const baseURLNode = result.node;
+    //   const baseURLCompactXml = result.compactXml;
+    //
+    //   period.eBaseURLs = [new _BaseURL(baseURLNode)];
+    //   XmlParser.insertBaseURLNode(periodNode, baseURLNode);
+    //   const absStartIndex = XmlParser.computeStartIndex(mpdNode, baseURLNode);
+    //
+    //   const location = absStartIndex;
+    //   proxyXml = MCUtils.replaceCharactersInRange(proxyXml, [location, 0], baseURLCompactXml);
+    // }
     return proxyXml;
   }
 

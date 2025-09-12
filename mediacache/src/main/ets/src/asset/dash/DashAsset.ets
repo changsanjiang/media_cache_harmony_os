@@ -1,10 +1,22 @@
 import { IMCAsset } from "../../defines/IMCAsset";
 import { IMCMedia } from "../../defines/IMCMedia";
 import { MCAssetType } from "../../defines/MCAssetType";
+import { MCMediaKind } from "../../defines/MCMediaKind";
+import { MCMedia } from "../../media/MCMedia";
+import { MCAbortController } from "../../utils/MCAbortController";
+import MCConfigs from "../../utils/MCConfigs";
+import { MCProxyURLUtils } from "../../utils/MCProxyURLUtils";
 import { MCReadwriteReference } from "../../utils/MCReadwriteReference";
+import MCUtils from "../../utils/MCUtils";
+import MCAssetCacheManager from "../cachemgr/MCAssetCacheManager";
+import { DashParser } from "./DashParser";
 
 export class DashAsset extends MCReadwriteReference<DashAsset> implements IMCAsset {
   private mDir: string;
+  private mAbortController = new MCAbortController();
+  // key: mediaId
+  private mMedias: Map<string, IMCMedia> = new Map();
+  private mSerialPromise: Promise<void> = Promise.resolve();
 
   constructor(id: string, dir: string) {
     super();
@@ -13,20 +25,80 @@ export class DashAsset extends MCReadwriteReference<DashAsset> implements IMCAss
   }
 
   readonly id: string;
-  type: MCAssetType = MCAssetType.DASH;
+
+  get type(): MCAssetType {
+    return MCAssetType.FILE_BASED;
+  }
+
   isCached: boolean = false;
   currentCachedSize: number = 0;
 
-  prepare(): Promise<void> {
-    throw new Error("Method not implemented.");
+  async prepare(): Promise<void> {
+
   }
 
   getMediaByProxyPath(proxyPath: string): Promise<IMCMedia> {
-    throw new Error("Method not implemented.");
+    if ( this.mAbortController.signal.isAborted ) {
+      throw this.mAbortController.signal.reason!;
+    }
+
+    if ( this.mAbortController.signal.isAborted ) {
+      throw this.mAbortController.signal.reason!;
+    }
+    const targetInfo = MCProxyURLUtils.parseTarget(proxyPath);
+    const mediaId = targetInfo.mediaId;
+    const mediaKind = targetInfo.mediaKind;
+    return this.getMedia(mediaId, mediaKind);
+  }
+
+  protected getInstance(): DashAsset {
+    return this;
+  }
+
+  readwriteRetain(): DashAsset {
+    super.readwriteRetain();
+    MCAssetCacheManager.onAssetReadwrite(this);
+    return this;
   }
 
   abort(error?: Error | undefined): Promise<void> {
-    throw new Error("Method not implemented.");
+    return this.mAbortController.abort(error);
   }
 
+  private async getMedia(mediaId: string, mediaKind: MCMediaKind): Promise<IMCMedia> {
+    return this.enqueueTask(async () => this.mMedias.get(mediaId) ?? this.initializeMedia(mediaId, mediaKind));
+  }
+
+  private async initializeMedia(mediaId: string, mediaKind: MCMediaKind): Promise<IMCMedia> {
+    let proxyHandler: ((requestUrl: string, currentUrl: string, data: ArrayBuffer) => Promise<ArrayBuffer>) | undefined = undefined;
+    // 代理 playlist
+    if ( mediaKind === MCMediaKind.PLAYLIST ) {
+      // MCMedia 的内容下载完成后回调;
+      proxyHandler = async (requestUrl, currentUrl, data) => {
+        const content = MCUtils.bufferToString(data);
+        const proxyContent = DashParser.proxy(content, this.id, requestUrl, currentUrl, MCConfigs.dashRepresentationSelectionHandler);
+        // await this.initializePlaylist(mediaId, proxyContent);
+        return MCUtils.stringToBuffer(proxyContent);
+      }
+    }
+
+    const media = new MCMedia(mediaId, mediaKind, this.mDir, this.mAbortController.signal, proxyHandler);
+    await media.prepare();
+    this.mMedias.set(mediaId, media);
+    return media;
+  }
+
+  private enqueueTask<T>(task: () => Promise<T>): Promise<T> {
+    const run = this.mSerialPromise
+      .catch((err: Error) => {  // swallow previous errors
+        console.error('Previous task failed:', err);
+      })
+      .then(() => task());
+
+    // Maintain the chain
+    this.mSerialPromise = run.then(() => {}, (err: Error) => {
+      console.error('Previous task failed:', err);
+    });
+    return run;
+  }
 }

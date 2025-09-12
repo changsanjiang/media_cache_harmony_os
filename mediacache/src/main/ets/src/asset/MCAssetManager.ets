@@ -6,6 +6,7 @@ import { fileIo } from '@kit.CoreFileKit';
 import { MCProxyURLUtils } from '../utils/MCProxyURLUtils';
 import MCArrayUtils from '../utils/MCArrayUtils';
 import MCFileIOUtils from '../utils/MCFileIOUtils';
+import { DashAsset } from './dash/DashAsset';
 
 export interface IMCAssetManager {
   /**
@@ -208,7 +209,18 @@ export class MCAssetManager implements IMCAssetManager {
       let asset = this.mAssetMap.get(assetId);
       if ( !asset ) {
         const assetDirPath = this.mDirectoryManager.resolveDirPath(assetId, assetType);
-        asset = (assetType === MCAssetType.FILE_BASED) ? new FILEAsset(assetId, assetDirPath) : new HLSAsset(assetId, assetDirPath);
+        switch (assetType) {
+          case MCAssetType.FILE_BASED:
+            asset = new FILEAsset(assetId, assetDirPath);
+            break;
+          case MCAssetType.HLS:
+            asset = new HLSAsset(assetId, assetDirPath);
+            break;
+          case MCAssetType.DASH:
+            asset = new DashAsset(assetId, assetDirPath);
+            break;
+        }
+
         try {
           await asset.prepare();
         }
