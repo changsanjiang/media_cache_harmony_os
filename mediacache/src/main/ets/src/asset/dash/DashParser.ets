@@ -1,10 +1,15 @@
-import { DashElement, DashRepresentationSelectionHandler, DashXmlNode } from '../../defines/DashDefines';
+import {
+  DashAdaptationSetSelectionHandler,
+  DashElement,
+  DashRepresentationSelectionHandler,
+  DashXmlNode
+} from '../../defines/DashDefines';
 import MCArrayUtils from '../../utils/MCArrayUtils';
-import { MCRange } from '../../utils/MCRange';
 import MCUtils from '../../utils/MCUtils';
 import { DashProxyUtils } from './DashProxyUtils';
 import { XmlParser } from './XmlParser';
 import { url } from '@kit.ArkTS';
+import { text } from '@kit.ArkGraphics2D';
 
 export namespace DashParser {
   export interface DashParseResult {
@@ -36,6 +41,7 @@ export namespace DashParser {
     assetId: string,
     originalUrl: string,
     currentUrl: string,
+    adaptationSetSelectionHandler?: DashAdaptationSetSelectionHandler,
     representationSelectionHandler?: DashRepresentationSelectionHandler
   ): string {
     const result = parse(rawXml);
@@ -46,14 +52,13 @@ export namespace DashParser {
       return compactXml;
     }
 
-    const mpdNode = mpd.node;
     let proxyXml = compactXml
     for ( const p of periods ) {
       // 修剪, 多码率流仅能保留一个进行缓存
-      proxyXml = trimPeriod(proxyXml, p, mpdNode, originalUrl, currentUrl, representationSelectionHandler);
+      proxyXml = trimPeriod(proxyXml, p, mpd, originalUrl, currentUrl, adaptationSetSelectionHandler, representationSelectionHandler);
 
       // 处理 BaseURL, 替换为代理地址
-      proxyXml = proxyPeriod(proxyXml, mpd, p, currentUrl, assetId);
+      proxyXml = proxyPeriod(proxyXml, p, mpd, currentUrl, assetId);
     }
     return proxyXml;
   }
@@ -61,50 +66,20 @@ export namespace DashParser {
   function trimPeriod(
     proxyXml: string,
     period: _Period,
-    mpdNode: DashXmlNode,
+    mpd: _MPD,
     originalUrl: string,
     currentUrl: string,
+    adaptationSetSelectionHandler?: DashAdaptationSetSelectionHandler,
     representationSelectionHandler?: DashRepresentationSelectionHandler
   ): string {
-    const adaptationSets = period.eAdaptationSets;
-    if ( !adaptationSets || adaptationSets.length === 0 )
-      return proxyXml;
-
-    // 处理多码率流, 只能保留一个流进行缓存
-    for ( const set of adaptationSets ) {
-      if ( !set.eRepresentations || set.eRepresentations.length <= 1 ) continue;
-
-      // 选择要保留的 Representation
-      const selectedRepresentation = selectRepresentation(originalUrl, currentUrl, set, set.eRepresentations, representationSelectionHandler);
-
-      const firstRepresentation = set.eRepresentations[0];
-      const lastRepresentation = set.eRepresentations[set.eRepresentations.length - 1];
-
-      // 计算全局起始索引
-      const firstStartIndex = XmlParser.computeStartIndex(mpdNode, firstRepresentation.node);
-      const selectedStartIndex = firstRepresentation != selectedRepresentation ? XmlParser.computeStartIndex(mpdNode, selectedRepresentation.node) : firstStartIndex;
-      const lastStartIndex = lastRepresentation != selectedRepresentation ? XmlParser.computeStartIndex(mpdNode, lastRepresentation.node) : selectedStartIndex;
-
-      // 前面需要删除的范围
-      const prevRange = new MCRange(firstStartIndex, selectedStartIndex - firstStartIndex);
-
-      // 后面需要删除的范围
-      const nextLocation = selectedStartIndex + selectedRepresentation.node.length;
-      const nextLength = lastStartIndex + lastRepresentation.node.length - nextLocation;
-      const nextRange = new MCRange(nextLocation, nextLength);
-      proxyXml = removeRange(proxyXml, nextRange);
-      proxyXml = removeRange(proxyXml, prevRange);
-
-      // 更新 AdaptationSet，只保留选中的 Representation
-      set.eRepresentations = [selectedRepresentation];
-    }
+    proxyXml = trimAdaptationSets(proxyXml, period, mpd, originalUrl, currentUrl, adaptationSetSelectionHandler, representationSelectionHandler);
     return proxyXml;
   }
 
   function proxyPeriod(
     proxyXml: string,
-    mpd: _MPD,
     period: _Period,
+    mpd: _MPD,
     currentUrl: string,
     assetId: string,
   ): string {
@@ -146,11 +121,96 @@ export namespace DashParser {
     return proxyXml;
   }
 
+  function trimAdaptationSets(
+    proxyXml: string,
+    period: _Period,
+    mpd: _MPD,
+    originalUrl: string,
+    currentUrl: string,
+    adaptationSetSelectionHandler?: DashAdaptationSetSelectionHandler,
+    representationSelectionHandler?: DashRepresentationSelectionHandler
+  ): string {
+    if ( !period.eAdaptationSets || period.eAdaptationSets.length == 0 ) {
+      return proxyXml;
+    }
+
+    const adaptationSets = [...period.eAdaptationSets];
+    const groups = MCArrayUtils.groupByKey(adaptationSets, (it) => (it.aContentType ?? '')); // 根据 contentType 进行分组
+    const selectedSets: _AdaptationSet[] = [];
+
+    // 移除多余轨道
+    // 多音频轨道的, 仅保留一个音频轨道
+    // 多字幕轨道的, 仅保留一个字幕轨道
+    for ( let pair of groups ) {
+      const contentType = pair[0];
+      const sets = pair[1];
+      if ( sets.length > 1 ) {
+        selectedSets.push(selectAdaptationSet(originalUrl, currentUrl, contentType, sets, adaptationSetSelectionHandler));
+      }
+    }
+
+    if ( selectedSets.length > 0 ) {
+      for ( let i = adaptationSets.length - 1; i <= 0; --i ) {
+        const set = adaptationSets[i];
+        if ( !selectedSets.includes(set) ) {
+          proxyXml = removeXml(set.node, mpd.node, proxyXml);
+          MCArrayUtils.removeAt(adaptationSets, i);
+        }
+      }
+
+      period.eAdaptationSets = adaptationSets;
+    }
+
+    // 处理多码率流, 仅保留一个流
+    for ( const set of adaptationSets ) {
+      proxyXml = trimAdaptationSet(proxyXml, set, mpd, originalUrl, currentUrl, representationSelectionHandler);
+    }
+    return proxyXml;
+  }
+
+  function selectAdaptationSet(
+    originalUrl: string,
+    currentUrl: string,
+    contentType: string,
+    adaptationSets: readonly _AdaptationSet[], // 传入的 adaptationSets.length 必定大于 1;
+    adaptationSetSelectionHandler?: DashAdaptationSetSelectionHandler,
+  ): _AdaptationSet {
+    if ( adaptationSetSelectionHandler ) {
+      const s = adaptationSetSelectionHandler(originalUrl, currentUrl, contentType, adaptationSets);
+      if ( s ) return s;
+    }
+    return adaptationSets[0];
+  }
+
+  function trimAdaptationSet(
+    proxyXml: string,
+    set: _AdaptationSet,
+    mpd: _MPD,
+    originalUrl: string,
+    currentUrl: string,
+    representationSelectionHandler?: DashRepresentationSelectionHandler
+  ): string {
+    if ( !set.eRepresentations || set.eRepresentations.length <= 1 ) return proxyXml;
+
+    // 选择要保留的 Representation
+    const selectedRepresentation = selectRepresentation(originalUrl, currentUrl, set, set.eRepresentations, representationSelectionHandler);
+    const mpdNode = mpd.node;
+    for ( const representation of set.eRepresentations ) {
+      if ( representation != selectedRepresentation ) {
+        proxyXml = removeXml(representation.node, mpdNode, proxyXml);
+      }
+    }
+
+    // 更新 AdaptationSet，只保留选中的 Representation
+    set.eRepresentations = [selectedRepresentation];
+    return proxyXml;
+  }
+
   function selectRepresentation(
     originalUrl: string,
     currentUrl: string,
     adaptationSet: _AdaptationSet,
-    representations: readonly DashElement.Representation[],
+    representations: readonly _Representation[],
     representationSelectionHandler?: DashRepresentationSelectionHandler
   ): _Representation {
     if ( representationSelectionHandler ) {
@@ -160,9 +220,10 @@ export namespace DashParser {
     return representations[Math.floor((representations.length / 2))];
   }
 
-  function removeRange(xml: string, range: MCRange) {
-    if ( range.length <= 0 ) return xml;
-    return xml.slice(0, range.location) + xml.slice(range.max);
+  function removeXml(target: DashXmlNode, mpd: DashXmlNode, xml: string): string {
+    const startIndex = XmlParser.computeStartIndex(mpd, target);
+    const endIndex = startIndex + target.length;
+    return xml.slice(0, startIndex) + xml.slice(endIndex);
   }
 
   class _DashElement implements DashElement.Element {
@@ -187,7 +248,7 @@ export namespace DashParser {
 
   class _Period extends _DashElement implements DashElement.Period {
     eBaseURLs?: readonly _BaseURL[];
-    readonly eAdaptationSets?: readonly _AdaptationSet[] | undefined;
+    eAdaptationSets?: readonly _AdaptationSet[] | undefined;
 
     constructor(node: DashXmlNode) {
       super(node);

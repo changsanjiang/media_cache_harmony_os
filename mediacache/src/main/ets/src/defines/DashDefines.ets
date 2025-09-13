@@ -18,6 +18,10 @@
  *      <Representation id="video_1080p" bandwidth="5000000" ... />
  *    </AdaptationSet>
  *
+ *    <AdaptationSet contentType="audio" lang="zh" mimeType="audio/mp4" ...>
+ *      <Representation id="audio_zh_128k" bandwidth="128000" ... />
+ *    </AdaptationSet>
+ *
  *    <AdaptationSet contentType="audio" lang="en" mimeType="audio/mp4" ...>
  *      <Representation id="audio_eng_128k" bandwidth="128000" ... />
  *    </AdaptationSet>
@@ -25,13 +29,18 @@
  *    <AdaptationSet contentType="text" lang="zh" mimeType="application/ttml+xml" ...>
  *      <Representation id="sub_zh" ... />
  *    </AdaptationSet>
+ *
+ *    <AdaptationSet contentType="text" lang="en" mimeType="application/ttml+xml" ...>
+ *      <Representation id="sub_en" ... />
+ *    </AdaptationSet>
  *  </Period>
  * </MPD>
  * */
 export type DashAdaptationSetSelectionHandler = (
   mpdOriginalUrl: string,
   mpdCurrentUrl: string,
-  adaptationSet: DashElement.AdaptationSet,
+  contentType: string, // audio、 text(subtitles)
+  adaptationSets: readonly DashElement.AdaptationSet[], // audios、texts(subtitles)
 ) => DashElement.AdaptationSet;
 
 /** Dash representation 选择器;

@@ -33,8 +33,26 @@ namespace MCArrayUtils {
     return -1;
   }
 
+  export function removeAt<T>(array: T[], index: number) {
+    array.splice(index, 1);
+  }
+
   export function add<T>(array: T[], value: T, index?: number): void {
     array.splice(Math.min(index ?? array.length, array.length), 0, value);
+  }
+
+  export function groupByKey<K, V>(array: V[], keyProvider: (value: V) => K): Map<K, V[]> {
+    return array.reduce((map, e) => {
+      const key = keyProvider(e);
+      const group = map.get(key);
+      if ( group ) {
+        group.push(e);
+      }
+      else {
+        map.set(key, [e]);
+      }
+      return map;
+    }, new Map<K, V[]>());
   }
 }
 
