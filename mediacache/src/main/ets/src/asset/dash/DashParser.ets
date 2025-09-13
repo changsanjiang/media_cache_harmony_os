@@ -144,13 +144,13 @@ export namespace DashParser {
     for ( let pair of groups ) {
       const contentType = pair[0];
       const sets = pair[1];
-      if ( sets.length > 1 ) {
+      if ( sets.length > 0 ) {
         selectedSets.push(selectAdaptationSet(originalUrl, currentUrl, contentType, sets, adaptationSetSelectionHandler));
       }
     }
 
-    if ( selectedSets.length > 0 ) {
-      for ( let i = adaptationSets.length - 1; i <= 0; --i ) {
+    if ( selectedSets.length != adaptationSets.length ) {
+      for ( let i = adaptationSets.length - 1; i >= 0; --i ) {
         const set = adaptationSets[i];
         if ( !selectedSets.includes(set) ) {
           proxyXml = removeXml(set.node, mpd.node, proxyXml);
@@ -175,6 +175,10 @@ export namespace DashParser {
     adaptationSets: readonly _AdaptationSet[], // 传入的 adaptationSets.length 必定大于 1;
     adaptationSetSelectionHandler?: DashAdaptationSetSelectionHandler,
   ): _AdaptationSet {
+    if ( adaptationSets.length == 1 ) {
+      return adaptationSets[0];
+    }
+
     if ( adaptationSetSelectionHandler ) {
       const s = adaptationSetSelectionHandler(originalUrl, currentUrl, contentType, adaptationSets);
       if ( s ) return s;

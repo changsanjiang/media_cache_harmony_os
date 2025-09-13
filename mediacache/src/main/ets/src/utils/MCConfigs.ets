@@ -1,5 +1,5 @@
 import { rcp } from '@kit.RemoteCommunicationKit';
-import { DashRepresentationSelectionHandler } from '../defines/DashDefines';
+import { DashAdaptationSetSelectionHandler, DashRepresentationSelectionHandler } from '../defines/DashDefines';
 import { HLSRenditionSelectionHandler, HLSVariantStreamSelectionHandler } from '../defines/HLSDefines';
 import { IMCDataRequest } from '../defines/IMCDataRequest';
 import { MCAssetType } from '../defines/MCAssetType';
@@ -48,6 +48,8 @@ namespace MCConfigs {
   export let variantStreamSelectionHandler: HLSVariantStreamSelectionHandler | undefined = undefined;
 
   export let renditionSelectionHandler: HLSRenditionSelectionHandler | undefined = undefined;
+
+  export let dashAdaptationSetSelectionHandler: DashAdaptationSetSelectionHandler | undefined = undefined;
 
   export let dashRepresentationSelectionHandler: DashRepresentationSelectionHandler | undefined = undefined;
 }

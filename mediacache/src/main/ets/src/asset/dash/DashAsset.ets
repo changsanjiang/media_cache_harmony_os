@@ -83,7 +83,14 @@ export class DashAsset extends MCReadwriteReference<DashAsset> implements IMCAss
       // MCMedia 的内容下载完成后回调;
       proxyHandler = async (requestUrl, currentUrl, data) => {
         const content = MCUtils.bufferToString(data);
-        const proxyContent = DashParser.proxy(content, this.id, requestUrl, currentUrl, MCConfigs.dashRepresentationSelectionHandler);
+        const proxyContent = DashParser.proxy(
+          content,
+          this.id,
+          requestUrl,
+          currentUrl,
+          MCConfigs.dashAdaptationSetSelectionHandler,
+          MCConfigs.dashRepresentationSelectionHandler
+        );
         await this.prepareMedias(proxyContent);
         return MCUtils.stringToBuffer(proxyContent);
       }
