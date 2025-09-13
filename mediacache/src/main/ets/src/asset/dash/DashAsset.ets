@@ -1,3 +1,4 @@
+import { DashElement } from "../../defines/DashDefines";
 import { IMCAsset } from "../../defines/IMCAsset";
 import { IMCMedia } from "../../defines/IMCMedia";
 import { MCAssetType } from "../../defines/MCAssetType";
@@ -34,7 +35,13 @@ export class DashAsset extends MCReadwriteReference<DashAsset> implements IMCAss
   currentCachedSize: number = 0;
 
   async prepare(): Promise<void> {
-
+    const mpdMedia = await this.getMedia(this.id, MCMediaKind.PLAYLIST);
+    if ( mpdMedia.isAssembled ) {
+      const rawData = await mpdMedia.readAllData();
+      if ( rawData ) {
+        await this.prepareMedias(MCUtils.bufferToString(rawData));
+      }
+    }
   }
 
   getMediaByProxyPath(proxyPath: string): Promise<IMCMedia> {
@@ -77,7 +84,7 @@ export class DashAsset extends MCReadwriteReference<DashAsset> implements IMCAss
       proxyHandler = async (requestUrl, currentUrl, data) => {
         const content = MCUtils.bufferToString(data);
         const proxyContent = DashParser.proxy(content, this.id, requestUrl, currentUrl, MCConfigs.dashRepresentationSelectionHandler);
-        // await this.initializePlaylist(mediaId, proxyContent);
+        await this.prepareMedias(proxyContent);
         return MCUtils.stringToBuffer(proxyContent);
       }
     }
@@ -102,7 +109,9 @@ export class DashAsset extends MCReadwriteReference<DashAsset> implements IMCAss
     return run;
   }
 
-  private prepareMedias() {
+  private async prepareMedias(mpdXml: string) {
+    const mpd = DashParser.parse(mpdXml).mpd;
+    // 需要解析出所有的段文件
 
   }
 }

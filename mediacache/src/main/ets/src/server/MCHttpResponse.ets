@@ -11,11 +11,10 @@ import {
   IMCHttpResponseHeaders
 } from '../defines/IMCHttpResponseHeaders';
 import { buffer, util } from '@kit.ArkTS';
-import { MCProxyURLUtils } from '../utils/MCProxyURLUtils';
 import MCConsts from '../utils/MCConsts';
 import { IMCAsset } from '../defines/IMCAsset';
 import { MCAssetExportManager } from '../exporter/MCAssetExportManager';
-import { MCProxyBaseUtils } from '../utils/MCProxyBaseUtils';
+import { MCAssetProxyUtils } from '../asset/MCAssetProxyUtils';
 
 export class MCHttpResponse implements IMCHttpResponse {
   private mClientId: number;
@@ -53,19 +52,20 @@ export class MCHttpResponse implements IMCHttpResponse {
     MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Starting preparation for request: ${JSON.stringify(this.mRequest)}`);
     try {
       let asset: IMCAsset;
-      let proxyPath = this.mRequest.requestTarget;
-      if ( proxyPath.startsWith(MCConsts.ROUTE_PATH_PROXY_BASED) ) {
-        proxyPath = await MCProxyBaseUtils.convertToProxyPath(proxyPath);
+      // requestTarget: proxyPath
+      let requestTarget = this.mRequest.requestTarget;
+      if ( requestTarget.startsWith(MCConsts.ROUTE_PATH_PROXY_BASED) ) {
+        requestTarget = await MCAssetProxyUtils.convertToProxyPath(requestTarget);
       }
 
-      if ( proxyPath.startsWith(MCConsts.ROUTE_PATH_PROXY_URL) ) {
-        asset = await MCAssetManager.getInstance().getAssetByProxyPath(proxyPath);
+      if ( requestTarget.startsWith(MCConsts.ROUTE_PATH_PROXY_URL) ) {
+        asset = await MCAssetManager.getInstance().getAssetByProxyPath(requestTarget);
       }
-      else if ( proxyPath.startsWith(MCConsts.ROUTE_PATH_PROXY_DIR) ) {
-        asset = await MCAssetExportManager.getInstance().getAssetByProxyPath(proxyPath);
+      else if ( requestTarget.startsWith(MCConsts.ROUTE_PATH_PROXY_DIR) ) {
+        asset = await MCAssetExportManager.getInstance().getAssetByProxyPath(requestTarget);
       }
       else {
-        throw new Error(`[clientId: ${this.mClientId}] Invalid proxy path: "${proxyPath}". ` +
+        throw new Error(`[clientId: ${this.mClientId}] Invalid request target: "${requestTarget}". ` +
           `Expected path to start with "/${MCConsts.ROUTE_PATH_PROXY_URL}" or "/${MCConsts.ROUTE_PATH_PROXY_DIR}".`
         );
       }
@@ -76,7 +76,7 @@ export class MCHttpResponse implements IMCHttpResponse {
       }
 
       this.mFetcher = new MCAssetDataFetcher(this.mClientId, asset, {
-        requestTarget: proxyPath,
+        requestTarget: requestTarget,
         headers: this.mRequest.headers
       });
       MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Instantiated data fetcher`);

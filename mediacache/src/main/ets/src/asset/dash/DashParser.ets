@@ -6,19 +6,12 @@ import { DashProxyUtils } from './DashProxyUtils';
 import { XmlParser } from './XmlParser';
 import { url } from '@kit.ArkTS';
 
-export interface DashParseOptions {
-  readonly mpdOriginalUrl: string;
-  readonly mpdCurrentUrl: string;
-  readonly shouldTrim?: boolean;
-  readonly representationSelectionHandler?: DashRepresentationSelectionHandler;
-}
-
-export interface DashParseResult {
-  mpd: DashElement.MPD;
-  compactXml: string; // 删除了换行、空格
-}
-
 export namespace DashParser {
+  export interface DashParseResult {
+    mpd: DashElement.MPD;
+    compactXml: string; // 删除了换行、空格
+  }
+
   /** MPD 解析; */
   export function parse(rawXml: string): DashParseResult {
     const parseResult = XmlParser.parse(rawXml);
@@ -82,7 +75,7 @@ export namespace DashParser {
       if ( !set.eRepresentations || set.eRepresentations.length <= 1 ) continue;
 
       // 选择要保留的 Representation
-      const selectedRepresentation = selectRepresentation(originalUrl, currentUrl, set, representationSelectionHandler);
+      const selectedRepresentation = selectRepresentation(originalUrl, currentUrl, set, set.eRepresentations, representationSelectionHandler);
 
       const firstRepresentation = set.eRepresentations[0];
       const lastRepresentation = set.eRepresentations[set.eRepresentations.length - 1];
@@ -153,16 +146,15 @@ export namespace DashParser {
     return proxyXml;
   }
 
-  // adaptationSet.eRepresentations 必定有值, 并且 length > 1;
   function selectRepresentation(
     originalUrl: string,
     currentUrl: string,
     adaptationSet: _AdaptationSet,
+    representations: readonly DashElement.Representation[],
     representationSelectionHandler?: DashRepresentationSelectionHandler
   ): _Representation {
-    const representations = adaptationSet.eRepresentations!;
     if ( representationSelectionHandler ) {
-      const r = representationSelectionHandler(originalUrl, currentUrl, adaptationSet);
+      const r = representationSelectionHandler(originalUrl, currentUrl, adaptationSet, representations);
       if ( r ) return r;
     }
     return representations[Math.floor((representations.length / 2))];
@@ -208,12 +200,16 @@ export namespace DashParser {
   class _AdaptationSet extends _DashElement implements DashElement.AdaptationSet {
     readonly eBaseURLs?: readonly _BaseURL[] | undefined;
     eRepresentations?: readonly _Representation[];
+    readonly aLang?: string;
+    readonly aContentType?: string;
 
     constructor(node: DashXmlNode) {
       super(node);
 
       this.eBaseURLs = XmlParser.findDirectChildrenByTagName(node, "BaseURL").map(it => new _BaseURL(it));
       this.eRepresentations = XmlParser.findDirectChildrenByTagName(node, "Representation").map(it => new _Representation(it));
+      this.aLang = node.attributes?.get("lang");
+      this.aContentType = node.attributes?.get("contentType");
     }
   }
 

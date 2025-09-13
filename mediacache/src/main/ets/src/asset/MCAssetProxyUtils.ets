@@ -2,6 +2,8 @@ import { url } from '@kit.ArkTS';
 import { MCAssetType } from '../defines/MCAssetType';
 import { MCMediaKind } from '../defines/MCMediaKind';
 import MCConfigs from '../utils/MCConfigs';
+import { MCMediaIdGenerator } from '../utils/MCMediaIdGenerator';
+import { MCProxyBaseUtils } from '../utils/MCProxyBaseUtils';
 import { MCProxyURLUtils } from '../utils/MCProxyURLUtils';
 import MCUtils from '../utils/MCUtils';
 
@@ -48,6 +50,31 @@ export namespace MCAssetProxyUtils {
     }
     const mediaId = assetId; // 根文件的媒体id和资产id一致;
     return MCProxyURLUtils.generateProxyPath(resUrl, assetId, assetType, mediaId, mediaKind);
+  }
+
+  /**
+   * 将通过基请求的路径转为代理路径(proxy path);
+   *
+   * 例如:
+   * basedProxyPath: `/mc_based_proxy/assetType/assetId/encodedBaseUrl/chunk-stream0-00001.m4s`
+   * convert to proxyPath: `/mc_proxy/assetType/assetId/mediaKind/mediaId/encodedURI`;
+   * */
+  export async function convertToProxyPath(
+    basedProxyPath: string
+  ): Promise<string> {
+    const info = MCProxyBaseUtils.parse(basedProxyPath);
+    const mediaUrl = url.URL.parseURL(info.targetPath, info.baseUrl).toString();
+    // 由于 dash 的 baseUrl 可以指定多个, mediaUrl 可能来自不同的 baseUrl;
+    // 因此这里就不使用 mediaUrl 生成媒体 id 了, 而是改用 targetPath 生成;
+    const mediaId = await MCMediaIdGenerator.generate(info.targetPath);
+    const mediaKind = MCMediaKind.FILE;
+    return MCProxyURLUtils.generateProxyPath(
+      mediaUrl,
+      info.assetId,
+      info.assetType,
+      mediaId,
+      mediaKind
+    );
   }
 
   /**

@@ -1,12 +1,59 @@
+
+/** Dash adaptationSet 选择器;
+ *
+ *  对于多语言、多字幕轨道, 必须做出选择, 只能选择一个进行缓存;
+ *
+ * 一个复杂的电影流媒体可能包含如下结构：
+ * - AdaptationSet 1: 视频 (包含5个不同码率的版本)
+ * - AdaptationSet 2: 音频 - 中文 (包含2个不同码率的版本)
+ * - AdaptationSet 3: 音频 - 英语 (包含2个不同码率的版本)
+ * - AdaptationSet 5: 字幕 - 中文
+ * - AdaptationSet 6: 字幕 - 英语
+ *
+ * <MPD>
+ *  <Period>
+ *    <AdaptationSet contentType="video" mimeType="video/mp4" ...>
+ *      <Representation id="video_360p" bandwidth="500000" ... />
+ *      <Representation id="video_720p" bandwidth="2000000" ... />
+ *      <Representation id="video_1080p" bandwidth="5000000" ... />
+ *    </AdaptationSet>
+ *
+ *    <AdaptationSet contentType="audio" lang="en" mimeType="audio/mp4" ...>
+ *      <Representation id="audio_eng_128k" bandwidth="128000" ... />
+ *    </AdaptationSet>
+ *
+ *    <AdaptationSet contentType="text" lang="zh" mimeType="application/ttml+xml" ...>
+ *      <Representation id="sub_zh" ... />
+ *    </AdaptationSet>
+ *  </Period>
+ * </MPD>
+ * */
+export type DashAdaptationSetSelectionHandler = (
+  mpdOriginalUrl: string,
+  mpdCurrentUrl: string,
+  adaptationSet: DashElement.AdaptationSet,
+) => DashElement.AdaptationSet;
+
 /** Dash representation 选择器;
  *
  * 对于多码率流, 必须做出选择, 选出一个需要缓存的流;
+ *
+ * <MPD>
+ *  <Period>
+ *    <AdaptationSet contentType="video" mimeType="video/mp4" ...>
+ *      <Representation id="video_360p" bandwidth="500000" ... />
+ *      <Representation id="video_720p" bandwidth="2000000" ... />
+ *      <Representation id="video_1080p" bandwidth="5000000" ... />
+ *    </AdaptationSet>
+ *  </Period>
+ * </MPD>
  * */
 export type DashRepresentationSelectionHandler = (
   mpdOriginalUrl: string,
   mpdCurrentUrl: string,
-  adaptationSet: DashElement.AdaptationSet, // adaptationSet.eRepresentations 必定有值, 并且 length > 1;
-) => DashElement.Representation
+  adaptationSet: DashElement.AdaptationSet,
+  representations: readonly DashElement.Representation[],
+) => DashElement.Representation;
 
 /** XML 节点; */
 export interface DashXmlNode {
@@ -199,8 +246,8 @@ export namespace DashElement {
     readonly eRepresentations?: readonly Representation[]       // <xs:element name="Representation" type="RepresentationType" minOccurs="0" maxOccurs="unbounded"/>
     // aId?: number                                  // <xs:attribute name="id" type="xs:unsignedInt"/>
     // aGroup?: number                               // <xs:attribute name="group" type="xs:unsignedInt"/>
-    // aLang?: string                                // <xs:attribute name="lang" type="xs:language"/>
-    // readonly aContentType?: string                         // <xs:attribute name="contentType" type="xs:string"/>
+    readonly aLang?: string                                // <xs:attribute name="lang" type="xs:language"/>
+    readonly aContentType?: string                         // <xs:attribute name="contentType" type="xs:string"/>
     // aPar?: RatioType                              // <xs:attribute name="par" type="RatioType"/>
     // aMinBandwidth?: number                        // <xs:attribute name="minBandwidth" type="xs:unsignedInt"/>
     // aMaxBandwidth?: number                        // <xs:attribute name="maxBandwidth" type="xs:unsignedInt"/>

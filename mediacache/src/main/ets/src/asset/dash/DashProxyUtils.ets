@@ -1,5 +1,5 @@
-import { MCAssetType } from "../../defines/MCAssetType";
-import { MCProxyBaseUtils } from "../../utils/MCProxyBaseUtils";
+import { MCAssetType } from '../../defines/MCAssetType';
+import { MCProxyBaseUtils } from '../../utils/MCProxyBaseUtils';
 
 export namespace DashProxyUtils {
   export function generateBaseProxyPath(

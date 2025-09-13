@@ -1,11 +1,15 @@
-import { MCAssetType } from "../defines/MCAssetType";
-import { MCMediaKind } from "../defines/MCMediaKind";
-import MCConsts from "./MCConsts";
-import { MCMediaIdGenerator } from "./MCMediaIdGenerator";
-import { MCProxyURLUtils } from "./MCProxyURLUtils";
-import { url } from "@kit.ArkTS";
+import { MCAssetType } from '../defines/MCAssetType';
+import MCConsts from './MCConsts';
 
 export namespace MCProxyBaseUtils {
+  export interface BasedProxyPathInfo {
+    readonly baseUrl: string;
+    readonly assetId: string;
+    readonly assetType: MCAssetType;
+    /** 从 basedProxyPath 中 baseUrl 之后的部分 */
+    readonly targetPath: string;
+  }
+
   /**
    *  生成代理基路径;
    *
@@ -20,39 +24,8 @@ export namespace MCProxyBaseUtils {
     return `${MCConsts.ROUTE_PATH_PROXY_BASED}/${assetType}/${assetId}/${encodeURIComponent(baseUrl)}/`;
   }
 
-  /**
-   * 将通过基请求的路径转为代理路径(proxy path);
-   *
-   * 例如:
-   * basedProxyPath: `/mc_based_proxy/assetType/assetId/encodedBaseUrl/chunk-stream0-00001.m4s`
-   * convert to proxyPath: `/mc_proxy/assetType/assetId/mediaKind/mediaId/encodedURI`;
-   * */
-  export async function convertToProxyPath(
-    basedProxyPath: string,
-    mediaKind: MCMediaKind = MCMediaKind.FILE,
-  ): Promise<string> {
-    const info = parse(basedProxyPath);
-    const mediaUrl = url.URL.parseURL(info.targetPath, info.baseUrl).toString();
-    const mediaId = await MCMediaIdGenerator.generate(mediaUrl);
-    return MCProxyURLUtils.generateProxyPath(
-      mediaUrl,
-      info.assetId,
-      info.assetType,
-      mediaId,
-      mediaKind
-    );
-  }
-
-  interface BasedProxyPathInfo {
-    readonly baseUrl: string;
-    readonly assetId: string;
-    readonly assetType: MCAssetType;
-    /** 从 basedProxyPath 中 baseUrl 之后的部分 */
-    readonly targetPath: string;
-  }
-
   // basedProxyPath format: `/mc_based_proxy/assetType/assetId/encodedBaseUrl/targetPath`
-  function parse(basedProxyPath: string): BasedProxyPathInfo {
+  export function parse(basedProxyPath: string): BasedProxyPathInfo {
     if ( !basedProxyPath.startsWith(MCConsts.ROUTE_PATH_PROXY_BASED) ) {
       throw new Error(`Invalid based proxy path: expected to start with "${MCConsts.ROUTE_PATH_PROXY_BASED}", got "${basedProxyPath}".`);
     }
