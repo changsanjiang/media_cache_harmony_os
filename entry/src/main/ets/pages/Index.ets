@@ -12,7 +12,7 @@ struct Index {
   @State prefetchState: string = 'Test Prefetch';
   @State exportState: string = 'Test Export';
 
-  aboutToAppear() {
+  async aboutToAppear() {
     // Asset 个数限制; 0 表示不限制;
     // MCMediaCache.cacheConfig.countLimit: number = 0;
 
@@ -35,9 +35,9 @@ struct Index {
     // MCMediaCache.setDataEncryptHandler(async (resUrl, dataOffset, data) => {
     //   // xxx
     // });
-    MCMediaCache.prepare(getContext());
+    await MCMediaCache.prepare(getContext());
 
-    this.testDash()
+    MCMediaCache.removeCaches();
   }
 
   build() {
@@ -91,7 +91,7 @@ struct Index {
     //   console.error(`Failed to jump to the second page. Code is ${err.code}, message is ${err.message}`)
     // })
 
-    let url = 'https://consumer.huawei.com/content/dam/huawei-cbg-site/cn/mkt/pdp/phones/nova-flip/new/video/design-intro-popup.mp4';
+    let url = 'https://cdn.bitmovin.com/content/assets/art-of-motion-dash-hls-progressive/m3u8s/f08e80da-bf1d-4e3d-8899-f0f6155f6efa.m3u8';
     let proxyUrl = await MCMediaCache.proxy(url);
 
     router.pushUrl({ url: 'pages/VideoPlayer', params: { url: proxyUrl } }).then(() => {
@@ -148,109 +148,13 @@ struct Index {
   }
 
   async testDash() {
-    const xmlText = `<?xml version="1.0" encoding="utf-8"?>
-<MPD xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xmlns="urn:mpeg:dash:schema:mpd:2011"
-	xmlns:xlink="http://www.w3.org/1999/xlink"
-	xsi:schemaLocation="urn:mpeg:DASH:schema:MPD:2011 http://standards.iso.org/ittf/PubliclyAvailableStandards/MPEG-DASH_schema_files/DASH-MPD.xsd"
-	profiles="urn:mpeg:dash:profile:isoff-live:2011"
-	type="static"
-	mediaPresentationDuration="PT9M21.7S"
-	maxSegmentDuration="PT5.0S"
-	minBufferTime="PT15.1S">
-	<ProgramInformation>
-	</ProgramInformation>
-	<ServiceDescription id="0">
-	</ServiceDescription>
-	<Period id="0" start="PT0.0S">
-		<AdaptationSet id="0" contentType="video" startWithSAP="1" segmentAlignment="true" bitstreamSwitching="true" frameRate="50/1" maxWidth="1920" maxHeight="1080" par="16:9" lang="und">
-			<Representation id="0" mimeType="video/mp4" codecs="avc1.64002a" bandwidth="2224366" width="1920" height="1080" sar="1:1">
-				<SegmentTemplate timescale="12800" initialization="init-stream$RepresentationID$.m4s" media="chunk-stream$RepresentationID$-$Number%05d$.m4s" startNumber="1">
-					<SegmentTimeline>
-						<S t="0" d="78592" />
-						<S d="64000" r="23" />
-						<S d="123392" />
-						<S d="64000" r="13" />
-						<S d="90624" />
-						<S d="64000" />
-						<S d="78592" />
-						<S d="115968" />
-						<S d="64000" r="10" />
-						<S d="114944" />
-						<S d="120576" />
-						<S d="64000" r="26" />
-						<S d="79360" />
-						<S d="64000" r="5" />
-						<S d="122880" />
-						<S d="64000" r="5" />
-						<S d="90624" />
-						<S d="96512" />
-						<S d="64000" r="3" />
-						<S d="97024" />
-						<S d="28672" />
-					</SegmentTimeline>
-				</SegmentTemplate>
-			</Representation>
-		</AdaptationSet>
-		<AdaptationSet id="1" contentType="audio" startWithSAP="1" segmentAlignment="true" bitstreamSwitching="true" lang="und">
-			<Representation id="1" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="128000" audioSamplingRate="48000">
-				<AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="2" />
-				<SegmentTemplate timescale="48000" initialization="init-stream$RepresentationID$.m4s" media="chunk-stream$RepresentationID$-$Number%05d$.m4s" startNumber="1">
-					<SegmentTimeline>
-						<S t="0" d="239616" />
-						<S d="240640" r="110" />
-						<S d="13312" />
-					</SegmentTimeline>
-				</SegmentTemplate>
-			</Representation>
-			<Representation id="2" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="128000" audioSamplingRate="48000">
-				<AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="2" />
-				<SegmentTemplate timescale="48000" initialization="init-stream$RepresentationID$.m4s" media="chunk-stream$RepresentationID$-$Number%05d$.m4s" startNumber="1">
-					<SegmentTimeline>
-						<S t="0" d="239616" />
-						<S d="240640" r="110" />
-						<S d="13312" />
-					</SegmentTimeline>
-				</SegmentTemplate>
-			</Representation>
-			<Representation id="3" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="128000" audioSamplingRate="48000">
-				<AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="2" />
-				<SegmentTemplate timescale="48000" initialization="init-stream$RepresentationID$.m4s" media="chunk-stream$RepresentationID$-$Number%05d$.m4s" startNumber="1">
-					<SegmentTimeline>
-						<S t="0" d="239616" />
-						<S d="240640" r="110" />
-						<S d="13312" />
-					</SegmentTimeline>
-				</SegmentTemplate>
-			</Representation>
-		</AdaptationSet>
-	</Period>
-</MPD>`;
-    console.log(`AAAA: TestDash`)
+    let url = 'https://cdn.bitmovin.com/content/assets/art-of-motion-dash-hls-progressive/mpds/f08e80da-bf1d-4e3d-8899-f0f6155f6efa.mpd';
+    let proxyUrl = await MCMediaCache.proxy(url);
 
-    // const nodeTree = XmlParser.parseXmlToTree(xmlText)
-    // console.log(`AAAA: ${nodeTree}`);
-
-    try {
-      const result = DashParser.proxy(
-        xmlText,
-        "assetId",
-        "http://mpdOriginalUrl",
-        "http://mpdCurrentUrl"
-      );
-
-      console.log(`AAAA: ${result}`);
-    }
-    catch (e) {
-      console.log(`AAAA: e=${e}`);
-    }
-
-    // const mpd = DashUtils.parse(xmlText);
-    // console.log(`AAAA: mpd=${JSON.stringify(mpd)}`)
-    //
-    // const urls = XmlParser.findElementRanges(xmlText, "BaseURL");
-    // urls.forEach(range => {
-    //   console.log(`AAAA: xml=${xmlText.substring(range.location, range.max)}`)
-    // })
+    router.pushUrl({ url: 'pages/VideoPlayer', params: { url: url } }).then(() => {
+      console.info('Succeeded in jumping to the second page.')
+    }).catch((err: BusinessError) => {
+      console.error(`Failed to jump to the second page. Code is ${err.code}, message is ${err.message}`)
+    })
   }
 }

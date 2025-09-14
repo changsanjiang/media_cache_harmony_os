@@ -32,7 +32,7 @@ export namespace DashParser {
     const mpd = new _MPD(mpdNode);
     return {
       mpd,
-      compactXml
+      compactXml, // 为了方便后续删减节点等处理, 解析后的 mpd 匹配的是该紧凑的 xml(删除了换行、空格等);
     }
   }
 

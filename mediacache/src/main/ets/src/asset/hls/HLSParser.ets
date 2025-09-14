@@ -4,6 +4,7 @@ import { MCMediaKind } from '../../defines/MCMediaKind';
 import MCUtils from '../../utils/MCUtils';
 import { MCAssetExportUtils } from '../../exporter/MCAssetExportUtils';
 import { HLSProxyUtils } from './HLSProxyUtils';
+import { url } from '@kit.ArkTS';
 
 namespace HLSParser {
 
@@ -92,6 +93,7 @@ namespace HLSParser {
       }
 
       const items = parsedItems.reverse();
+      const baseUrl = url.URL.parseURL('../', currentUrl).toString();
       let item = items.shift();
       while (item) {
         let shouldRemove = false;
@@ -118,7 +120,7 @@ namespace HLSParser {
           // replace URI with proxy uri
           const uri = item.uri;
           if ( uri ) {
-            const absoluteUrl = HLSDefines.getAbsoluteUrl(uri, currentUrl);
+            const absoluteUrl = url.URL.parseURL(uri, baseUrl).toString();
             let mediaKind = MCMediaKind.FILE;
             if      ( item.itemType == HLSDefines.ItemType.VARIANT_STREAM ) {
               mediaKind = MCMediaKind.PLAYLIST;

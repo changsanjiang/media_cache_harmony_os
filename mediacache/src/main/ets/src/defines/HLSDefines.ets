@@ -1,5 +1,4 @@
 import { MCRange } from '../utils/MCRange';
-import { url } from '@kit.ArkTS';
 
 /// 选一个媒体进行代理
 ///
@@ -210,15 +209,5 @@ export namespace HLSDefines {
     // 如果没有 o, 使用前一个片段的末尾作为起点;
     const location = components[1] ? parseInt(components[1], 10) : prevEnd;
     return new MCRange(location, length);
-  }
-
-  export function getAbsoluteUrl(uri: string, playlistUrl: string): string {
-    if (uri.indexOf("://") !== -1) {
-      if ( uri.startsWith("http://localhost") ) {
-        return url.URL.parseURL(uri.slice("http://localhost".length), playlistUrl).toString();
-      }
-      return uri;
-    }
-    return url.URL.parseURL(uri, playlistUrl).toString();
   }
 }
