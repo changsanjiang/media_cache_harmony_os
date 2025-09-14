@@ -91,7 +91,7 @@ struct Index {
     //   console.error(`Failed to jump to the second page. Code is ${err.code}, message is ${err.message}`)
     // })
 
-    let url = 'https://cdn.bitmovin.com/content/assets/art-of-motion-dash-hls-progressive/m3u8s/f08e80da-bf1d-4e3d-8899-f0f6155f6efa.m3u8';
+    let url = 'https://consumer.huawei.com/content/dam/huawei-cbg-site/cn/mkt/pdp/phones/nova-flip/new/video/design-intro-popup.mp4';
     let proxyUrl = await MCMediaCache.proxy(url);
 
     router.pushUrl({ url: 'pages/VideoPlayer', params: { url: proxyUrl } }).then(() => {
@@ -151,7 +151,7 @@ struct Index {
     let url = 'https://cdn.bitmovin.com/content/assets/art-of-motion-dash-hls-progressive/mpds/f08e80da-bf1d-4e3d-8899-f0f6155f6efa.mpd';
     let proxyUrl = await MCMediaCache.proxy(url);
 
-    router.pushUrl({ url: 'pages/VideoPlayer', params: { url: url } }).then(() => {
+    router.pushUrl({ url: 'pages/VideoPlayer', params: { url: proxyUrl } }).then(() => {
       console.info('Succeeded in jumping to the second page.')
     }).catch((err: BusinessError) => {
       console.error(`Failed to jump to the second page. Code is ${err.code}, message is ${err.message}`)

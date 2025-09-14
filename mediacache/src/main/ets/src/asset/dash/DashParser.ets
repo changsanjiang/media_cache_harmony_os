@@ -140,7 +140,7 @@ export namespace DashParser {
     }
 
     const adaptationSets = [...period.eAdaptationSets];
-    const groups = MCArrayUtils.groupByKey(adaptationSets, (it) => (it.aContentType ?? '')); // 根据 contentType 进行分组
+    const groups = MCArrayUtils.groupByKey(adaptationSets, (it) => (it.contentType)); // 根据 contentType 进行分组
     const selectedSets: _AdaptationSet[] = [];
 
     // 移除多余轨道
@@ -203,8 +203,10 @@ export namespace DashParser {
 
     // 选择要保留的 Representation
     const selectedRepresentation = selectRepresentation(originalUrl, currentUrl, set, set.eRepresentations, representationSelectionHandler);
+
     const mpdNode = mpd.node;
-    for ( const representation of set.eRepresentations ) {
+    const representations = [...set.eRepresentations].reverse();
+    for ( const representation of representations ) {
       if ( representation != selectedRepresentation ) {
         proxyXml = removeXml(representation.node, mpdNode, proxyXml);
       }
@@ -319,6 +321,37 @@ export namespace DashParser {
         return this.eRepresentations.map(it => it.extractTrack(baseURLs/*, SegmentBase, SegmentTemplate... */));
       }
       return [];
+    }
+
+    get contentType(): string {
+      if ( this.aContentType ) {
+        return this.aContentType;
+      }
+
+      const node = this.node;
+      if ( node.attributes?.get('mimeType')?.startsWith('video/') ||
+           node.attributes?.get('codecs')?.startsWith('avc1') ||
+           node.attributes?.get('width') ||
+           node.attributes?.get('height')
+      ) {
+        return 'video';
+      }
+
+      if ( node.attributes?.get('mimeType')?.startsWith('audio/') ||
+           node.attributes?.get('codecs')?.startsWith('mp4a') ||
+           node.attributes?.get('audioSamplingRate') ||
+           node.attributes?.get('channels')
+      ) {
+        return 'audio';
+      }
+
+      if ( node.attributes?.get('mimeType')?.startsWith('text/') ||
+           node.attributes?.get('codecs')?.startsWith('wvtt') ||
+           node.attributes?.get('codecs')?.startsWith('stpp')
+      ) {
+        return 'text';
+      }
+      return "video"
     }
   }
 

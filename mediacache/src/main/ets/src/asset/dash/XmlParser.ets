@@ -55,9 +55,16 @@ export namespace XmlParser {
       tokenValueCallbackFunction: (key, value) => {
         switch (key) {
           case xml.EventType.START_TAG: {
+            const parent = stack[stack.length - 1]; // 将新节点加入栈顶父节点的 children
+            if (openTagPending) {
+              // 补全 start tag 的 >
+              compactXml += ">";
+              openTagPending = false;
+              parent.startTagEndIndex = compactXml.length - parent.nodeStartIndex;
+            }
+
             // 创建新节点，加入父节点的 children
             const node = new _DashXmlNode(value.getName());
-            const parent = stack[stack.length - 1]; // 将新节点加入栈顶父节点的 children
             parent.children.push(node);
             stack.push(node); // 当前节点入栈
 
