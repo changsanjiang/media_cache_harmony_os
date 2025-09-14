@@ -41,18 +41,27 @@ namespace MCArrayUtils {
     array.splice(Math.min(index ?? array.length, array.length), 0, value);
   }
 
-  export function groupByKey<K, V>(array: V[], keyProvider: (value: V) => K): Map<K, V[]> {
-    return array.reduce((map, e) => {
-      const key = keyProvider(e);
+  /** 根据key将元素分组; */
+  export function groupByKey<K, V>(array: V[], keyProvider: (value: V, index: number) => K): Map<K, V[]> {
+    return array.reduce((map, v, idx) => {
+      const key = keyProvider(v, idx);
       const group = map.get(key);
       if ( group ) {
-        group.push(e);
+        group.push(v);
       }
       else {
-        map.set(key, [e]);
+        map.set(key, [v]);
       }
       return map;
     }, new Map<K, V[]>());
+  }
+
+  export function toMap<K, V>(array: V[], keyProvider: (value: V, index: number) => K): Map<K, V> {
+    return array.reduce((map, v, idx) => {
+      const key = keyProvider(v, idx);
+      map.set(key, v);
+      return map;
+    }, new Map<K, V>());
   }
 }
 

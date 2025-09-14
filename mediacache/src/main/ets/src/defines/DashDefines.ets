@@ -79,6 +79,21 @@ export interface DashXmlNode {
   readonly length: number;
 }
 
+/** 按轨道拆分播放项目
+ *
+ * AdaptationSet -> S[]
+ * */
+export interface DashTrack {
+  readonly initialization?: DashItem;
+  readonly items: readonly DashItem[];
+}
+
+/** 播放项目 */
+export interface DashItem {
+  readonly baseURLs: readonly DashElement.BaseURL[];
+  readonly uri: string;
+}
+
 /** Dash 对象;
  *
  * https://standards.iso.org/ittf/PubliclyAvailableStandards/MPEG-DASH_schema_files/DASH-MPD.xsd
@@ -296,7 +311,7 @@ export namespace DashElement {
     // SegmentBase:                                  // <xs:element name="SegmentBase" type="SegmentBaseType" minOccurs="0"/>
     // SegmentList:                                  // <xs:element name="SegmentList" type="SegmentListType" minOccurs="0"/>
     readonly eSegmentTemplate?: SegmentTemplate        // <xs:element name="SegmentTemplate" type="SegmentTemplateType" minOccurs="0"/>
-    // readonly aId: StringNoWhitespaceType                      // <xs:attribute name="id" type="StringNoWhitespaceType" use="required"/>
+    readonly aId: StringNoWhitespaceType                      // <xs:attribute name="id" type="StringNoWhitespaceType" use="required"/>
     // readonly aBandwidth: number                               // <xs:attribute name="bandwidth" type="xs:unsignedInt" use="required"/>
     /** qualityRanking
      类型：整数
@@ -478,7 +493,7 @@ export namespace DashElement {
     // readonly aT?: number   // <xs:attribute name="t" type="xs:unsignedLong"/>
     // readonly aN?: number   // <xs:attribute name="n" type="xs:unsignedLong" use="optional"/>
     // readonly aD: number    // <xs:attribute name="d" type="xs:unsignedLong" use="required"/>
-    // readonly aR: number    // <xs:attribute name="r" type="xs:integer" use="optional" default="0"/>
+    readonly aR: number    // <xs:attribute name="r" type="xs:integer" use="optional" default="0"/>
   }
 
   /**

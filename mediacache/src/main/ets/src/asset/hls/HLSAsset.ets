@@ -43,7 +43,7 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
 
   async prepare(): Promise<void> {
     await this.loadPlaylists(this.id);
-    await this.initializeMediasBy(this.mPlaylists.get(this.id));
+    await this.prepareMedias(this.mPlaylists.get(this.id));
   }
 
   async getMediaByProxyPath(proxyPath: string): Promise<IMCMedia> {
@@ -57,7 +57,7 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
   }
 
   private async getMedia(mediaId: string, mediaKind: MCMediaKind): Promise<IMCMedia> {
-    return this.enqueueTask(async () => this.mMedias.get(mediaId) ?? this.initializeMedia(mediaId, mediaKind));
+    return this.enqueueTask(async () => this.mMedias.get(mediaId) ?? this.prepareMedia(mediaId, mediaKind));
   }
 
   /** Load playlist if content already assembled; */
@@ -66,12 +66,12 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
     if ( playlistMedia.isAssembled ) {
       const rawData = await playlistMedia.readAllData();
       if ( rawData ) {
-        await this.initializePlaylist(mediaId, MCUtils.bufferToString(rawData));
+        await this.loadPlaylist(mediaId, MCUtils.bufferToString(rawData));
       }
     }
   }
 
-  private async initializePlaylist(mediaId: string, proxyContent: string): Promise<void> {
+  private async loadPlaylist(mediaId: string, proxyContent: string): Promise<void> {
     if ( this.mPlaylists.get(mediaId) ) {
       return;
     }
@@ -95,7 +95,7 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
     }
   }
 
-  private async initializeMedia(mediaId: string, mediaKind: MCMediaKind): Promise<IMCMedia> {
+  private async prepareMedia(mediaId: string, mediaKind: MCMediaKind): Promise<IMCMedia> {
     let proxyHandler: ((requestUrl: string, currentUrl: string, data: ArrayBuffer) => Promise<ArrayBuffer>) | undefined = undefined;
     // 代理 playlist 中的各个片段;
     if ( mediaKind === MCMediaKind.PLAYLIST ) {
@@ -103,7 +103,7 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
       proxyHandler = async (requestUrl, currentUrl, data) => {
         const content = MCUtils.bufferToString(data);
         const proxyContent = await HLSParser.proxy(content, this.id, requestUrl, currentUrl, MCConfigs.variantStreamSelectionHandler, MCConfigs.renditionSelectionHandler);
-        await this.initializePlaylist(mediaId, proxyContent);
+        await this.loadPlaylist(mediaId, proxyContent);
         return MCUtils.stringToBuffer(proxyContent);
       }
     }
@@ -114,7 +114,7 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
     return media;
   }
 
-  private async initializeMediasBy(playlist: HLSPlaylist | undefined): Promise<void> {
+  private async prepareMedias(playlist: HLSPlaylist | undefined): Promise<void> {
     if ( playlist === undefined ) {
       return;
     }
@@ -131,7 +131,7 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
       for (let p = 0; p < concurrentLoadCount; p++) {
         const item = allItems[itemIndex];
         const targetInfo = MCProxyURLUtils.parseTarget(item.uri!);
-        promises.push(this.initializeMedia(targetInfo.mediaId, targetInfo.mediaKind));
+        promises.push(this.prepareMedia(targetInfo.mediaId, targetInfo.mediaKind));
         itemIndex += 1;
         if ( itemIndex >= allItems.length ) break;
       }
@@ -155,7 +155,7 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
     for (let item of childPlaylistItems) {
       const targetInfo = MCProxyURLUtils.parseTarget(item.uri!);
       const childPlaylist = this.mPlaylists.get(targetInfo.mediaId);
-      if ( childPlaylist ) await this.initializeMediasBy(childPlaylist);
+      if ( childPlaylist ) await this.prepareMedias(childPlaylist);
     }
   }
 

@@ -1,7 +1,9 @@
 import {
   DashAdaptationSetSelectionHandler,
   DashElement,
+  DashItem,
   DashRepresentationSelectionHandler,
+  DashTrack,
   DashXmlNode
 } from '../../defines/DashDefines';
 import MCArrayUtils from '../../utils/MCArrayUtils';
@@ -9,7 +11,6 @@ import MCUtils from '../../utils/MCUtils';
 import { DashProxyUtils } from './DashProxyUtils';
 import { XmlParser } from './XmlParser';
 import { url } from '@kit.ArkTS';
-import { text } from '@kit.ArkGraphics2D';
 
 export namespace DashParser {
   export interface DashParseResult {
@@ -61,6 +62,10 @@ export namespace DashParser {
       proxyXml = proxyPeriod(proxyXml, p, mpd, currentUrl, assetId);
     }
     return proxyXml;
+  }
+
+  export function extractTracks(mpd: DashElement.MPD): DashTrack[] {
+    return (mpd as _MPD).extractTracks();
   }
 
   function trimPeriod(
@@ -172,7 +177,7 @@ export namespace DashParser {
     originalUrl: string,
     currentUrl: string,
     contentType: string,
-    adaptationSets: readonly _AdaptationSet[], // 传入的 adaptationSets.length 必定大于 1;
+    adaptationSets: readonly _AdaptationSet[], // 传入的 adaptationSets.length 必定大于 0;
     adaptationSetSelectionHandler?: DashAdaptationSetSelectionHandler,
   ): _AdaptationSet {
     if ( adaptationSets.length == 1 ) {
@@ -180,7 +185,7 @@ export namespace DashParser {
     }
 
     if ( adaptationSetSelectionHandler ) {
-      const s = adaptationSetSelectionHandler(originalUrl, currentUrl, contentType, adaptationSets);
+      const s = adaptationSetSelectionHandler(originalUrl, currentUrl, contentType, adaptationSets) as _AdaptationSet;
       if ( s ) return s;
     }
     return adaptationSets[0];
@@ -218,7 +223,7 @@ export namespace DashParser {
     representationSelectionHandler?: DashRepresentationSelectionHandler
   ): _Representation {
     if ( representationSelectionHandler ) {
-      const r = representationSelectionHandler(originalUrl, currentUrl, adaptationSet, representations);
+      const r = representationSelectionHandler(originalUrl, currentUrl, adaptationSet, representations) as _Representation;
       if ( r ) return r;
     }
     return representations[Math.floor((representations.length / 2))];
@@ -228,6 +233,21 @@ export namespace DashParser {
     const startIndex = XmlParser.computeStartIndex(mpd, target);
     const endIndex = startIndex + target.length;
     return xml.slice(0, startIndex) + xml.slice(endIndex);
+  }
+
+  class _DashTrack implements DashTrack {
+    initialization?: _DashItem;
+    items: _DashItem[] = [];
+  }
+
+  class _DashItem implements DashItem {
+    baseURLs: readonly _BaseURL[];
+    uri: string
+
+    constructor(uri: string, baseURLs: readonly _BaseURL[]) {
+      this.baseURLs = baseURLs;
+      this.uri = uri;
+    }
   }
 
   class _DashElement implements DashElement.Element {
@@ -248,6 +268,14 @@ export namespace DashParser {
       this.eBaseURLs = XmlParser.findDirectChildrenByTagName(node, "BaseURL").map(it => new _BaseURL(it));
       this.ePeriods = XmlParser.findDirectChildrenByTagName(node, "Period").map(it => new _Period(it));
     }
+
+    extractTracks(): _DashTrack[] {
+      const baseURLs = this.eBaseURLs!;
+      if ( this.ePeriods ) {
+        return this.ePeriods.map(it => it.extractTracks(baseURLs)).flatMap((it) => it);
+      }
+      return [];
+    }
   }
 
   class _Period extends _DashElement implements DashElement.Period {
@@ -259,6 +287,14 @@ export namespace DashParser {
 
       this.eBaseURLs = XmlParser.findDirectChildrenByTagName(node, "BaseURL").map(it => new _BaseURL(it));
       this.eAdaptationSets = XmlParser.findDirectChildrenByTagName(node, "AdaptationSet").map(it => new _AdaptationSet(it));
+    }
+
+    extractTracks(ascendantBaseURLs: readonly _BaseURL[]): _DashTrack[] {
+      const baseURLs = this.eBaseURLs ?? ascendantBaseURLs;
+      if ( this.eAdaptationSets ) {
+        return this.eAdaptationSets.map(it => it.extractTracks(baseURLs)).flatMap((it) => it)
+      }
+      return [];
     }
   }
 
@@ -276,17 +312,80 @@ export namespace DashParser {
       this.aLang = node.attributes?.get("lang");
       this.aContentType = node.attributes?.get("contentType");
     }
+
+    extractTracks(ascendantBaseURLs: readonly _BaseURL[]): _DashTrack[] {
+      const baseURLs = this.eBaseURLs ?? ascendantBaseURLs;
+      if ( this.eRepresentations ) {
+        return this.eRepresentations.map(it => it.extractTrack(baseURLs/*, SegmentBase, SegmentTemplate... */));
+      }
+      return [];
+    }
   }
 
   class _Representation extends _DashElement implements DashElement.Representation {
     readonly eBaseURLs?: readonly _BaseURL[] | undefined;
     readonly eSegmentTemplate?: _SegmentTemplate;
+    readonly aId: string;
 
     constructor(node: DashXmlNode) {
       super(node);
 
       this.eBaseURLs = XmlParser.findDirectChildrenByTagName(node, "BaseURL").map(it => new _BaseURL(it));
       this.eSegmentTemplate = MCArrayUtils.firstOrUndefined(XmlParser.findDirectChildrenByTagName(node, "SegmentTemplate").map(it => new _SegmentTemplate(it)));
+      this.aId = node.attributes?.get("id")!;
+    }
+
+    extractTrack(ascendantBaseURLs: readonly _BaseURL[] /*, ascendantSegmentBase, ascendantSegmentTemplate... */): _DashTrack {
+      const track = new _DashTrack();
+      if ( this.eSegmentTemplate ) {
+        // <SegmentTemplate timescale="48000" initialization="init-stream$RepresentationID$.m4s" media="chunk-stream$RepresentationID$-$Number%05d$.m4s" startNumber="1">
+        //   <SegmentTimeline>
+        //     <S t="0" d="239616" />
+        //     <S d="240640" r="34" />
+        //     <S d="198656" />
+        //   </SegmentTimeline>
+        // </SegmentTemplate>
+        const representationId = this.aId;
+        const baseURLs = this.eBaseURLs ?? ascendantBaseURLs;
+
+        const initialization = this.eSegmentTemplate.aInitialization;
+        if ( initialization ) {
+          const uri = initialization.replace('$RepresentationID$', representationId);
+          const item = new _DashItem(uri, baseURLs);
+          track.initialization = item;
+        }
+
+        const media = this.eSegmentTemplate.aMedia;
+        const startNumber = this.eSegmentTemplate.aStartNumber ?? 0;
+        const segmentTimeline = this.eSegmentTemplate.eSegmentTimeline;
+        let segmentIndex = startNumber;
+        if ( segmentTimeline && segmentTimeline.eSs.length > 0 && media ) {
+          for ( let s of segmentTimeline.eSs ) {
+            const count = s.aR + 1;
+            for ( let i = 0; i < count; ++i ) {
+              const uri = this.bindVars(media, representationId, segmentIndex);
+              const item = new _DashItem(uri, baseURLs);
+              track.items.push(item);
+              segmentIndex += 1;
+            }
+          }
+        }
+      }
+      return track;
+    }
+
+    // media="chunk-stream$RepresentationID$-$Number%05d$.m4s"
+    private bindVars(format: string, representationId: string, segmentIndex: number): string {
+      let uri = format;
+      // 处理 $Number%05d$
+      uri = uri.replace(/\$Number%0(\d+)d\$/g, (_, width: string) => {
+        const num = segmentIndex;
+        return num.toString().padStart(parseInt(width, 10), "0");
+      });
+
+      // 处理 $RepresentationID$
+      uri = uri.replace(/\$RepresentationID\$/g, representationId);
+      return uri;
     }
   }
 
@@ -338,7 +437,13 @@ export namespace DashParser {
   }
 
   class _S extends _DashElement implements DashElement.S {
+    readonly aR: number;
 
+    constructor(node: DashXmlNode) {
+      super(node);
+
+      this.aR = toInt(node.attributes?.get("r")) ?? 0
+    }
   }
 
   class _BaseURL extends _DashElement implements DashElement.BaseURL {
