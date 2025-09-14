@@ -1,4 +1,3 @@
-import { DashItem, DashTrack } from '../../defines/DashDefines';
 import { IMCAsset } from '../../defines/IMCAsset';
 import { IMCMedia } from '../../defines/IMCMedia';
 import { MCAssetType } from '../../defines/MCAssetType';
@@ -6,7 +5,7 @@ import { MCMediaKind } from '../../defines/MCMediaKind';
 import { MCMedia } from '../../media/MCMedia';
 import { MCAbortController } from '../../utils/MCAbortController';
 import MCConfigs from '../../utils/MCConfigs';
-import { MCMediaIdGenerator } from '../../utils/MCMediaIdGenerator';
+import MCFileIOUtils from '../../utils/MCFileIOUtils';
 import { MCProxyURLUtils } from '../../utils/MCProxyURLUtils';
 import { MCReadwriteReference } from '../../utils/MCReadwriteReference';
 import MCUtils from '../../utils/MCUtils';
@@ -16,12 +15,10 @@ import { DashParser } from './DashParser';
 export class DashAsset extends MCReadwriteReference<DashAsset> implements IMCAsset {
   private mDir: string;
   private mAbortController = new MCAbortController();
-  // key: mediaId
-  private mMedias: Map<string, IMCMedia> = new Map();
+  // key: mediaId, value: media
+  private mPreparedMedias: Map<string, IMCMedia> = new Map();
+  private mColdCacheSize = 0;
   private mSerialPromise: Promise<void> = Promise.resolve();
-  private mTracks?: DashTrack[] = undefined;
-  // key: media uri, value: media id;
-  private mMediaIdMap: Map<string, string> = new Map(); // mTracks 有值后可用;
 
   constructor(id: string, dir: string) {
     super();
@@ -35,48 +32,13 @@ export class DashAsset extends MCReadwriteReference<DashAsset> implements IMCAss
     return MCAssetType.DASH;
   }
 
-  get isCached(): boolean {
-    if ( this.mTracks == undefined ) {
-      return false;
-    }
-
-    for ( const track of this.mTracks ) {
-      const allItems = [...track.items];
-      if ( track.initialization ) {
-        allItems.push(track.initialization);
-      }
-
-      for ( let item of allItems ) {
-        const mediaId = this.mMediaIdMap.get(item.uri);
-        if ( mediaId == undefined ) {
-          return false;
-        }
-        const media = this.mMedias.get(mediaId);
-        if ( media == undefined ) {
-          return false;
-        }
-      }
-    }
-    return true;
-  }
-
   get currentCachedSize(): number {
-    return Array.from(this.mMedias.entries()).reduce((prev, media) => prev + media[1].currentCachedSize, 0);
+    return this.mColdCacheSize + Array.from(this.mPreparedMedias.entries()).reduce((prev, media) => prev + media[1].currentCachedSize, 0);
   }
 
   async prepare(): Promise<void> {
-    const mpdMedia = await this.prepareMedia(this.id, MCMediaKind.PLAYLIST);
-    if ( mpdMedia.isAssembled ) {
-      const rawData = await mpdMedia.readAllData();
-      if ( rawData ) {
-        await this.extractTracks(MCUtils.bufferToString(rawData));
-        if ( this.mTracks ) {
-          for (let track of this.mTracks) {
-            await this.loadMedias(track);
-          }
-        }
-      }
-    }
+    // 计算本地缓存文件的大小
+    this.mColdCacheSize = await MCFileIOUtils.calculateTotalBytes(this.mDir);
   }
 
   getMediaByProxyPath(proxyPath: string): Promise<IMCMedia> {
@@ -108,7 +70,7 @@ export class DashAsset extends MCReadwriteReference<DashAsset> implements IMCAss
   }
 
   private async getMedia(mediaId: string, mediaKind: MCMediaKind): Promise<IMCMedia> {
-    return this.enqueueTask(async () => this.mMedias.get(mediaId) ?? this.prepareMedia(mediaId, mediaKind));
+    return this.enqueueTask(async () => this.mPreparedMedias.get(mediaId) ?? this.prepareMedia(mediaId, mediaKind));
   }
 
   private async prepareMedia(mediaId: string, mediaKind: MCMediaKind): Promise<IMCMedia> {
@@ -126,54 +88,15 @@ export class DashAsset extends MCReadwriteReference<DashAsset> implements IMCAss
           MCConfigs.dashAdaptationSetSelectionHandler,
           MCConfigs.dashRepresentationSelectionHandler
         );
-        await this.extractTracks(proxyContent);
         return MCUtils.stringToBuffer(proxyContent);
       }
     }
 
     const media = new MCMedia(mediaId, mediaKind, this.mDir, this.mAbortController.signal, proxyHandler);
     await media.prepare();
-    this.mMedias.set(mediaId, media);
+    this.mPreparedMedias.set(mediaId, media);
+    this.mColdCacheSize -= media.currentCachedSize;
     return media;
-  }
-
-  private async prepareMediaBy(item: DashItem): Promise<IMCMedia> {
-    const mediaId = await MCMediaIdGenerator.generate(item.uri);
-    const mediaKind = MCMediaKind.FILE;
-    return this.prepareMedia(mediaId, mediaKind);
-  }
-
-  private async extractTracks(mpdXml: string): Promise<void> {
-    const mpd = DashParser.parse(mpdXml).mpd;
-    this.mTracks = DashParser.extractTracks(mpd);
-
-    for ( const track of this.mTracks ) {
-      const allItems = [...track.items];
-      if ( track.initialization ) {
-        allItems.push(track.initialization);
-      }
-      const promises = allItems.map(it => MCMediaIdGenerator.generate(it.uri));
-      const mediaIds = await Promise.all(promises);
-      for ( let i = 0; i < mediaIds.length; ++i ) {
-        this.mMediaIdMap.set(allItems[i].uri, mediaIds[i]);
-      }
-    }
-  }
-
-  private async loadMedias(track: DashTrack): Promise<void> {
-    const allItems = [...track.items];
-    if ( track.initialization ) {
-      allItems.push(track.initialization);
-    }
-
-    let itemIndex = 0;
-    const concurrent = 3;
-    while ( itemIndex < allItems.length ) {
-      const batch = allItems.slice(itemIndex, itemIndex + concurrent);
-      const promises = batch.map(it => this.prepareMediaBy(it));
-      await Promise.all(promises);
-      itemIndex += concurrent;
-    }
   }
 
   private enqueueTask<T>(task: () => Promise<T>): Promise<T> {

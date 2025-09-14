@@ -12,7 +12,6 @@ import { MCAssetType } from "./MCAssetType";
 export interface IMCAsset extends IMCReadwriteReference<IMCAsset> {
   readonly id: string;
   readonly type: MCAssetType;
-  readonly isCached: boolean; // 是否已完全缓存所有数据;
   readonly currentCachedSize: number; // 当前已缓存的数据大小(单位: 字节);
 
   prepare(): Promise<void>;

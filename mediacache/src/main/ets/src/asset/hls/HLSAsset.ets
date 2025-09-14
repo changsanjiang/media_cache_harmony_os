@@ -1,22 +1,21 @@
-import { HLSDefines } from "../../defines/HLSDefines";
-import { IMCAsset } from "../../defines/IMCAsset";
-import { IMCMedia } from "../../defines/IMCMedia";
-import { MCAssetType } from "../../defines/MCAssetType";
-import { MCMediaKind } from "../../defines/MCMediaKind";
-import { MCMedia } from "../../media/MCMedia";
-import { MCAbortController } from "../../utils/MCAbortController";
-import MCConfigs from "../../utils/MCConfigs";
-import { MCReadwriteReference } from "../../utils/MCReadwriteReference";
-import { MCProxyURLUtils } from "../../utils/MCProxyURLUtils";
-import MCUtils from "../../utils/MCUtils";
-import MCAssetCacheManager from "../cachemgr/MCAssetCacheManager";
-import HLSParser from "./HLSParser";
-import { HLSPlaylist } from "./HLSPlaylist";
+import { IMCAsset } from '../../defines/IMCAsset';
+import { IMCMedia } from '../../defines/IMCMedia';
+import { MCAssetType } from '../../defines/MCAssetType';
+import { MCMediaKind } from '../../defines/MCMediaKind';
+import { MCMedia } from '../../media/MCMedia';
+import { MCAbortController } from '../../utils/MCAbortController';
+import MCConfigs from '../../utils/MCConfigs';
+import { MCReadwriteReference } from '../../utils/MCReadwriteReference';
+import { MCProxyURLUtils } from '../../utils/MCProxyURLUtils';
+import MCUtils from '../../utils/MCUtils';
+import MCAssetCacheManager from '../cachemgr/MCAssetCacheManager';
+import HLSParser from './HLSParser';
+import MCFileIOUtils from '../../utils/MCFileIOUtils';
 
 export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset {
   /** HLS 会有多个媒体文件; */
-  private mMedias: Map<string, IMCMedia> = new Map();
-  private mPlaylists: Map<string, HLSPlaylist> = new Map();
+  private mPreparedMedias: Map<string, IMCMedia> = new Map();
+  private mColdCacheSize = 0;
   private mDir: string;
   private mAbortController = new MCAbortController();
   private mSerialPromise: Promise<void> = Promise.resolve();
@@ -33,17 +32,12 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
     return MCAssetType.HLS;
   }
 
-  get isCached(): boolean {
-    return this.checkMediasCachedBy(this.mPlaylists.get(this.id));
-  }
-
   get currentCachedSize(): number {
-    return Array.from(this.mMedias.entries()).reduce((prev, media) => prev + media[1].currentCachedSize, 0);
+    return this.mColdCacheSize + Array.from(this.mPreparedMedias.entries()).reduce((prev, media) => prev + media[1].currentCachedSize, 0);
   }
 
   async prepare(): Promise<void> {
-    await this.loadPlaylists(this.id);
-    await this.prepareMedias(this.mPlaylists.get(this.id));
+    this.mColdCacheSize = await MCFileIOUtils.calculateTotalBytes(this.mDir);
   }
 
   async getMediaByProxyPath(proxyPath: string): Promise<IMCMedia> {
@@ -57,42 +51,7 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
   }
 
   private async getMedia(mediaId: string, mediaKind: MCMediaKind): Promise<IMCMedia> {
-    return this.enqueueTask(async () => this.mMedias.get(mediaId) ?? this.prepareMedia(mediaId, mediaKind));
-  }
-
-  /** Load playlist if content already assembled; */
-  private async loadPlaylists(mediaId: string): Promise<void> {
-    const playlistMedia = await this.getMedia(mediaId, MCMediaKind.PLAYLIST);
-    if ( playlistMedia.isAssembled ) {
-      const rawData = await playlistMedia.readAllData();
-      if ( rawData ) {
-        await this.loadPlaylist(mediaId, MCUtils.bufferToString(rawData));
-      }
-    }
-  }
-
-  private async loadPlaylist(mediaId: string, proxyContent: string): Promise<void> {
-    if ( this.mPlaylists.get(mediaId) ) {
-      return;
-    }
-
-    const playlist = new HLSPlaylist(proxyContent);
-    this.mPlaylists.set(mediaId, playlist);
-
-    if ( playlist.variantStream ) {
-      const targetInfo = MCProxyURLUtils.parseTarget(playlist.variantStream.uri!);
-      await this.loadPlaylists(targetInfo.mediaId); // 尝试加载 variant stream playlist
-    }
-
-    if ( playlist.audioRendition ) {
-      const targetInfo = MCProxyURLUtils.parseTarget(playlist.audioRendition.uri!);
-      await this.loadPlaylists(targetInfo.mediaId); // 尝试加载 audio rendition playlist
-    }
-
-    if ( playlist.videoRendition ) {
-      const targetInfo = MCProxyURLUtils.parseTarget(playlist.videoRendition.uri!);
-      await this.loadPlaylists(targetInfo.mediaId);  // 尝试加载 video rendition playlist
-    }
+    return this.enqueueTask(async () => this.mPreparedMedias.get(mediaId) ?? this.prepareMedia(mediaId, mediaKind));
   }
 
   private async prepareMedia(mediaId: string, mediaKind: MCMediaKind): Promise<IMCMedia> {
@@ -103,102 +62,15 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
       proxyHandler = async (requestUrl, currentUrl, data) => {
         const content = MCUtils.bufferToString(data);
         const proxyContent = await HLSParser.proxy(content, this.id, requestUrl, currentUrl, MCConfigs.variantStreamSelectionHandler, MCConfigs.renditionSelectionHandler);
-        await this.loadPlaylist(mediaId, proxyContent);
         return MCUtils.stringToBuffer(proxyContent);
       }
     }
 
     const media = new MCMedia(mediaId, mediaKind, this.mDir, this.mAbortController.signal, proxyHandler);
     await media.prepare();
-    this.mMedias.set(mediaId, media);
+    this.mPreparedMedias.set(mediaId, media);
+    this.mColdCacheSize -= media.currentCachedSize;
     return media;
-  }
-
-  private async prepareMedias(playlist: HLSPlaylist | undefined): Promise<void> {
-    if ( playlist === undefined ) {
-      return;
-    }
-
-    const allItems = playlist.allItems;
-    if ( !allItems || allItems.length === 0 ) {
-      return;
-    }
-
-    let itemIndex = 0;
-    const concurrentLoadCount = 3;
-    while (itemIndex < allItems.length ) {
-      const promises: Promise<IMCMedia>[] = [];
-      for (let p = 0; p < concurrentLoadCount; p++) {
-        const item = allItems[itemIndex];
-        const targetInfo = MCProxyURLUtils.parseTarget(item.uri!);
-        promises.push(this.prepareMedia(targetInfo.mediaId, targetInfo.mediaKind));
-        itemIndex += 1;
-        if ( itemIndex >= allItems.length ) break;
-      }
-      await Promise.allSettled(promises);
-    }
-
-    const childPlaylistItems: HLSDefines.Item[] = [];
-    const variantStream = playlist.variantStream;
-    const audioRendition = playlist.audioRendition;
-    const videoRendition = playlist.videoRendition;
-    if ( variantStream ) {
-      childPlaylistItems.push(variantStream);
-    }
-    if ( audioRendition ) {
-      childPlaylistItems.push(audioRendition);
-    }
-    if ( videoRendition ) {
-      childPlaylistItems.push(videoRendition);
-    }
-
-    for (let item of childPlaylistItems) {
-      const targetInfo = MCProxyURLUtils.parseTarget(item.uri!);
-      const childPlaylist = this.mPlaylists.get(targetInfo.mediaId);
-      if ( childPlaylist ) await this.prepareMedias(childPlaylist);
-    }
-  }
-
-  private checkMediasCachedBy(playlist: HLSPlaylist | undefined): boolean {
-    if ( playlist === undefined ) {
-      return false;
-    }
-
-    const allItems = playlist.allItems;
-    if ( !allItems || allItems.length === 0 ) {
-      return true;
-    }
-
-    for (let item of allItems) {
-      const targetInfo = MCProxyURLUtils.parseTarget(item.uri!);
-      const media = this.mMedias.get(targetInfo.mediaId);
-      if ( !media || !media.isAssembled ) {
-        return false;
-      }
-    }
-
-    const childPlaylistItems: HLSDefines.Item[] = [];
-    const variantStream = playlist.variantStream;
-    const audioRendition = playlist.audioRendition;
-    const videoRendition = playlist.videoRendition;
-    if ( variantStream ) {
-      childPlaylistItems.push(variantStream);
-    }
-    if ( audioRendition ) {
-      childPlaylistItems.push(audioRendition);
-    }
-    if ( videoRendition ) {
-      childPlaylistItems.push(videoRendition);
-    }
-    for (let item of childPlaylistItems) {
-      const targetInfo = MCProxyURLUtils.parseTarget(item.uri!);
-      const childPlaylist = this.mPlaylists.get(targetInfo.mediaId);
-      const isCached = this.checkMediasCachedBy(childPlaylist);
-      if ( !isCached ) {
-        return false;
-      }
-    }
-    return true;
   }
 
   protected getInstance(): HLSAsset {

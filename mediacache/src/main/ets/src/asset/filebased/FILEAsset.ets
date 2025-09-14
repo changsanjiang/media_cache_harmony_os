@@ -26,10 +26,6 @@ export class FILEAsset extends MCReadwriteReference<FILEAsset> implements IMCAss
     return MCAssetType.FILE_BASED;
   }
 
-  get isCached(): boolean {
-    return this.mMedia.isAssembled;
-  }
-
   get currentCachedSize(): number {
     return this.mMedia.currentCachedSize;
   }

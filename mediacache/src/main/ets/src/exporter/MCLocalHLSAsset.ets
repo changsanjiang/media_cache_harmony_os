@@ -29,7 +29,6 @@ export class MCLocalHLSAsset extends MCReadwriteReference<MCLocalHLSAsset> imple
 
   readonly id: string;
   get type(): MCAssetType { return MCAssetType.HLS; }
-  get isCached(): boolean { throw new Error("Method not implemented.") }
   get currentCachedSize(): number { throw new Error("Method not implemented.") };
 
   prepare(): Promise<void> {

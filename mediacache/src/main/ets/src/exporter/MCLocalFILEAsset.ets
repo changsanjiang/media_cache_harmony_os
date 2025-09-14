@@ -22,7 +22,6 @@ export class MCLocalFILEAsset extends MCReadwriteReference<MCLocalFILEAsset> imp
 
   readonly id: string;
   get type(): MCAssetType { return MCAssetType.FILE_BASED; }
-  get isCached(): boolean { throw new Error("Method not implemented.") }
   get currentCachedSize(): number { throw new Error("Method not implemented.") };
 
   async prepare(): Promise<void> {
