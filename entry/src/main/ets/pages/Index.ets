@@ -1,9 +1,7 @@
-import { MCLogLevel, MCLogModule, MCMediaCache, DashParser, XmlParser } from '@sj/mediacache';
+import { MCCopyFileConflictStrategy, MCLogLevel, MCLogModule, MCMediaCache } from '@sj/mediacache';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { router } from '@kit.ArkUI';
 import BuildProfile from 'BuildProfile';
-import { MCCopyFileConflictStrategy } from '@sj/mediacache/src/main/ets/src/defines/MCCopyFileConflictStrategy';
-import { trustedAppService } from '@kit.DeviceSecurityKit';
 
 @Entry
 @Component
@@ -36,8 +34,6 @@ struct Index {
     //   // xxx
     // });
     await MCMediaCache.prepare(getContext());
-
-    MCMediaCache.removeCaches();
   }
 
   build() {
@@ -147,9 +143,10 @@ struct Index {
     });
   }
 
-  async testDash() {
-    let url = 'https://cdn.bitmovin.com/content/assets/art-of-motion-dash-hls-progressive/mpds/f08e80da-bf1d-4e3d-8899-f0f6155f6efa.mpd';
-    let proxyUrl = await MCMediaCache.proxy(url);
+  async testDash(): Promise<void> {
+    // 示例 MPD（来自 Bitmovin 公共 Demo，仅供测试使用）
+    let resUrl = 'https://cdn.bitmovin.com/content/assets/art-of-motion-dash-hls-progressive/mpds/f08e80da-bf1d-4e3d-8899-f0f6155f6efa.mpd';
+    let proxyUrl = await MCMediaCache.proxy(resUrl);
 
     router.pushUrl({ url: 'pages/VideoPlayer', params: { url: proxyUrl } }).then(() => {
       console.info('Succeeded in jumping to the second page.')

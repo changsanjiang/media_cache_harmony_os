@@ -19,6 +19,7 @@ import { MCAssetExportManager } from './exporter/MCAssetExportManager';
 import { MCAssetExportUtils } from './exporter/MCAssetExportUtils';
 import MCConsts from './utils/MCConsts';
 import { MCProxyDirUtils } from './utils/MCProxyDirUtils';
+import { DashAdaptationSetSelectionHandler, DashRepresentationSelectionHandler } from './defines/DashDefines';
 
 export namespace MCMediaCache {
   const mTcpServer = new MCTcpSocketServer();
@@ -233,6 +234,14 @@ export namespace MCMediaCache {
   /** hls rendition 选择器 */
   export function setRenditionSelectionHandler(block: HLSRenditionSelectionHandler): void {
     MCConfigs.renditionSelectionHandler = block;
+  }
+
+  export function setDashAdaptationSetSelectionHandler(block: DashAdaptationSetSelectionHandler): void {
+    MCConfigs.dashAdaptationSetSelectionHandler = block;
+  }
+
+  export function setDashRepresentationSelectionHandler(block: DashRepresentationSelectionHandler): void {
+    MCConfigs.dashRepresentationSelectionHandler = block;
   }
 
   export function setDownloadSessionConfiguration(configuration: rcp.SessionConfiguration | undefined): void {

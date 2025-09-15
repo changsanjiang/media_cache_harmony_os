@@ -4,7 +4,4 @@ export { MCLogLevel } from  './src/main/ets/src/defines/MCLogLevel';
 export { MCAbortController, MCAbortSignal } from  './src/main/ets/src/utils/MCAbortController';
 export { MCCopyFileConflictStrategy } from './src/main/ets/src/defines/MCCopyFileConflictStrategy';
 export { HLSVariantStreamSelectionHandler, HLSRenditionSelectionHandler, HLSDefines } from  './src/main/ets/src/defines/HLSDefines';
-
-// TODO('下一步需要移除, 当前测试时使用')
-export { DashParser } from './src/main/ets/src/asset/dash/DashParser';
-export { XmlParser } from './src/main/ets/src/asset/dash/XmlParser';
+export { DashAdaptationSetSelectionHandler, DashRepresentationSelectionHandler, DashElement } from  './src/main/ets/src/defines/DashDefines';
