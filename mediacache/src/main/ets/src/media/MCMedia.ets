@@ -148,6 +148,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
         throw new MCDataResponseError(400, "Failed to restore URL from the provided request.");
       }
       const request = new MCDownloadRequest(url, proxyRequest.headers);
+      request.setHeader("range", undefined);
       const response = await MCDownload.download(request, { signal: signal });
       if ( this.mMetadata ) {
         return this.mMetadata;
