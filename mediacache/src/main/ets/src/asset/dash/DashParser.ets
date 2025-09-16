@@ -346,6 +346,7 @@ export namespace DashParser {
       }
 
       if ( node.attributes?.get('mimeType')?.startsWith('text/') ||
+           node.attributes?.get('mimeType')?.startsWith('application/') ||
            node.attributes?.get('codecs')?.startsWith('wvtt') ||
            node.attributes?.get('codecs')?.startsWith('stpp')
       ) {

@@ -205,10 +205,11 @@ export namespace MCMediaCache {
 
   /** 资产类型解析; 根据 url 解析相应的资产类型;
    *
-   * 目前支持两种类型的资产, 你可以返回以下类型:
+   * 你可以返回以下类型:
    *
    * - MCAssetType.FILE_BASED: 基于文件的媒体;
    * - MCAssetType.HLS: 流媒体(m3u8);
+   * - MCAssetType.DASH: MPEG-DASH;
    *
    * 返回 undefined 将采用默认处理;
    * */
