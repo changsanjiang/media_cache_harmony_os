@@ -46,9 +46,6 @@ export class DashAsset extends MCReadwriteReference<DashAsset> implements IMCAss
       throw this.mAbortController.signal.reason!;
     }
 
-    if ( this.mAbortController.signal.isAborted ) {
-      throw this.mAbortController.signal.reason!;
-    }
     const targetInfo = MCProxyURLUtils.parseTarget(proxyPath);
     const mediaId = targetInfo.mediaId;
     const mediaKind = targetInfo.mediaKind;
