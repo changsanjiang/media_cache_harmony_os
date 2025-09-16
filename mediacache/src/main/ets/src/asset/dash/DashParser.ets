@@ -284,6 +284,10 @@ export namespace DashParser {
     eBaseURLs?: readonly _BaseURL[];
     eAdaptationSets?: readonly _AdaptationSet[] | undefined;
 
+    readonly eSegmentBase?: _SegmentBase
+    readonly eSegmentList?: _SegmentList
+    readonly eSegmentTemplate?: _SegmentTemplate
+
     constructor(node: DashXmlNode) {
       super(node);
 
@@ -294,7 +298,12 @@ export namespace DashParser {
     extractTracks(ascendantBaseURLs: readonly _BaseURL[]): _DashTrack[] {
       const baseURLs = this.eBaseURLs ?? ascendantBaseURLs;
       if ( this.eAdaptationSets ) {
-        return this.eAdaptationSets.map(it => it.extractTracks(baseURLs)).flatMap((it) => it)
+        return this.eAdaptationSets.map(it => it.extractTracks(
+          baseURLs,
+          this.eSegmentBase,
+          this.eSegmentList,
+          this.eSegmentTemplate
+        )).flatMap((it) => it)
       }
       return [];
     }
@@ -306,6 +315,10 @@ export namespace DashParser {
     readonly aLang?: string;
     readonly aContentType?: string;
 
+    readonly eSegmentBase?: _SegmentBase
+    readonly eSegmentList?: _SegmentList
+    readonly eSegmentTemplate?: _SegmentTemplate
+
     constructor(node: DashXmlNode) {
       super(node);
 
@@ -315,10 +328,20 @@ export namespace DashParser {
       this.aContentType = node.attributes?.get("contentType");
     }
 
-    extractTracks(ascendantBaseURLs: readonly _BaseURL[]): _DashTrack[] {
+    extractTracks(
+      ascendantBaseURLs: readonly _BaseURL[],
+      ascendantSegmentBase?: _SegmentBase,
+      ascendantSegmentList?: _SegmentList,
+      ascendantSegmentTemplate?: _SegmentTemplate,
+    ): _DashTrack[] {
       const baseURLs = this.eBaseURLs ?? ascendantBaseURLs;
       if ( this.eRepresentations ) {
-        return this.eRepresentations.map(it => it.extractTrack(baseURLs/*, SegmentBase, SegmentTemplate... */));
+        return this.eRepresentations.map(it => it.extractTrack(
+          baseURLs,
+          this.eSegmentBase ?? ascendantSegmentBase,
+          this.eSegmentList ?? ascendantSegmentList,
+          this.eSegmentTemplate ?? ascendantSegmentTemplate,
+        ));
       }
       return [];
     }
@@ -358,6 +381,8 @@ export namespace DashParser {
 
   class _Representation extends _DashElement implements DashElement.Representation {
     readonly eBaseURLs?: readonly _BaseURL[] | undefined;
+    readonly eSegmentBase?: _SegmentBase
+    readonly eSegmentList?: _SegmentList
     readonly eSegmentTemplate?: _SegmentTemplate;
     readonly aId: string;
 
@@ -369,43 +394,80 @@ export namespace DashParser {
       this.aId = node.attributes?.get("id")!;
     }
 
-    extractTrack(ascendantBaseURLs: readonly _BaseURL[] /*, ascendantSegmentBase, ascendantSegmentTemplate... */): _DashTrack {
+    extractTrack(
+      ascendantBaseURLs: readonly _BaseURL[],
+      ascendantSegmentBase?: _SegmentBase,
+      ascendantSegmentList?: _SegmentList,
+      ascendantSegmentTemplate?: _SegmentTemplate,
+    ): _DashTrack {
       const track = new _DashTrack();
-      if ( this.eSegmentTemplate ) {
-        // <SegmentTemplate timescale="48000" initialization="init-stream$RepresentationID$.m4s" media="chunk-stream$RepresentationID$-$Number%05d$.m4s" startNumber="1">
-        //   <SegmentTimeline>
-        //     <S t="0" d="239616" />
-        //     <S d="240640" r="34" />
-        //     <S d="198656" />
-        //   </SegmentTimeline>
-        // </SegmentTemplate>
-        const representationId = this.aId;
-        const baseURLs = this.eBaseURLs ?? ascendantBaseURLs;
+      const baseURLs = this.eBaseURLs ?? ascendantBaseURLs;
+      const segmentBase = this.eSegmentBase ?? ascendantSegmentBase;
+      const segmentList = this.eSegmentList ?? ascendantSegmentList;
+      const segmentTemplate = this.eSegmentTemplate ?? ascendantSegmentTemplate;
+      if ( segmentTemplate ) {
+        this.extractItemsBySegmentTemplate(track, baseURLs, segmentTemplate);
+      }
+      else if ( segmentBase ) {
+        this.extractItemsBySegmentBase(track, baseURLs, segmentBase);
+      }
+      else if ( segmentList ) {
+        this.extractItemsBySegmentList(track, baseURLs, segmentList);
+      }
+      return track;
+    }
 
-        const initialization = this.eSegmentTemplate.aInitialization;
-        if ( initialization ) {
-          const uri = initialization.replace('$RepresentationID$', representationId);
-          const item = new _DashItem(uri, baseURLs);
-          track.initialization = item;
-        }
+    private extractItemsBySegmentTemplate(
+      track: _DashTrack,
+      baseURLs: readonly _BaseURL[],
+      segmentTemplate: _SegmentTemplate
+    ) {
+      // <SegmentTemplate timescale="48000" initialization="init-stream$RepresentationID$.m4s" media="chunk-stream$RepresentationID$-$Number%05d$.m4s" startNumber="1">
+      //   <SegmentTimeline>
+      //     <S t="0" d="239616" />
+      //     <S d="240640" r="34" />
+      //     <S d="198656" />
+      //   </SegmentTimeline>
+      // </SegmentTemplate>
+      const representationId = this.aId;
+      const initialization = segmentTemplate.aInitialization;
+      if ( initialization ) {
+        const uri = initialization.replace('$RepresentationID$', representationId);
+        const item = new _DashItem(uri, baseURLs);
+        track.initialization = item;
+      }
 
-        const media = this.eSegmentTemplate.aMedia;
-        const startNumber = this.eSegmentTemplate.aStartNumber ?? 0;
-        const segmentTimeline = this.eSegmentTemplate.eSegmentTimeline;
-        let segmentIndex = startNumber;
-        if ( segmentTimeline && segmentTimeline.eSs.length > 0 && media ) {
-          for ( let s of segmentTimeline.eSs ) {
-            const count = s.aR + 1;
-            for ( let i = 0; i < count; ++i ) {
-              const uri = this.bindVars(media, representationId, segmentIndex);
-              const item = new _DashItem(uri, baseURLs);
-              track.items.push(item);
-              segmentIndex += 1;
-            }
+      const media = segmentTemplate.aMedia;
+      const startNumber = segmentTemplate.aStartNumber ?? 0;
+      const segmentTimeline = segmentTemplate.eSegmentTimeline;
+      let segmentIndex = startNumber;
+      if ( segmentTimeline && segmentTimeline.eSs.length > 0 && media ) {
+        for ( let s of segmentTimeline.eSs ) {
+          const count = s.aR + 1;
+          for ( let i = 0; i < count; ++i ) {
+            const uri = this.bindVars(media, representationId, segmentIndex);
+            const item = new _DashItem(uri, baseURLs);
+            track.items.push(item);
+            segmentIndex += 1;
           }
         }
       }
-      return track;
+    }
+
+    private extractItemsBySegmentList(
+      track: _DashTrack,
+      baseURLs: readonly _BaseURL[],
+      segmentList: _SegmentList
+    ) {
+
+    }
+
+    private extractItemsBySegmentBase(
+      track: _DashTrack,
+      baseURLs: readonly _BaseURL[],
+      segmentBase: _SegmentBase
+    ) {
+
     }
 
     // media="chunk-stream$RepresentationID$-$Number%05d$.m4s"
@@ -445,6 +507,10 @@ export namespace DashParser {
       this.aStartNumber = toInt(node.attributes?.get("startNumber"));
       this.eSegmentTimeline = MCArrayUtils.firstOrUndefined(XmlParser.findDirectChildrenByTagName(node, "SegmentTimeline").map(it => new _SegmentTimeline(it)));
     }
+  }
+
+  class _SegmentList extends _MultipleSegmentBase implements DashElement.SegmentList {
+
   }
 
   class _SegmentTemplate extends _MultipleSegmentBase implements DashElement.SegmentTemplate {

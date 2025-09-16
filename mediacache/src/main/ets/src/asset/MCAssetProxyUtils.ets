@@ -65,8 +65,8 @@ export namespace MCAssetProxyUtils {
     const info = MCProxyBaseUtils.parse(basedProxyPath);
     const mediaUrl = url.URL.parseURL(info.targetPath, info.baseUrl).toString();
     // 由于 dash 的 baseUrl 可以指定多个, mediaUrl 可能来自不同的 baseUrl;
-    // 因此这里就不使用 mediaUrl 生成媒体 id 了, 而是改用 targetPath 生成;
-    const mediaId = await MCMediaIdGenerator.generate(info.targetPath);
+    // 因此这里主要使用 targetPath 生成 media id, 当 targetPath 为空时使用 mediaUrl 来生成;
+    const mediaId = await MCMediaIdGenerator.generate(info.targetPath ? info.targetPath : mediaUrl);
     const mediaKind = MCMediaKind.FILE;
     return MCProxyURLUtils.generateProxyPath(
       mediaUrl,

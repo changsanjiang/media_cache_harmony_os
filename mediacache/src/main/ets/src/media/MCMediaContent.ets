@@ -115,10 +115,10 @@ export class MCMediaContent implements IMCMediaContent {
 
       try {
         await fileIo.unlink(this.filePath);
-        MCLogger.info(MCLogModule.MCMediaContent, () => `[media: ${this.mediaId}, offset: ${this.contentOffset}] File deleted successfully: ${this.filePath}.`);
+        MCLogger.info(MCLogModule.MCMediaContent, () => `[media: ${this.mediaId}, offset: ${this.contentOffset}] File deleted successfully: ${this.filePath}`);
       }
       catch (error) {
-        MCLogger.error(MCLogModule.MCMediaContent, () => `[media: ${this.mediaId}, offset: ${this.contentOffset}] Failed to delete file: ${this.filePath}. Error: ${error.message}.`);
+        MCLogger.error(MCLogModule.MCMediaContent, () => `[media: ${this.mediaId}, offset: ${this.contentOffset}] Failed to delete file: ${this.filePath}. Error: ${error.message}`);
       }
 
       MCLogger.info(MCLogModule.MCMediaContent, () => `[media: ${this.mediaId}, offset: ${this.contentOffset}] Media content destroyed successfully.`);

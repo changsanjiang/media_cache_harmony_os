@@ -173,10 +173,11 @@ export namespace DashElement {
    * */
   export interface Period extends Element {
     readonly eBaseURLs?: readonly BaseURL[]                   // <xs:element name="BaseURL" type="BaseURLType" minOccurs="0" maxOccurs="unbounded"/>
-    // 暂不处理继承
-    // eSegmentBase?: SegmentBaseElement              // <xs:element name="SegmentBase" type="SegmentBaseType" minOccurs="0"/>
-    // eSegmentList?: SegmentListElement            // <xs:element name="SegmentList" type="SegmentListType" minOccurs="0"/>
-    // eSegmentTemplate?: SegmentTemplateElement      // <xs:element name="SegmentTemplate" type="SegmentTemplateType" minOccurs="0"/>
+
+    readonly eSegmentBase?: SegmentBase              // <xs:element name="SegmentBase" type="SegmentBaseType" minOccurs="0"/>
+    readonly eSegmentList?: SegmentList            // <xs:element name="SegmentList" type="SegmentListType" minOccurs="0"/>
+    readonly eSegmentTemplate?: SegmentTemplate      // <xs:element name="SegmentTemplate" type="SegmentTemplateType" minOccurs="0"/>
+
     readonly eAdaptationSets?: readonly AdaptationSet[]       // <xs:element name="AdaptationSet" type="AdaptationSetType" minOccurs="0" maxOccurs="unbounded"/>
     // aId?: string                                 // <xs:attribute name="id" type="xs:string"/>
   }
@@ -263,10 +264,11 @@ export namespace DashElement {
   // export interface AdaptationSetElement extends RepresentationBaseType {
   export interface AdaptationSet extends Element {
     readonly eBaseURLs?: readonly BaseURL[]                     // <xs:element name="BaseURL" type="BaseURLType" minOccurs="0" maxOccurs="unbounded"/>
-    // 暂不处理继承
-    // SegmentBase:                              // <xs:element name="SegmentBase" type="SegmentBaseType" minOccurs="0"/>
-    // SegmentList:                              // <xs:element name="SegmentList" type="SegmentListType" minOccurs="0"/>
-    // SegmentTemplate:                          // <xs:element name="SegmentTemplate" type="SegmentTemplateType" minOccurs="0"/>
+
+    readonly eSegmentBase?: SegmentBase              // <xs:element name="SegmentBase" type="SegmentBaseType" minOccurs="0"/>
+    readonly eSegmentList?: SegmentList            // <xs:element name="SegmentList" type="SegmentListType" minOccurs="0"/>
+    readonly eSegmentTemplate?: SegmentTemplate      // <xs:element name="SegmentTemplate" type="SegmentTemplateType" minOccurs="0"/>
+
     readonly eRepresentations?: readonly Representation[]       // <xs:element name="Representation" type="RepresentationType" minOccurs="0" maxOccurs="unbounded"/>
     // aId?: number                                  // <xs:attribute name="id" type="xs:unsignedInt"/>
     // aGroup?: number                               // <xs:attribute name="group" type="xs:unsignedInt"/>
@@ -308,8 +310,8 @@ export namespace DashElement {
   export interface Representation extends Element, RepresentationBase {
     readonly eBaseURLs?: readonly BaseURL[]                     // <xs:element name="BaseURL" type="BaseURLType" minOccurs="0" maxOccurs="unbounded"/>
     // SubRepresentation:                            // <xs:element name="SubRepresentation" type="SubRepresentationType" minOccurs="0" maxOccurs="unbounded"/>
-    // SegmentBase:                                  // <xs:element name="SegmentBase" type="SegmentBaseType" minOccurs="0"/>
-    // SegmentList:                                  // <xs:element name="SegmentList" type="SegmentListType" minOccurs="0"/>
+    readonly eSegmentBase?: SegmentBase              // <xs:element name="SegmentBase" type="SegmentBaseType" minOccurs="0"/>
+    readonly eSegmentList?: SegmentList            // <xs:element name="SegmentList" type="SegmentListType" minOccurs="0"/>
     readonly eSegmentTemplate?: SegmentTemplate        // <xs:element name="SegmentTemplate" type="SegmentTemplateType" minOccurs="0"/>
     readonly aId: StringNoWhitespaceType                      // <xs:attribute name="id" type="StringNoWhitespaceType" use="required"/>
     // readonly aBandwidth: number                               // <xs:attribute name="bandwidth" type="xs:unsignedInt" use="required"/>
@@ -407,23 +409,40 @@ export namespace DashElement {
     readonly aStartNumber?: number                     // <xs:attribute name="startNumber" type="xs:unsignedInt"/>
   }
 
-  // /**
-  //  <!--  Segment List  -->
-  //  <xs:complexType name="SegmentListType">
-  //    <xs:complexContent>
-  //      <xs:extension base="MultipleSegmentBaseType">
-  //      <xs:sequence>
-  //       <xs:element name="SegmentURL" type="SegmentURLType" minOccurs="0" maxOccurs="unbounded"/>
-  //      </xs:sequence>
-  //      <xs:attribute ref="xlink:href"/>
-  //      <xs:attribute ref="xlink:actuate" default="onRequest"/>
-  //      </xs:extension>
-  //    </xs:complexContent>
-  //  </xs:complexType>
-  //  * */
-  // export interface SegmentListElement extends MultipleSegmentBaseType {
-  //
-  // }
+  /**
+   <!--  Segment List  -->
+   <xs:complexType name="SegmentListType">
+     <xs:complexContent>
+       <xs:extension base="MultipleSegmentBaseType">
+       <xs:sequence>
+        <xs:element name="SegmentURL" type="SegmentURLType" minOccurs="0" maxOccurs="unbounded"/>
+       </xs:sequence>
+       <xs:attribute ref="xlink:href"/>
+       <xs:attribute ref="xlink:actuate" default="onRequest"/>
+       </xs:extension>
+     </xs:complexContent>
+   </xs:complexType>
+   * */
+  export interface SegmentList extends MultipleSegmentBase {
+    readonly segmentURLs?: SegmentURL[]
+  }
+
+  /**
+    <!--  Segment URL   -->
+    <xs:complexType name="SegmentURLType">
+    <xs:sequence>
+    <xs:any namespace="##other" processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="media" type="xs:anyURI"/>
+    <xs:attribute name="mediaRange" type="xs:string"/>
+    <xs:attribute name="index" type="xs:anyURI"/>
+    <xs:attribute name="indexRange" type="xs:string"/>
+    <xs:anyAttribute namespace="##other" processContents="lax"/>
+    </xs:complexType>
+   * */
+  export interface SegmentURL extends Element {
+
+  }
 
   /**
    <!--  Segment Template  -->
