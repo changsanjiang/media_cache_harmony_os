@@ -227,21 +227,69 @@ export namespace MCMediaCache {
     MCConfigs.assetIdentifierPreprocessor = block;
   }
 
-  /** hls variant stream 选择器; */
-  export function setVariantStreamSelectionHandler(block: HLSVariantStreamSelectionHandler): void {
+  /**
+   * 变体流(多码率)手动选择器;
+   *
+   * 当 Master Playlist 包含多个 `#EXT-X-STREAM-INF` 条目时, 可通过该回调手动选择一个需要保留的变体流, 其他变体流将从 Master Playlist 中移除,
+   * 返回 `undefined` 时将保留所有变体流;
+   *
+   * 例如以下变体流二选一:
+   *
+   * ```m3u8
+   * #EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=640x360,CODECS="avc1.4d401e,mp4a.40.2",AUDIO="audio-group"
+   * https://example.com/low/index.m3u8
+   *
+   * #EXT-X-STREAM-INF:BANDWIDTH=3000000,AVERAGE-BANDWIDTH=2500000,RESOLUTION=1280x720,FRAME-RATE=60,
+   * CODECS="avc1.4d4028,mp4a.40.2",AUDIO="audio-group",SUBTITLES="subs-group"
+   * https://example.com/high/index.m3u8
+   * ```
+   *
+   * @note
+   * - 返回 `undefined` 时将保留所有变体流;
+   * - `playlistOriginalUrl` 表示最初请求的 Master Playlist 地址；
+   *   `playlistCurrentUrl` 表示经过可能的 HTTP 重定向后的实际地址;
+   */
+  export function setVariantStreamSelectionHandler(block: HLSVariantStreamSelectionHandler | undefined): void {
     MCConfigs.variantStreamSelectionHandler = block;
   }
 
-  /** hls rendition 选择器 */
-  export function setRenditionSelectionHandler(block: HLSRenditionSelectionHandler): void {
+  /**
+   * 衍生流(Rendition)手动选择器;
+   *
+   * 当通过 `HLSVariantStreamSelectionHandler` 选择的变体流包含关联的衍生流 (例如 AUDIO 或 SUBTITLES) 时,
+   * 将触发该回调, 以便在每个衍生流组中手动选择一个需要保留的衍生流;
+   * 未被选中的衍生流将从 Master Playlist 中移除,
+   * 返回 `undefined` 时将保留该组中的所有衍生流;
+   *
+   * 例如以下变体流包含 AUDIO 和 SUBTITLES 关联:
+   *
+   * ```m3u8
+   * #EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=640x360,CODECS="avc1.4d401e,mp4a.40.2",AUDIO="audio",SUBTITLES="subs"
+   * https://example.com/low/index.m3u8
+   *
+   * # AUDIO renditions（二选一）
+   * #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="English",LANGUAGE="en",URI="audio_eng.m3u8"
+   * #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="Spanish",LANGUAGE="es",URI="audio_spa.m3u8"
+   *
+   * # SUBTITLES renditions（二选一）
+   * #EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="English",LANGUAGE="en",URI="subs_eng.m3u8"
+   * #EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="Spanish",LANGUAGE="es",URI="subs_spa.m3u8"
+   * ```
+   *
+   * @note
+   * - 返回 `undefined` 时将保留该组中的所有衍生流;
+   * - `playlistOriginalUrl` 表示最初请求的 Master Playlist 地址;
+   *   `playlistCurrentUrl` 表示经过可能的 HTTP 重定向后的实际地址;
+   */
+  export function setRenditionSelectionHandler(block: HLSRenditionSelectionHandler | undefined): void {
     MCConfigs.renditionSelectionHandler = block;
   }
 
-  export function setDashAdaptationSetSelectionHandler(block: DashAdaptationSetSelectionHandler): void {
+  export function setDashAdaptationSetSelectionHandler(block: DashAdaptationSetSelectionHandler | undefined): void {
     MCConfigs.dashAdaptationSetSelectionHandler = block;
   }
 
-  export function setDashRepresentationSelectionHandler(block: DashRepresentationSelectionHandler): void {
+  export function setDashRepresentationSelectionHandler(block: DashRepresentationSelectionHandler | undefined): void {
     MCConfigs.dashRepresentationSelectionHandler = block;
   }
 

@@ -1,4 +1,5 @@
 import { HLSDefines } from "../../defines/HLSDefines";
+import MCArrayUtils from "../../utils/MCArrayUtils";
 import HLSParser from "./HLSParser";
 
 export class HLSPlaylist implements HLSDefines.Playlist {
@@ -6,10 +7,8 @@ export class HLSPlaylist implements HLSDefines.Playlist {
   keys?: HLSDefines.KeyItem[] | undefined;
   initializations?: HLSDefines.InitializationItem[] | undefined;
   segments?: HLSDefines.SegmentItem[] | undefined;
-  variantStream?: HLSDefines.VariantStreamItem | undefined;
-  audioRendition?: HLSDefines.RenditionItem | undefined;
-  videoRendition?: HLSDefines.RenditionItem | undefined;
-  subtitlesRendition?: HLSDefines.RenditionItem | undefined;
+  variantStreams?: HLSDefines.VariantStreamItem[] | undefined;
+  private renditionGroups?: Map<string, RenditionGroup> | undefined; // key:
 
   constructor(playlist: string) {
     const parsedItems = HLSParser.parse(playlist)[0];
@@ -32,8 +31,8 @@ export class HLSPlaylist implements HLSDefines.Playlist {
         }
           break;
         case HLSDefines.ItemType.VARIANT_STREAM: {
-          if ( this.variantStream ) throw new Error(`Only one variant stream can be selected; multiple streams are not supported.`);
-          this.variantStream = item as HLSDefines.VariantStreamItem;
+          if ( !this.variantStreams ) this.variantStreams = [];
+          this.variantStreams.push(item as HLSDefines.VariantStreamItem);
         }
           break;
         case HLSDefines.ItemType.IFRAME_STREAM:
@@ -41,19 +40,17 @@ export class HLSPlaylist implements HLSDefines.Playlist {
         case HLSDefines.ItemType.RENDITION: {
           const renditionItem = (item as HLSDefines.RenditionItem);
           switch (renditionItem.renditionType) {
-            case HLSDefines.RenditionType.AUDIO: {
-              if ( this.audioRendition ) throw new Error(`Only one Audio rendition can be selected; multiple renditions are not supported.`);
-              this.audioRendition = renditionItem;
-            }
-              break;
-            case HLSDefines.RenditionType.VIDEO: {
-              if ( this.videoRendition ) throw new Error(`Only one Video rendition can be selected; multiple renditions are not supported.`);
-              this.videoRendition = renditionItem;
-            }
-              break;
+            case HLSDefines.RenditionType.AUDIO:
+            case HLSDefines.RenditionType.VIDEO:
             case HLSDefines.RenditionType.SUBTITLES: {
-              if ( this.subtitlesRendition ) throw new Error(`Only one Subtitles rendition can be selected; multiple renditions are not supported.`);
-              this.subtitlesRendition = renditionItem;
+              if ( !this.renditionGroups ) this.renditionGroups = new Map();
+              const key = this.generateRenditionGroupKey(renditionItem.groupId, renditionItem.renditionType);
+              let group = this.renditionGroups.get(key);
+              if ( !group ) {
+                group = new RenditionGroup(renditionItem.groupId, renditionItem.renditionType);
+                this.renditionGroups.set(key, group);
+              }
+              group.renditions.push(renditionItem);
             }
               break;
             default:
@@ -66,4 +63,64 @@ export class HLSPlaylist implements HLSDefines.Playlist {
 
     this.allItems = parsedItems;
   }
+
+  getSubtitlesRenditions(): HLSDefines.RenditionItem[] | undefined {
+    const variantStreams = this.variantStreams;
+    if ( variantStreams ) {
+      const subtitlesItems = MCArrayUtils.mapNotUndefined(variantStreams, (vs) => {
+        const groupId = vs.subtitlesGroupID;
+        if ( groupId ) {
+          return this.getRenditionsBy(groupId, HLSDefines.RenditionType.SUBTITLES);
+        }
+        return undefined;
+      }).flatMap(arr => arr);
+      return subtitlesItems;
+    }
+    return undefined;
+  }
+
+  getAudioVideoRenditions(): HLSDefines.RenditionItem[] | undefined {
+    const variantStreams = this.variantStreams;
+    if ( variantStreams ) {
+      const renditions: HLSDefines.RenditionItem[] = [];
+      for ( const vs of variantStreams ) {
+        const audioGroupId = vs.audioGroupID;
+        const videoGroupId = vs.videoGroupID;
+        if ( audioGroupId ) {
+          const audios = this.getRenditionsBy(audioGroupId, HLSDefines.RenditionType.AUDIO);
+          if ( audios ) {
+            renditions.push(...audios);
+          }
+        }
+
+        if ( videoGroupId ) {
+          const videos = this.getRenditionsBy(videoGroupId, HLSDefines.RenditionType.VIDEO);
+          if ( videos ) {
+            renditions.push(...videos);
+          }
+        }
+      }
+      return renditions;
+    }
+    return undefined;
+  }
+
+  private getRenditionsBy(groupId: string, renditionType: HLSDefines.RenditionType): HLSDefines.RenditionItem[] | undefined {
+    return this.renditionGroups?.get(this.generateRenditionGroupKey(groupId, renditionType))?.renditions;
+  }
+
+  private generateRenditionGroupKey(groupId: string, renditionType: HLSDefines.RenditionType): string {
+    return `${groupId}_${renditionType}`;
+  }
+}
+
+class RenditionGroup implements HLSDefines.RenditionGroup {
+  constructor(groupId: string, renditionType: HLSDefines.RenditionType) {
+    this.groupId = groupId;
+    this.renditionType = renditionType;
+  }
+
+  groupId: string;
+  renditionType: HLSDefines.RenditionType;
+  renditions: HLSDefines.RenditionItem[] = [];
 }

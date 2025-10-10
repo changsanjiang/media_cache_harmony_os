@@ -1,27 +1,60 @@
 import { MCRange } from '../utils/MCRange';
 
-/// 选一个媒体进行代理
-///
-/// 例如: 以下变体流 二选一, 选 low 还是 high;
-///
-/// #EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=640x360,CODECS="avc1.4d401e,mp4a.40.2",AUDIO="audio-group"
-/// https://example.com/low/index.m3u8
-///
-/// #EXT-X-STREAM-INF:BANDWIDTH=3000000,AVERAGE-BANDWIDTH=2500000,RESOLUTION=1280x720,FRAME-RATE=60,CODECS="avc1.4d4028,mp4a.40.2",AUDIO="audio-group",SUBTITLES="subs-group"
-/// https://example.com/high/index.m3u8
+/**
+ * 变体流(多码率/VariantStream)手动选择器;
+ *
+ * 当 Master Playlist 包含多个 `#EXT-X-STREAM-INF` 条目时, 可通过该回调手动选择一个需要保留的变体流;
+ * 未被选中的变体流将从 Master Playlist 中移除,
+ * 返回 `undefined` 时将保留所有变体流;
+ *
+ * 例如以下变体流二选一:
+ *
+ * ```m3u8
+ * #EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=640x360,CODECS="avc1.4d401e,mp4a.40.2",AUDIO="audio-group"
+ * https://example.com/low/index.m3u8
+ *
+ * #EXT-X-STREAM-INF:BANDWIDTH=3000000,AVERAGE-BANDWIDTH=2500000,RESOLUTION=1280x720,FRAME-RATE=60,
+ * CODECS="avc1.4d4028,mp4a.40.2",AUDIO="audio-group",SUBTITLES="subs-group"
+ * https://example.com/high/index.m3u8
+ * ```
+ *
+ * @note
+ * - 返回 `undefined` 时将保留所有变体流;
+ * - `playlistOriginalUrl` 表示最初请求的 Master Playlist 地址；
+ *   `playlistCurrentUrl` 表示经过可能的 HTTP 重定向后的实际地址;
+ */
 export type HLSVariantStreamSelectionHandler = (
   playlistOriginalUrl: string,
   playlistCurrentUrl: string,
   variantStreams: HLSDefines.VariantStreamItem[]
-) => HLSDefines.VariantStreamItem;
+) => HLSDefines.VariantStreamItem | undefined;
 
-/// AUDIO 二选一
-/// #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="English",LANGUAGE="en",URI="audio_eng.m3u8"
-/// #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="Spanish",LANGUAGE="es",URI="audio_spa.m3u8"
-///
-/// SUBTITLES 二选一
-/// #EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="English",LANGUAGE="en",URI="subs_eng.m3u8"
-/// #EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="Spanish",LANGUAGE="es",URI="subs_spa.m3u8"
+/**
+ * 衍生流(Rendition)手动选择器;
+ *
+ * 当 Master Playlist 包含多个 `#EXT-X-STREAM-INF` 条目时, 可通过该回调手动选择一个需要保留的变体流, 其他变体流将从 Master Playlist 中移除,
+ * 返回 `undefined` 时将保留该组中的所有衍生流;
+ *
+ * 例如以下变体流包含 AUDIO 和 SUBTITLES 关联:
+ *
+ * ```m3u8
+ * #EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=640x360,CODECS="avc1.4d401e,mp4a.40.2",AUDIO="audio",SUBTITLES="subs"
+ * https://example.com/low/index.m3u8
+ *
+ * # AUDIO renditions（二选一）
+ * #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="English",LANGUAGE="en",URI="audio_eng.m3u8"
+ * #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="Spanish",LANGUAGE="es",URI="audio_spa.m3u8"
+ *
+ * # SUBTITLES renditions（二选一）
+ * #EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="English",LANGUAGE="en",URI="subs_eng.m3u8"
+ * #EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="Spanish",LANGUAGE="es",URI="subs_spa.m3u8"
+ * ```
+ *
+ * @note
+ * - 返回 `undefined` 时将保留该组中的所有衍生流;
+ * - `playlistOriginalUrl` 表示最初请求的 Master Playlist 地址;
+ *   `playlistCurrentUrl` 表示经过可能的 HTTP 重定向后的实际地址;
+ */
 export type HLSRenditionSelectionHandler = (
   playlistOriginalUrl: string,
   playlistCurrentUrl: string,
@@ -120,21 +153,28 @@ export namespace HLSDefines {
     // and no proxy content will be generated for it.
     // readonly  iframeStreams?: IFrameStreamItem[];
 
-    /// Represents the selected variant stream. If there are variant streams in the m3u8, only one can be selected.
-    /// The selection is made through VariantStreamSelectionHandler.
-    readonly variantStream?: VariantStreamItem;
-    /// Represents the selected audio rendition. If there are audio renditions in the m3u8, only one can be selected.
-    /// The selection is made through RenditionSelectionHandler.
-    readonly audioRendition?: RenditionItem;
-    /// Represents the selected video rendition. If there are video renditions in the m3u8, only one can be selected.
-    /// The selection is made through RenditionSelectionHandler.
-    readonly videoRendition?: RenditionItem;
-    /// Represents the selected subtitles rendition. If there are subtitles renditions in the m3u8, only one can be selected.
-    /// The selection is made through RenditionSelectionHandler.
-    readonly subtitlesRendition?: RenditionItem;
-    // only one can be selected;
-    // readonly variantStreams?: RenditionItem[];
-    // getRenditionGroupBy(groupId: string, renditionType: RenditionType): RenditionGroup | undefined;
+    // - 2025/10/10
+    // - 为配合 AVPlayer 多码率流的播放, 这里去除了默认只选一个变体流的限制
+    //
+    // /// Represents the selected variant stream. If there are variant streams in the m3u8, only one can be selected.
+    // /// The selection is made through VariantStreamSelectionHandler.
+    // readonly variantStream?: VariantStreamItem;
+    // /// Represents the selected audio rendition. If there are audio renditions in the m3u8, only one can be selected.
+    // /// The selection is made through RenditionSelectionHandler.
+    // readonly audioRendition?: RenditionItem;
+    // /// Represents the selected video rendition. If there are video renditions in the m3u8, only one can be selected.
+    // /// The selection is made through RenditionSelectionHandler.
+    // readonly videoRendition?: RenditionItem;
+    // /// Represents the selected subtitles rendition. If there are subtitles renditions in the m3u8, only one can be selected.
+    // /// The selection is made through RenditionSelectionHandler.
+    // readonly subtitlesRendition?: RenditionItem;
+
+    readonly variantStreams?: VariantStreamItem[];
+
+    /// HLSDefines.RenditionType.SUBTITLES
+    getSubtitlesRenditions(): RenditionItem[] | undefined;
+    /// HLSDefines.RenditionType.AUDIO、HLSDefines.RenditionType.VIDEO
+    getAudioVideoRenditions(): RenditionItem[] | undefined;
   }
 
   interface Attribute {

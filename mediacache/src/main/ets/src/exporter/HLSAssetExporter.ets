@@ -114,49 +114,47 @@ export class HLSAssetExporter implements IMCAssetExporter<HLSAsset> {
     }
 
     // 否则导出变体流
-    const variantStream = playlist.variantStream;
-    if (!variantStream) {
+    const variantStreams = playlist.variantStreams;
+    if ( !variantStreams || variantStreams.length == 0 ) {
       if ( playlistMediaId == asset.id ) await this.saveExportInfo(ctx, asset, targetDir, options?.conflictStrategy);
       options?.onProgress?.(1.0);
       return;
     }
 
-    // 处理变体流 + renditions
-    const audioRendition = playlist.audioRendition;
-    const videoRendition = playlist.videoRendition;
-    const subtitlesRendition = playlist.subtitlesRendition;
-
     // 先导出小文件
     // export subtitles
-    if (subtitlesRendition) {
-      const proxyPath = subtitlesRendition.uri!;
-      const media = await asset.getMediaByProxyPath(proxyPath);
-      MCAssetPrefetchUtils.checkAbortSignal(signal);
-      const mediaRequest: IMCDataRequest = {
-        requestTarget: proxyPath,
-        headers: options?.additionalHeaders,
-      };
-      const mediaExporter = new MCMediaExporter(
-        media,
-        mediaRequest,
-        MCMediaExportPath.resolveMetadataDestPath(media.id, media.mediaKind, targetDir),
-        MCMediaExportPath.resolveContentDestPath(media.id, media.mediaKind, targetDir),
-        {
-          conflictStrategy: options?.conflictStrategy,
-          signal: options?.signal
-        }
-      );
-      await mediaExporter.export();
-      ctx.medias.push({ mediaId: media.id, mediaKind: media.mediaKind });
+    const subtitleRenditions = playlist.getSubtitlesRenditions();
+    if ( subtitleRenditions && subtitleRenditions.length > 0 ) {
+      for (let subtitlesRendition of subtitleRenditions) {
+        const proxyPath = subtitlesRendition.uri!;
+        const media = await asset.getMediaByProxyPath(proxyPath);
+        MCAssetPrefetchUtils.checkAbortSignal(signal);
+        const mediaRequest: IMCDataRequest = {
+          requestTarget: proxyPath,
+          headers: options?.additionalHeaders,
+        };
+        const mediaExporter = new MCMediaExporter(
+          media,
+          mediaRequest,
+          MCMediaExportPath.resolveMetadataDestPath(media.id, media.mediaKind, targetDir),
+          MCMediaExportPath.resolveContentDestPath(media.id, media.mediaKind, targetDir),
+          {
+            conflictStrategy: options?.conflictStrategy,
+            signal: options?.signal
+          }
+        );
+        await mediaExporter.export();
+        ctx.medias.push({ mediaId: media.id, mediaKind: media.mediaKind });
+      }
     }
 
     // export variant stream & audio video renditions
-    const items: HLSDefines.Item[] = [];
-    items.push(variantStream);
-    if (audioRendition) items.push(audioRendition);
-    if (videoRendition) items.push(videoRendition);
-    for (let i = 0; i < items.length; ++i) {
-      const item = items[i];
+    const streams: HLSDefines.Item[] = [];
+    streams.push(...variantStreams);
+    streams.push(...(playlist.getAudioVideoRenditions() ?? []));
+
+    for (let i = 0; i < streams.length; ++i) {
+      const item = streams[i];
       await this.export(
         asset,
         item.uri!,
@@ -164,7 +162,7 @@ export class HLSAssetExporter implements IMCAssetExporter<HLSAsset> {
         {
           conflictStrategy: options?.conflictStrategy,
           additionalHeaders: options?.additionalHeaders,
-          onProgress: options?.onProgress ? (progress) => options.onProgress!((i + progress) / items.length) :
+          onProgress: options?.onProgress ? (progress) => options.onProgress!((i + progress) / streams.length) :
             undefined,
           signal: options?.signal,
         },

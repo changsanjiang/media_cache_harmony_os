@@ -45,13 +45,34 @@ namespace MCConfigs {
    * */
   export let dataEncryptHandler: ((request: MCDownloadRequest, offset: number, data: ArrayBuffer) => Promise<void | ArrayBuffer>) | undefined = undefined;
 
-  export let variantStreamSelectionHandler: HLSVariantStreamSelectionHandler | undefined = undefined;
+  export let variantStreamSelectionHandler: HLSVariantStreamSelectionHandler | undefined = (_, __, streams) => {
+    if ( streams.length == 0 ) {
+      return undefined;
+    }
+    return streams[Math.floor(streams.length / 2)];
+  };
 
-  export let renditionSelectionHandler: HLSRenditionSelectionHandler | undefined = undefined;
+  export let renditionSelectionHandler: HLSRenditionSelectionHandler | undefined = (_, __, group) => {
+    return (
+      group.renditions.find(r => r.isDefault)
+        ?? group.renditions.find(r => r.isAutoSelect)
+        ?? group.renditions[0]
+    );
+  };
 
-  export let dashAdaptationSetSelectionHandler: DashAdaptationSetSelectionHandler | undefined = undefined;
+  export let dashAdaptationSetSelectionHandler: DashAdaptationSetSelectionHandler | undefined = (_, __, ___, sets) => {
+    if ( sets.length == 0 ) {
+      return undefined;
+    }
+    return sets[0];
+  }
 
-  export let dashRepresentationSelectionHandler: DashRepresentationSelectionHandler | undefined = undefined;
+  export let dashRepresentationSelectionHandler: DashRepresentationSelectionHandler | undefined = (_, __, ___, representations) => {
+    if ( representations.length == 0 ) {
+      return undefined;
+    }
+    return representations[Math.floor((representations.length / 2))];
+  };
 }
 
 export default MCConfigs;

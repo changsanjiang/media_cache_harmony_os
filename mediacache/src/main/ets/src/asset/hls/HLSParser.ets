@@ -38,8 +38,8 @@ namespace HLSParser {
     assetId: string,
     originalUrl: string,
     currentUrl: string,
-    variantStreamSelectionHandler?: HLSVariantStreamSelectionHandler,
-    renditionSelectionHandler?: HLSRenditionSelectionHandler
+    variantStreamSelectionHandler?: HLSVariantStreamSelectionHandler, // 变体流(多码率)手动选择器
+    renditionSelectionHandler?: HLSRenditionSelectionHandler          // 衍生流手动选择器
   ): Promise<string> {
     try {
       // let decoder = util.TextDecoder.create('utf-8');
@@ -71,24 +71,76 @@ namespace HLSParser {
         }
       });
 
+      //
+      // 手动选择: 变体流、衍生流
+      // HLSVariantStreamSelectionHandler、HLSRenditionSelectionHandler
+      //
+      // 外部可通过设置 HLSVariantStreamSelectionHandler 来选择一个需要保留的变体流,
+      // 其他变体流将从 Master Playlist 中移除,
+      // 注意: 如果未选择将保留所有变体流.
+      //
+      // 当手动选择了一个变体流时, 多余不需要的 renditions 也将被移除,
+      // 仅保留变体流中指定的 AUDIO group、VIDEO group、SUBTITLES group
+      //
+      // 当设置了 HLSRenditionSelectionHandler 时,
+      // 仅保留选中的 rendition, 当前组中的其他 renditions 也将从 Master Playlist 中移除
+      // 注意: 如果未选择将保留该组中所有衍生流.
+      //
+
       // selected variant stream
       let selectedVariantStream: HLSDefines.VariantStreamItem | undefined;
-      // selected renditions
-      let selectedAudioRendition: HLSDefines.RenditionItem | undefined;
-      let selectedVideoRendition: HLSDefines.RenditionItem | undefined;
-      let selectedSubtitlesRendition: HLSDefines.RenditionItem | undefined;
 
-      if ( variantStreams ) {
+      // selected rendition groups
+      let selectedRenditionGroupIds: Map<HLSDefines.RenditionType, string> | undefined;
+
+      // selected renditions
+      let selectedRenditions: Map<HLSDefines.RenditionType, HLSDefines.RenditionItem> | undefined;
+
+      if ( variantStreams && variantStreamSelectionHandler ) {
         selectedVariantStream = selectVariantStream(originalUrl, currentUrl, variantStreams, variantStreamSelectionHandler);
 
-        if ( renditionGroups ) {
+        if ( selectedVariantStream && renditionGroups ) {
           const audioGroupID = selectedVariantStream.audioGroupID;
           const videoGroupID = selectedVariantStream.videoGroupID;
           const subtitlesGroupID = selectedVariantStream.subtitlesGroupID;
 
-          if ( audioGroupID ) selectedAudioRendition = selectRendition(originalUrl, currentUrl, renditionGroups, audioGroupID, HLSDefines.RenditionType.AUDIO, renditionSelectionHandler);
-          if ( videoGroupID ) selectedVideoRendition = selectRendition(originalUrl, currentUrl, renditionGroups, videoGroupID, HLSDefines.RenditionType.VIDEO, renditionSelectionHandler);
-          if ( subtitlesGroupID ) selectedSubtitlesRendition = selectRendition(originalUrl, currentUrl, renditionGroups, subtitlesGroupID, HLSDefines.RenditionType.SUBTITLES, renditionSelectionHandler);
+          selectedRenditions = new Map();
+          selectedRenditionGroupIds = new Map();
+
+          if ( renditionSelectionHandler ) {
+            if ( audioGroupID ) {
+              const selected = selectRendition(originalUrl, currentUrl, renditionGroups, audioGroupID, HLSDefines.RenditionType.AUDIO, renditionSelectionHandler);
+              if ( selected ) {
+                selectedRenditions.set(HLSDefines.RenditionType.AUDIO, selected);
+              }
+              else {
+                selectedRenditionGroupIds.set(HLSDefines.RenditionType.AUDIO, audioGroupID);
+              }
+            }
+            if ( videoGroupID ) {
+              const selected = selectRendition(originalUrl, currentUrl, renditionGroups, videoGroupID, HLSDefines.RenditionType.VIDEO, renditionSelectionHandler);
+              if ( selected ) {
+                selectedRenditions.set(HLSDefines.RenditionType.VIDEO, selected);
+              }
+              else {
+                selectedRenditionGroupIds.set(HLSDefines.RenditionType.VIDEO, videoGroupID);
+              }
+            }
+            if ( subtitlesGroupID ) {
+              const selected = selectRendition(originalUrl, currentUrl, renditionGroups, subtitlesGroupID, HLSDefines.RenditionType.SUBTITLES, renditionSelectionHandler);
+              if ( selected ) {
+                selectedRenditions.set(HLSDefines.RenditionType.SUBTITLES, selected);
+              }
+              else {
+                selectedRenditionGroupIds.set(HLSDefines.RenditionType.SUBTITLES, subtitlesGroupID);
+              }
+            }
+          }
+          else {
+            if ( audioGroupID ) selectedRenditionGroupIds.set(HLSDefines.RenditionType.AUDIO, audioGroupID);
+            if ( videoGroupID ) selectedRenditionGroupIds.set(HLSDefines.RenditionType.VIDEO, videoGroupID);
+            if ( subtitlesGroupID ) selectedRenditionGroupIds.set(HLSDefines.RenditionType.AUDIO, subtitlesGroupID);
+          }
         }
       }
 
@@ -98,13 +150,32 @@ namespace HLSParser {
       while (item) {
         let shouldRemove = false;
         switch (item.itemType) {
-          case HLSDefines.ItemType.VARIANT_STREAM:
-            // remove unselected variant streams
-            shouldRemove = item !== selectedVariantStream;
+          // 外部可限制仅保留一个变体流
+          // 其他变体流将会被删除
+          case HLSDefines.ItemType.VARIANT_STREAM: {
+            if ( selectedVariantStream ) {
+              // remove unselected variant streams
+              shouldRemove = item !== selectedVariantStream
+            }
+          }
             break;
-          case HLSDefines.ItemType.RENDITION:
-            // remove unselected renditions
-            shouldRemove = !(item === selectedAudioRendition || item === selectedVideoRendition || item === selectedSubtitlesRendition);
+          case HLSDefines.ItemType.RENDITION: {
+            if ( selectedVariantStream ) {
+              // remove unselected renditions
+              const currentItem = item as HLSDefines.RenditionItem;
+              const selectedItem = selectedRenditions?.get(currentItem.renditionType);
+              const selectedGroupId = selectedRenditionGroupIds?.get(currentItem.renditionType);
+
+              if ( selectedItem ) {
+                shouldRemove = currentItem != selectedItem;
+              }
+              else if ( selectedGroupId ) {
+                shouldRemove = currentItem.groupId != selectedGroupId;
+              }
+              // 未做出选择时保留所有 rendition 项目
+              else { }
+            }
+          }
             break;
           case HLSDefines.ItemType.IFRAME_STREAM:
             // remove iframe streams
@@ -506,36 +577,70 @@ namespace HLSParser {
     }
   }
 
-  function selectVariantStream(originalUrl: string, currentUrl: string, streams: HLSDefines.VariantStreamItem[], variantStreamSelectionHandler?: HLSVariantStreamSelectionHandler): HLSDefines.VariantStreamItem {
+  /**
+   * Attempts to select a variant stream using a user-provided handler.
+   *
+   * This function delegates the selection entirely to the handler.
+   * If the handler is not provided or returns no valid stream, `undefined` is returned.
+   *
+   * @param originalUrl The originally requested master playlist URL (before any redirection).
+   * @param currentUrl  The actual master playlist URL after possible HTTP redirection.
+   * @param streams     List of available variant streams.
+   * @param variantStreamSelectionHandler Optional callback used to determine which variant to select.
+   * @returns The selected variant stream, or `undefined` if none was selected.
+   */
+  function selectVariantStream(
+    originalUrl: string,
+    currentUrl: string,
+    streams: HLSDefines.VariantStreamItem[],
+    variantStreamSelectionHandler?: HLSVariantStreamSelectionHandler | undefined
+  ): HLSDefines.VariantStreamItem | undefined {
     if ( variantStreamSelectionHandler ) {
       const stream = variantStreamSelectionHandler(originalUrl, currentUrl, streams);
-      if ( stream ) return stream;
+      if (stream) return stream;
     }
-    // Default: select the middle stream if no handler or valid selection.
-    return streams[Math.floor((streams.length / 2))];
+    return undefined;
   }
 
-  function generateRenditionGroupKey(groupId: string, renditionType: HLSDefines.RenditionType): string {
-    return `${groupId}_${renditionType}`;
-  }
+  /**
+   * Attempts to select a rendition (e.g., audio, video, or subtitles)
+   * from the specified rendition group using a user-provided handler.
+   *
+   * @param originalUrl  The originally requested master playlist URL (before any redirection).
+   * @param currentUrl   The actual master playlist URL after possible HTTP redirection.
+   * @param groups       Map of all rendition groups, keyed by a composite (groupId + type).
+   * @param groupId      The rendition group identifier (from EXT-X-MEDIA:GROUP-ID).
+   * @param renditionType The type of rendition (e.g., "AUDIO", "VIDEO", "SUBTITLES").
+   * @param renditionSelectionHandler Optional callback used to select a rendition.
+   * @returns The selected rendition item, or `undefined` if none was selected.
+   * @throws If the specified rendition group does not exist.
+   */
+  function selectRendition(
+    originalUrl: string,
+    currentUrl: string,
+    groups: Map<string, HLSDefines.RenditionGroup>,
+    groupId: string,
+    renditionType: HLSDefines.RenditionType,
+    renditionSelectionHandler?: HLSRenditionSelectionHandler | undefined
+  ): HLSDefines.RenditionItem | undefined {
+    if ( renditionSelectionHandler ) {
+      const key = generateRenditionGroupKey(groupId, renditionType);
+      const group = groups.get(key);
+      if ( !group ) {
+        throw new Error(`Rendition group for ID "${groupId}" and type "${renditionType}" not found.`);
+      }
 
-  function selectRendition(originalUrl: string, currentUrl: string, groups: Map<string, HLSDefines.RenditionGroup>, groupId: string, renditionType: HLSDefines.RenditionType, renditionSelectionHandler?: HLSRenditionSelectionHandler): HLSDefines.RenditionItem {
-    const key = generateRenditionGroupKey(groupId, renditionType);
-    const group = groups.get(key);
-    if ( !group ) {
-      throw new Error(`Rendition group for ID "${groupId}" and type "${renditionType}" not found.`);
-    }
-
-    const renditions = group.renditions;
-    if ( renditions.length > 1 ) {
-      if ( renditionSelectionHandler ) {
+      const renditions = group.renditions;
+      if ( renditions.length > 1 ) {
         const rendition = renditionSelectionHandler(originalUrl, currentUrl, group, renditionType);
         if ( rendition ) return rendition;
       }
     }
+    return undefined;
+  }
 
-    // Select default rendition if available; otherwise, fallback to the first rendition.
-    return renditions.find((rendition) => rendition.isDefault) ?? renditions[0];
+  function generateRenditionGroupKey(groupId: string, renditionType: HLSDefines.RenditionType): string {
+    return `${groupId}_${renditionType}`;
   }
 }
 

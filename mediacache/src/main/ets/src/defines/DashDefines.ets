@@ -41,7 +41,7 @@ export type DashAdaptationSetSelectionHandler = (
   mpdCurrentUrl: string,
   contentType: string, // audio、 text(subtitles)
   adaptationSets: readonly DashElement.AdaptationSet[], // audios、texts(subtitles)
-) => DashElement.AdaptationSet;
+) => DashElement.AdaptationSet | undefined;
 
 /** Dash representation 选择器;
  *
@@ -62,7 +62,7 @@ export type DashRepresentationSelectionHandler = (
   mpdCurrentUrl: string,
   adaptationSet: DashElement.AdaptationSet,
   representations: readonly DashElement.Representation[],
-) => DashElement.Representation;
+) => DashElement.Representation | undefined;
 
 /** XML 节点; */
 export interface DashXmlNode {

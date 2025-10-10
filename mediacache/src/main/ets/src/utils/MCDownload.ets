@@ -31,6 +31,12 @@ namespace MCDownload {
 
   export function download(request: MCDownloadRequest, options?: Options): Promise<Response> {
     const config: rcp.Configuration = {
+      transfer: {
+        timeout: {
+          connectMs: 0,
+          transferMs: 0
+        }
+      },
       tracing: {
         httpEventsHandler: {
           onHeaderReceive: options?.headersReceive,

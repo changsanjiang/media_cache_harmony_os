@@ -144,13 +144,18 @@ export namespace DashParser {
     const selectedSets: _AdaptationSet[] = [];
 
     // 移除多余轨道
-    // 多音频轨道的, 仅保留一个音频轨道
-    // 多字幕轨道的, 仅保留一个字幕轨道
+    // 多音频轨道、多字幕轨道的, 可手动选择是否仅保留一个轨道, 相同类型的其余轨道将被删除
     for ( let pair of groups ) {
       const contentType = pair[0];
       const sets = pair[1];
       if ( sets.length > 0 ) {
-        selectedSets.push(selectAdaptationSet(originalUrl, currentUrl, contentType, sets, adaptationSetSelectionHandler));
+        const selected = selectAdaptationSet(originalUrl, currentUrl, contentType, sets, adaptationSetSelectionHandler);
+        if ( selected ) {
+          selectedSets.push(selected);
+        }
+        else {
+          selectedSets.push(...sets);
+        }
       }
     }
 
@@ -166,7 +171,7 @@ export namespace DashParser {
       period.eAdaptationSets = adaptationSets;
     }
 
-    // 处理多码率流, 仅保留一个流
+    // 处理多码率流, 可手动选择是否仅保留一个流
     for ( const set of adaptationSets ) {
       proxyXml = trimAdaptationSet(proxyXml, set, mpd, originalUrl, currentUrl, representationSelectionHandler);
     }
@@ -179,7 +184,7 @@ export namespace DashParser {
     contentType: string,
     adaptationSets: readonly _AdaptationSet[], // 传入的 adaptationSets.length 必定大于 0;
     adaptationSetSelectionHandler?: DashAdaptationSetSelectionHandler,
-  ): _AdaptationSet {
+  ): _AdaptationSet | undefined {
     if ( adaptationSets.length == 1 ) {
       return adaptationSets[0];
     }
@@ -188,7 +193,7 @@ export namespace DashParser {
       const s = adaptationSetSelectionHandler(originalUrl, currentUrl, contentType, adaptationSets) as _AdaptationSet;
       if ( s ) return s;
     }
-    return adaptationSets[0];
+    return undefined;
   }
 
   function trimAdaptationSet(
@@ -204,16 +209,17 @@ export namespace DashParser {
     // 选择要保留的 Representation
     const selectedRepresentation = selectRepresentation(originalUrl, currentUrl, set, set.eRepresentations, representationSelectionHandler);
 
-    const mpdNode = mpd.node;
-    const representations = [...set.eRepresentations].reverse();
-    for ( const representation of representations ) {
-      if ( representation != selectedRepresentation ) {
-        proxyXml = removeXml(representation.node, mpdNode, proxyXml);
-      }
-    }
-
     // 更新 AdaptationSet，只保留选中的 Representation
-    set.eRepresentations = [selectedRepresentation];
+    if ( selectedRepresentation ) {
+      const mpdNode = mpd.node;
+      const representations = [...set.eRepresentations].reverse();
+      for ( const representation of representations ) {
+        if ( representation != selectedRepresentation ) {
+          proxyXml = removeXml(representation.node, mpdNode, proxyXml);
+        }
+      }
+      set.eRepresentations = [selectedRepresentation];
+    }
     return proxyXml;
   }
 
@@ -223,12 +229,12 @@ export namespace DashParser {
     adaptationSet: _AdaptationSet,
     representations: readonly _Representation[],
     representationSelectionHandler?: DashRepresentationSelectionHandler
-  ): _Representation {
+  ): _Representation | undefined {
     if ( representationSelectionHandler ) {
       const r = representationSelectionHandler(originalUrl, currentUrl, adaptationSet, representations) as _Representation;
       if ( r ) return r;
     }
-    return representations[Math.floor((representations.length / 2))];
+    return undefined;
   }
 
   function removeXml(target: DashXmlNode, mpd: DashXmlNode, xml: string): string {

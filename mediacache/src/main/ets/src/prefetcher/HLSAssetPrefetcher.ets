@@ -8,6 +8,7 @@ import { IMCMedia } from '../defines/IMCMedia';
 import { MCAssetPrefetchOptions } from '../defines/MCAssetPrefetchOptions';
 import { MCMediaKind } from '../defines/MCMediaKind';
 import { MCAbortSignal } from '../utils/MCAbortController';
+import MCArrayUtils from '../utils/MCArrayUtils';
 import { MCRange } from '../utils/MCRange';
 import MCUtils from '../utils/MCUtils';
 import { MCAssetPrefetchUtils } from './MCAssetPrefetchUtils';
@@ -94,40 +95,29 @@ export class HLSAssetPrefetcher implements IMCAssetPrefetcher<HLSAsset> {
       return;
     }
 
-    const variantStream = playlist.variantStream;
-    if ( !variantStream ) {
+    const variantStreams = playlist.variantStreams;
+    if ( !variantStreams || variantStreams.length == 0 ) {
       onProgress?.(1.0);
       return;
     }
 
-    // 处理变体流 + renditions
-    const audioRendition = playlist.audioRendition;
-    const videoRendition = playlist.videoRendition;
-    const subtitlesRendition = playlist.subtitlesRendition;
-
-    // subtitles
-    if ( subtitlesRendition ) {
-      await this.prefetchItem(
-        asset,
-        subtitlesRendition,
-        additionalHeaders,
-        undefined,
-        signal
-      );
+    // prefetch subtitles renditions
+    const subtitleRenditions = playlist.getSubtitlesRenditions();
+    if ( subtitleRenditions && subtitleRenditions.length > 0 ) {
+      await this.prefetchSubtitlesRenditions(asset, subtitleRenditions, additionalHeaders, signal);
     }
 
-    // variant stream or audio video renditions
-    const items: HLSDefines.Item[] = [];
-    items.push(variantStream);
-    if ( audioRendition ) items.push(audioRendition);
-    if ( videoRendition ) items.push(videoRendition);
+    // prefetch variant streams and audio video renditions
+    const streams: HLSDefines.Item[] = [];
+    streams.push(...variantStreams);
+    streams.push(...(playlist.getAudioVideoRenditions() ?? []))
 
-    const fetchProgresses: number[] = items.map(() => 0);
-    let itemIndex = 0;
-    while (itemIndex < items.length) {
-      const item = items[itemIndex];
-      const proxyPath = item.uri!
-      const fetchIndex = itemIndex;
+    const fetchProgresses: number[] = streams.map(() => 0);
+    let sIdx = 0;
+    while ( sIdx < streams.length ) {
+      const stream = streams[sIdx];
+      const proxyPath = stream.uri!
+      const fetchIndex = sIdx;
       const fetchProgressCallback = (progress: number) => {
         fetchProgresses[fetchIndex] = progress;
         onProgress?.(fetchProgresses.reduce((prev, cur) => prev + cur, 0) / fetchProgresses.length);
@@ -143,7 +133,7 @@ export class HLSAssetPrefetcher implements IMCAssetPrefetcher<HLSAsset> {
           signal: signal,
         },
       );
-      itemIndex += 1;
+      sIdx += 1;
     }
   }
 
@@ -165,40 +155,29 @@ export class HLSAssetPrefetcher implements IMCAssetPrefetcher<HLSAsset> {
       return this.prefetchItems(asset, items, concurrentPrefetchCount, additionalHeaders, onProgress, signal);
     }
 
-    const variantStream = playlist.variantStream;
-    if ( !variantStream ) {
+    const variantStreams = playlist.variantStreams;
+    if ( !variantStreams || variantStreams.length == 0 ) {
       onProgress?.(1.0);
       return;
     }
 
-    // 处理变体流 + renditions
-    const audioRendition = playlist.audioRendition;
-    const videoRendition = playlist.videoRendition;
-    const subtitlesRendition = playlist.subtitlesRendition;
-
-    // prefetch subtitles
-    if ( subtitlesRendition ) {
-      await this.prefetchItem(
-        asset,
-        subtitlesRendition,
-        additionalHeaders,
-        undefined,
-        signal
-      );
+    // prefetch subtitles renditions
+    const subtitleRenditions = playlist.getSubtitlesRenditions();
+    if ( subtitleRenditions ) {
+      await this.prefetchSubtitlesRenditions(asset, subtitleRenditions, additionalHeaders, signal);
     }
 
-    // prefetch variant stream or audio video renditions
-    const items: HLSDefines.Item[] = [];
-    items.push(variantStream);
-    if ( audioRendition ) items.push(audioRendition);
-    if ( videoRendition ) items.push(videoRendition);
+    // prefetch variant streams and audio video renditions
+    const streams: HLSDefines.Item[] = [];
+    streams.push(...variantStreams);
+    streams.push(...(playlist.getAudioVideoRenditions() ?? []))
 
-    const fetchProgresses: number[] = items.map(() => 0);
-    let itemIndex = 0;
-    while (itemIndex < items.length) {
-      const item = items[itemIndex];
-      const proxyPath = item.uri!
-      const fetchIndex = itemIndex;
+    const fetchProgresses: number[] = streams.map(() => 0);
+    let sIdx = 0;
+    while (sIdx < streams.length) {
+      const stream = streams[sIdx];
+      const proxyPath = stream.uri!
+      const fetchIndex = sIdx;
       const fetchProgressCallback = (progress: number) => {
         fetchProgresses[fetchIndex] = progress;
         onProgress?.(fetchProgresses.reduce((prev, cur) => prev + cur, 0) / fetchProgresses.length);
@@ -215,7 +194,24 @@ export class HLSAssetPrefetcher implements IMCAssetPrefetcher<HLSAsset> {
           signal: signal
         }
       );
-      itemIndex += 1;
+      sIdx += 1;
+    }
+  }
+
+  private async prefetchSubtitlesRenditions(
+    asset: HLSAsset,
+    subtitlesItems: HLSDefines.RenditionItem[],
+    additionalHeaders?: Record<string, string>,
+    signal?: MCAbortSignal
+  ): Promise<void> {
+    for ( const subtitles of subtitlesItems ) {
+      await this.prefetchItem(
+        asset,
+        subtitles,
+        additionalHeaders,
+        undefined,
+        signal
+      );
     }
   }
 

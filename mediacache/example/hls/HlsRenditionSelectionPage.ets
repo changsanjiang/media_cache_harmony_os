@@ -10,14 +10,14 @@ export struct HlsRenditionSelectionPage {
     // 请在 app 启动后初始化一次即可;
     await MCMediaCache.prepare(this.getUIContext().getHostContext()!);
 
-    // 配置衍生流选择器, 选择需要缓存的流(同一种类型只能选择一个流)
+    // 配置衍生流选择器, 选择需要缓存的流
     // 同样在 app 启动后配置一次即可;
     //
     // 如以下内容:
     // #EXTM3U
-    // #EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=640x360
+    // #EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=640x360,AUDIO="aac"
     // low.m3u8
-    // #EXT-X-STREAM-INF:BANDWIDTH=1400000,RESOLUTION=1280x720
+    // #EXT-X-STREAM-INF:BANDWIDTH=1400000,RESOLUTION=1280x720,AUDIO="aac"
     // high.m3u8
     //
     // #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="English",LANGUAGE="en",URI="eng.m3u8"
