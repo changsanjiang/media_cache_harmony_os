@@ -60,7 +60,7 @@ export type HLSRenditionSelectionHandler = (
   playlistCurrentUrl: string,
   renditionGroup: HLSDefines.RenditionGroup,
   renditionType: HLSDefines.RenditionType
-) => HLSDefines.RenditionItem;
+) => HLSDefines.RenditionItem | undefined;
 
 /** https://datatracker.ietf.org/doc/html/rfc8216#section-4; */
 export namespace HLSDefines {
