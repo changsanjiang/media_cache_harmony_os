@@ -28,7 +28,7 @@ ohpm i @sj/mediacache
 ```json
 {
   "dependencies": {
-    "@sj/mediacache": "^1.1.1"
+    "@sj/mediacache": "^1.1.2"
   }
 }
 ```

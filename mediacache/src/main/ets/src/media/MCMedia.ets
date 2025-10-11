@@ -24,6 +24,7 @@ import { MCAbortSignal } from '../utils/MCAbortController';
 import { MCMediaProxyContentLoader } from './MCMediaProxyContentLoader';
 import MCUtils from '../utils/MCUtils';
 import { MCMediaKind } from '../defines/MCMediaKind';
+import MCConfigs from '../utils/MCConfigs';
 
 export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   readonly id: string;
@@ -148,7 +149,11 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
         throw new MCDataResponseError(400, "Failed to restore URL from the provided request.");
       }
       const request = new MCDownloadRequest(url, proxyRequest.headers);
+      if ( MCConfigs.requestHandler ) {
+        MCConfigs.requestHandler(request);
+      }
       request.setHeader("range", undefined);
+
       const response = await MCDownload.download(request, { signal: signal });
       if ( this.mMetadata ) {
         return this.mMetadata;
@@ -185,8 +190,14 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     const headers = proxyRequest.headers;
     const mediaUrl = MCProxyURLUtils.parseTargetUrl(proxyPath);
     const request = new MCDownloadRequest(mediaUrl, headers);
+    if ( MCConfigs.requestHandler ) {
+      MCConfigs.requestHandler(request);
+    }
+    request.setHeader("range", "bytes=0-1");
 
-    return MCDownload.probe(request, signal).then(async (response) => {
+    return MCDownload.download(request, {
+      signal: signal,
+    }).then(async (response) => {
       if ( this.mMetadata ) {
         return this.mMetadata;
       }

@@ -22,13 +22,6 @@ namespace MCDownload {
 
   const session = rcp.createSession(MCConfigs.sessionConfiguration);
 
-  export function probe(request: MCDownloadRequest, signal?: MCAbortSignal): Promise<Response> {
-    const req = new rcp.Request(request.url, 'HEAD', request.headers, undefined, request.cookies, undefined, undefined);
-    signal?.addEventListener('aborted', () => session.cancel(req))
-    return session.fetch(req)
-      .then((res: rcp.Response) => toResponse(res));
-  }
-
   export function download(request: MCDownloadRequest, options?: Options): Promise<Response> {
     const config: rcp.Configuration = {
       transfer: {
