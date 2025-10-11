@@ -18,6 +18,7 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
   private mContent?: IMCMediaContent = undefined;
   private mWriter?: IMCMediaContentWriter = undefined;
   private mSerialPromise = Promise.resolve();
+  private mLastHeaders: MCDownloadResponseHeaders | undefined = undefined;
 
   constructor(clientId: number, loaderId: number, media: MCMedia, request: MCDownloadRequest) {
     super(clientId, loaderId);
@@ -52,52 +53,60 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
   }
 
   private onHeadersReceive(headers: MCDownloadResponseHeaders): void { // 接收到headers的响应
-    this.enqueueTask(async () => {
-      MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Http] Headers received for URL: ${this.mRequest.url}: ${JSON.stringify(headers)}`);
-
-      if ( this.isAborted ) {
-        MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Http] Loader aborted, ignoring headers for URL: ${this.mRequest.url}`);
-        return;
-      }
-
-      try {
-        // MCDownloadRequest 请求由 media 创建; 当其中包含范围字段时, 说明服务器必定支持范围请求;
-        //
-        //
-        // 解析内容范围
-        // 如果是 206 请求, response 必须指定 content-range 字段;
-        // 如果是 200 请求: 依赖于 content-length 字段, 有些服务器可能不返回这个字段;
-        //
-        // 200 或 206 => {start, length};
-        // 当 200 请求的响应未指定 content-length 字段时返回 {0, Number.MAX_SAFE_INTEGER}
-        const contentRange = this.mMedia.parseContentRange(this.mRequest, headers);
-        MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Http] Content range parsed for URL: ${this.mRequest.url}. Range: ${JSON.stringify(contentRange)}, Headers: ${JSON.stringify(headers)}}`);
-
-        this.mContent = await this.mMedia.createContentByRange(contentRange);
-        if ( this.isAborted ) {
-          throw new Error(`Loader aborted after content creation`);
-        }
-
-        this.mWriter = this.mContent.createWriter();
-        MCLogger.info(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Http] Content created for URL: ${this.mRequest.url} with range: ${JSON.stringify(contentRange)}, isTemp: ${this.mContent?.isTemp}`);
-
-        // 如果不是临时内容则立即通知父类 onPrepared, 否则等待临时内容下载完成后再通知父类;
-        if ( !this.mContent.isTemp ) {
-          MCLogger.info(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Http] Content ready. Invoking onPrepared`);
-          this.onPrepared(this.mContent, contentRange);
-        }
-        else {
-          MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Http] Temporary content detected, waiting for full download`);
-        }
-      }
-      catch (error) {
-        MCLogger.error(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Http] Error processing headers for URL: ${this.mRequest.url} - ${(error as Error).message}. Stack trace: ${error.stack}`);
-        this.onError(error);
-      }
-    });
+    this.mLastHeaders = headers;
   }
 
   private onDataReceive(data: ArrayBuffer): void { // 接收到下载的数据
+    // 由于重定向时可能会多次回调 onHeadersReceive,
+    // 因此对 Headers 的处理移动到第一次接受 data 时处理;
+    const headers = this.mLastHeaders;
+    if ( headers ) {
+      this.mLastHeaders = undefined;
+      this.enqueueTask(async () => {
+        MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Http] Headers received for URL: ${this.mRequest.url}: ${JSON.stringify(headers)}`);
+
+        if ( this.isAborted ) {
+          MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Http] Loader aborted, ignoring headers for URL: ${this.mRequest.url}`);
+          return;
+        }
+
+        try {
+          // MCDownloadRequest 请求由 media 创建; 当其中包含范围字段时, 说明服务器必定支持范围请求;
+          //
+          //
+          // 解析内容范围
+          // 如果是 206 请求, response 必须指定 content-range 字段;
+          // 如果是 200 请求: 依赖于 content-length 字段, 有些服务器可能不返回这个字段;
+          //
+          // 200 或 206 => {start, length};
+          // 当 200 请求的响应未指定 content-length 字段时返回 {0, Number.MAX_SAFE_INTEGER}
+          const contentRange = this.mMedia.parseContentRange(this.mRequest, headers);
+          MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Http] Content range parsed for URL: ${this.mRequest.url}. Range: ${JSON.stringify(contentRange)}, Headers: ${JSON.stringify(headers)}}`);
+
+          this.mContent = await this.mMedia.createContentByRange(contentRange);
+          if ( this.isAborted ) {
+            throw new Error(`Loader aborted after content creation`);
+          }
+
+          this.mWriter = this.mContent.createWriter();
+          MCLogger.info(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Http] Content created for URL: ${this.mRequest.url} with range: ${JSON.stringify(contentRange)}, isTemp: ${this.mContent?.isTemp}`);
+
+          // 如果不是临时内容则立即通知父类 onPrepared, 否则等待临时内容下载完成后再通知父类;
+          if ( !this.mContent.isTemp ) {
+            MCLogger.info(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Http] Content ready. Invoking onPrepared`);
+            this.onPrepared(this.mContent, contentRange);
+          }
+          else {
+            MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Http] Temporary content detected, waiting for full download`);
+          }
+        }
+        catch (error) {
+          MCLogger.error(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Http] Error processing headers for URL: ${this.mRequest.url} - ${(error as Error).message}. Stack trace: ${error.stack}`);
+          this.onError(error);
+        }
+      });
+    }
+
     this.enqueueTask(async () => {
       MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Http] Data received for URL: ${this.mRequest.url}. Bytes: ${data.byteLength}`);
 

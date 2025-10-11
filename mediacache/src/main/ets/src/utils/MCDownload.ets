@@ -32,7 +32,7 @@ namespace MCDownload {
       },
       tracing: {
         httpEventsHandler: {
-          onHeaderReceive: options?.headersReceive,
+          onHeaderReceive: options?.headersReceive ? (headers) => options?.headersReceive?.(toResponseHeaders(headers)) : undefined,
           onDataReceive: options?.dataReceive,
           onDataEnd: options?.dataEnd,
         }
@@ -50,8 +50,24 @@ namespace MCDownload {
       statusCode: rcpResponse.statusCode,
       requestUrl: requestUrl,
       currentUrl: rcpResponse.effectiveUrl?.toString() ?? requestUrl,
-      headers: rcpResponse.headers as Record<string, string>,
+      headers: toResponseHeaders(rcpResponse.headers),
       body: rcpResponse.body,
+    };
+  }
+
+  function toResponseHeaders(rcpResponseHeaders: rcp.ResponseHeaders): MCDownloadResponseHeaders {
+    const extractValue = (rcpValue: string | string[] | undefined): string | undefined => {
+      if ( rcpValue && Array.isArray(rcpValue) ) {
+        return rcpValue[rcpValue.length - 1];
+      }
+      return rcpValue as (string | undefined);
+    }
+
+    return {
+      "accept-ranges": extractValue(rcpResponseHeaders['accept-ranges']),
+      "content-range": extractValue(rcpResponseHeaders['content-range']),
+      "content-type": extractValue(rcpResponseHeaders['content-type']),
+      "content-length": extractValue(rcpResponseHeaders['content-length'])
     };
   }
 }
