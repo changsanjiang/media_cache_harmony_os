@@ -111,9 +111,9 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
 
       if ( data ) {
         // 校验数据一致性
-        if ( MCConfigs.dataValidator ) {
+        if ( MCConfigs.dataValidationHandler ) {
           MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Validating data. Offset: ${offset}, Bytes: ${data?.byteLength}`);
-          const result = await MCConfigs.dataValidator(this.mRequest, offset, data);
+          const result = await MCConfigs.dataValidationHandler(this.mRequest, offset, data);
           if ( !result ) {
             throw new Error(`Data validation failed at offset ${offset}. Data size: ${data.byteLength} bytes.`);
           }
@@ -122,10 +122,10 @@ export class MCMediaDataFetcher implements IMCDataFetcher {
         }
 
         // 数据解密
-        if ( MCConfigs.dataDecryptHandler ) {
+        if ( MCConfigs.dataDecryptionHandler ) {
           MCLogger.debug(MCLogModule.MCMediaDataFetcher, () => `[clientId: ${this.mClientId}] Decrypting data. Offset: ${offset}, Bytes: ${data?.byteLength}`);
           const byteLength = data.byteLength;
-          const result = await MCConfigs.dataDecryptHandler(this.mRequest, offset, data);
+          const result = await MCConfigs.dataDecryptionHandler(this.mRequest, offset, data);
           if ( result instanceof ArrayBuffer ) {
             // 比较数据长度
             // 解密后的数据长度必须与原始数据长度一致

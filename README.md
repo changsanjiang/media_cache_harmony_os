@@ -125,13 +125,13 @@ ___
   ```
 - 数据加密: 保存数据时加密; 缓存数据写入到文件时回调, 你可以对数据进行一些加密处理;
   ```ts
-  MCMediaCache.setDataEncryptHandler(async (resUrl, dataOffset, data) => {
+  MCMediaCache.setDataEncryptionHandler(async (resUrl, dataOffset, data) => {
     // xxx
   });
   ```
 - 数据解密: 读取数据时解密; 读取数据时回调, 如果原数据被加密但是播放时需要解密, 你可以在该回调中进行解密处理;
   ```ts
-  MCMediaCache.setDataDecryptHandler(async (resUrl, dataOffset, data) => {
+  MCMediaCache.setDataDecryptionHandler(async (resUrl, dataOffset, data) => {
     // xxx
   });
   ```

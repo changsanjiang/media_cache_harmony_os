@@ -122,10 +122,10 @@ export class MCMediaHttpContentLoader extends MCMediaContentLoader {
 
       try {
         const offset = this.mContent.contentOffset + this.mContent.length;
-        if ( MCConfigs.dataEncryptHandler ) {
+        if ( MCConfigs.dataEncryptionHandler ) {
           const byteLength = data.byteLength;
           MCLogger.debug(MCLogModule.MCMediaContentLoader, () => `[clientId: ${this.clientId}_${this.loaderId}] [Http] Encrypting data for URL: ${this.mRequest.url}. Offset: ${offset}, Bytes: ${byteLength}`);
-          const result = await MCConfigs.dataEncryptHandler(this.mRequest, offset, data);
+          const result = await MCConfigs.dataEncryptionHandler(this.mRequest, offset, data);
           if ( result instanceof ArrayBuffer ) {
             // 比较数据长度
             // 加密后的数据长度必须与原始数据长度一致

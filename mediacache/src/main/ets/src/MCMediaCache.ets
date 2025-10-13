@@ -166,9 +166,15 @@ export namespace MCMediaCache {
   }
 
   /**
-   * 请求拦截器;
+   * 请求前回调处理器;
    *
-   * 在向远程服务器发起请求前触发, 可在回调中修改请求(例如添加请求头);
+   * 在向远程服务器发起请求前调用, 可在此对请求对象进行修改,
+   * 例如添加自定义请求头、cookie等;
+   *
+   * @example
+   * MCMediaCache.setRequestHandler((request) => {
+   *  request.setHeader('key', 'value');
+   * });
    */
   export function setRequestHandler(block: (request: MCDownloadRequest) => void): void {
     MCConfigs.requestHandler = block;
@@ -179,8 +185,8 @@ export namespace MCMediaCache {
    * - 可直接修改 data, 也可以返回一个新的 ArrayBuffer(新 buffer 的数据长度不可改变, byteLength 必须与 data.byteLength 一致);
    * - 加密后的数据会被存储到本地;
    * */
-  export function setDataEncryptHandler(block: (resUrl: string, offset: number, data: ArrayBuffer) => Promise<void | ArrayBuffer>): void {
-    MCConfigs.dataEncryptHandler = (request, offset, data) => {
+  export function setDataEncryptionHandler(block: (resUrl: string, offset: number, data: ArrayBuffer) => Promise<void | ArrayBuffer>): void {
+    MCConfigs.dataEncryptionHandler = (request, offset, data) => {
       return block(request.url, offset, data);
     }
   }
@@ -190,8 +196,8 @@ export namespace MCMediaCache {
    * - 可直接修改 data, 也可以返回一个新的 ArrayBuffer(新 buffer 的数据长度不可改变, byteLength 必须与 data.byteLength 一致);
    * - 解密后的数据会被传递给播放器;
    * */
-  export function setDataDecryptHandler(block: (resUrl: string, offset: number, data: ArrayBuffer) => Promise<void | ArrayBuffer>): void {
-    MCConfigs.dataDecryptHandler = (request, offset, data) => {
+  export function setDataDecryptionHandler(block: (resUrl: string, offset: number, data: ArrayBuffer) => Promise<void | ArrayBuffer>): void {
+    MCConfigs.dataDecryptionHandler = (request, offset, data) => {
       const proxyPath = request.requestTarget;
       if ( proxyPath.startsWith(MCConsts.ROUTE_PATH_PROXY_URL) ) {
         return block(MCProxyURLUtils.parseTargetUrl(request.requestTarget), offset, data);

@@ -12,7 +12,7 @@ export struct EncryptDecryptPage {
 
     // 设置数据加密逻辑
     // 在 app 启动后配置一次即可;
-    MCMediaCache.setDataEncryptHandler(async (url, offset, data) => {
+    MCMediaCache.setDataEncryptionHandler(async (url, offset, data) => {
       let view = new Uint8Array(data);
       for (let i = 0; i < view.length; i++) {
         view[i] = view[i] ^ 0xAA; // 简单异或加密
@@ -22,7 +22,7 @@ export struct EncryptDecryptPage {
 
     // 设置数据解密逻辑
     // 在 app 启动后配置一次即可;
-    MCMediaCache.setDataDecryptHandler(async (url, offset, data) => {
+    MCMediaCache.setDataDecryptionHandler(async (url, offset, data) => {
       let view = new Uint8Array(data);
       for (let i = 0; i < view.length; i++) {
         view[i] = view[i] ^ 0xAA; // 解密（同样异或）

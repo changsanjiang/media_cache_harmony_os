@@ -30,7 +30,7 @@ struct Index {
     // MCMediaCache.setRequestHandler((request) => {
     //   request.setHeader('key', 'value');
     // });
-    // MCMediaCache.setDataEncryptHandler(async (resUrl, dataOffset, data) => {
+    // MCMediaCache.setDataEncryptionHandler(async (resUrl, dataOffset, data) => {
     //   // xxx
     // });
     await MCMediaCache.prepare(getContext());
