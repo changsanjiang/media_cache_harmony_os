@@ -12,7 +12,7 @@ import { MCDownloadResponseHeaders } from '../utils/MCDownloadResponseHeaders';
 import { MCProxyURLUtils } from '../utils/MCProxyURLUtils';
 import { MCMediaHttpContentLoader } from './MCMediaHttpContentLoader';
 import { parseRequestRange, toRequestRange } from '../defines/IMCHttpRequestRange';
-import { MCMediaFileContentLoader } from './MCMediaFileContentLoader';
+import { MCMediaLocalContentLoader } from './MCMediaLocalContentLoader';
 import MCLogger from '../utils/MCLogger';
 import { MCLogModule } from '../defines/MCLogModule';
 import MCDownload from '../utils/MCDownload';
@@ -337,7 +337,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
             leftRequest.setHeader('range', toRequestRange(leftRange).toRangeHeader());
             contentLoaders.push(new MCMediaHttpContentLoader(clientId, contentLoaders.length, this, leftRequest));
           }
-          contentLoaders.push(new MCMediaFileContentLoader(clientId, contentLoaders.length, content, intersection));
+          contentLoaders.push(new MCMediaLocalContentLoader(clientId, contentLoaders.length, content, intersection));
           readRange = new MCRange(intersection.max, readRange.max - intersection.max);
         }
         if ( readRange.length === 0 || readableRange.location > readRange.max ) {

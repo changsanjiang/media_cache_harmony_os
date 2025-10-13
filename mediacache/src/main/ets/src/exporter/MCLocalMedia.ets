@@ -6,7 +6,7 @@ import { IMCMediaContent } from '../defines/IMCMediaContent';
 import { IMCMediaMetadata } from '../defines/IMCMediaMetadata';
 import { MCLogModule } from '../defines/MCLogModule';
 import { MCMediaKind } from '../defines/MCMediaKind';
-import { MCMediaFileContentLoader } from '../media/MCMediaFileContentLoader';
+import { MCMediaLocalContentLoader } from '../media/MCMediaLocalContentLoader';
 import { MCAbortSignal } from '../utils/MCAbortController';
 import MCLogger from '../utils/MCLogger';
 import { MCRange } from '../utils/MCRange';
@@ -63,7 +63,7 @@ export class MCLocalMedia extends MCReadwriteReference<MCLocalMedia> implements 
     const requestRangeHeader = request.headers?.['range'];
     const readRange = requestRangeHeader ? parseRequestRange(requestRangeHeader).toRange(this.mMetadata.totalLength) : new MCRange(0, this.mMetadata.totalLength);
     MCLogger.debug(MCLogModule.MCLocalMedia, () => `[mediaId: ${this.id}]: Read range parsed as: ${JSON.stringify(readRange)}`);
-    const loader = new MCMediaFileContentLoader(clientId, 0, this.mContent, readRange);
+    const loader = new MCMediaLocalContentLoader(clientId, 0, this.mContent, readRange);
 
     // 206
     if ( requestRangeHeader ) {

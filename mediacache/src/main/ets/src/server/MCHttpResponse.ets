@@ -15,6 +15,7 @@ import MCConsts from '../utils/MCConsts';
 import { IMCAsset } from '../defines/IMCAsset';
 import { MCAssetExportManager } from '../exporter/MCAssetExportManager';
 import { MCAssetProxyUtils } from '../asset/MCAssetProxyUtils';
+import { MCVirtualSourceManager } from '../virtual/MCVirtualSourceManager';
 
 export class MCHttpResponse implements IMCHttpResponse {
   private mClientId: number;
@@ -51,39 +52,58 @@ export class MCHttpResponse implements IMCHttpResponse {
   async prepare(): Promise<string> {
     MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Starting preparation for request: ${JSON.stringify(this.mRequest)}`);
     try {
-      let asset: IMCAsset;
       // requestTarget: proxyPath
+      // The request target path (e.g., /mc_proxy/xxx、/mc_dir_proxy/xxx、/mc_virtual_proxy/xxx)
       let requestTarget = this.mRequest.requestTarget;
       if ( requestTarget.startsWith(MCConsts.ROUTE_PATH_PROXY_BASED) ) {
+        MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Resolving based proxy path: ${requestTarget}`);
         requestTarget = await MCAssetProxyUtils.convertToProxyPath(requestTarget);
       }
 
+      // Determine which type of fetcher to use
       if ( requestTarget.startsWith(MCConsts.ROUTE_PATH_PROXY_URL) ) {
-        asset = await MCAssetManager.getInstance().getAssetByProxyPath(requestTarget);
+        const asset = await MCAssetManager.getInstance().getAssetByProxyPath(requestTarget);
+        this.mFetcher = new MCAssetDataFetcher(this.mClientId, asset, {
+          requestTarget: requestTarget,
+          headers: this.mRequest.headers
+        });
       }
       else if ( requestTarget.startsWith(MCConsts.ROUTE_PATH_PROXY_DIR) ) {
-        asset = await MCAssetExportManager.getInstance().getAssetByProxyPath(requestTarget);
+        const asset = await MCAssetExportManager.getInstance().getAssetByProxyPath(requestTarget);
+        this.mFetcher = new MCAssetDataFetcher(this.mClientId, asset, {
+          requestTarget: requestTarget,
+          headers: this.mRequest.headers
+        });
+      }
+      else if ( requestTarget.startsWith(MCConsts.ROUTE_PATH_PROXY_VIRTUAL) ) {
+        this.mFetcher = MCVirtualSourceManager.getInstance().fetch(this.mClientId, {
+          requestTarget: requestTarget,
+          headers: this.mRequest.headers,
+        });
       }
       else {
-        throw new Error(`[clientId: ${this.mClientId}] Invalid request target: "${requestTarget}". ` +
-          `Expected path to start with "/${MCConsts.ROUTE_PATH_PROXY_URL}" or "/${MCConsts.ROUTE_PATH_PROXY_DIR}".`
+        throw new Error(
+          `[clientId: ${this.mClientId}] Invalid request target: "${requestTarget}". ` +
+            `Expected path to start with "/${MCConsts.ROUTE_PATH_PROXY_URL}", "/${MCConsts.ROUTE_PATH_PROXY_DIR}", or "/${MCConsts.ROUTE_PATH_PROXY_VIRTUAL}".`
         );
       }
 
+      // Check for early abort
       if ( this.mAborted ) {
         MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Cannot prepare as the response has been aborted`);
         throw this.mError!;
       }
 
-      this.mFetcher = new MCAssetDataFetcher(this.mClientId, asset, {
-        requestTarget: requestTarget,
-        headers: this.mRequest.headers
-      });
-      MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Instantiated data fetcher`);
+      if (!this.mFetcher) {
+        throw new Error(`[clientId: ${this.mClientId}] Data fetcher initialization failed — fetcher is undefined.`);
+      }
+
+      MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Data fetcher instantiated successfully.`);
 
       this.mFetcher.on('newDataReadable', () => this.onNewDataReadable());
       this.mFetcher.on('aborted', (_, error) => this.onError(error));
 
+      // Prepare fetcher and get response headers
       MCLogger.debug(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Calling fetcher.prepare()`);
       const responseHeaders = await this.mFetcher.prepare();
       if ( this.mAborted ) {
@@ -91,6 +111,7 @@ export class MCHttpResponse implements IMCHttpResponse {
         throw this.mError!;
       }
 
+      // Determine if response should be chunked
       this.mChunked = responseHeaders.statusCode === 200 && (responseHeaders as IMCHttpOkResponseHeaders).chunked === true;
       const rawHeaders = this.generateResponseHeaders(responseHeaders);
 

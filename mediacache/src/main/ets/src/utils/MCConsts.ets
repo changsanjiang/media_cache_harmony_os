@@ -3,6 +3,7 @@ namespace MCConsts {
   export const ROUTE_PATH_PROXY_URL = "/mc_proxy"; // url(remote res)
   export const ROUTE_PATH_PROXY_DIR = "/mc_dir_proxy"; // dir(exported res)
   export const ROUTE_PATH_PROXY_BASED = "/mc_based_proxy"; // based url(dash res)
+  export const ROUTE_PATH_PROXY_VIRTUAL = "/mc_virtual_proxy"; // virtual source
   // export const PATH_PIN = "/mc_pin"; // 貌似不需要pin;
 
   /** 允许的最大父路径层级数量（对应 ../ 的层数占位符） */

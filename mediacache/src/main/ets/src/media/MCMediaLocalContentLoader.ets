@@ -4,7 +4,7 @@ import MCLogger from "../utils/MCLogger";
 import { MCRange } from "../utils/MCRange";
 import { MCMediaContentLoader } from "./MCMediaContentLoader";
 
-export class MCMediaFileContentLoader extends MCMediaContentLoader {
+export class MCMediaLocalContentLoader extends MCMediaContentLoader {
   private content: IMCMediaContent
   private readRange: MCRange;
 

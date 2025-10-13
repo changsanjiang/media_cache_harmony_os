@@ -166,6 +166,10 @@ namespace MCFileIOUtils {
   export function getFileName(path: string): string {
     return path.split('/').pop() ?? '';
   }
+
+  export async function getFileSize(path: string): Promise<number> {
+    return (await fileIo.stat(path)).size;
+  }
 }
 
 export default MCFileIOUtils;
