@@ -23,7 +23,7 @@ export namespace MCProxyVirtualSourceUtils {
   export function generateProxyPath(
     sourceKey: string,
   ): string {
-    return `/${MCConsts.ROUTE_PATH_PROXY_VIRTUAL}/${encodeURIComponent(sourceKey)}`;
+    return `${MCConsts.ROUTE_PATH_PROXY_VIRTUAL}/${encodeURIComponent(sourceKey)}`;
   }
 
   // proxyPath format: `/mc_virtual_proxy/encodedSourceKey`
