@@ -15,5 +15,5 @@ export enum MCLogModule {
   MCLocalAsset = 'MCLocalAsset',
   MCLocalMedia = 'MCLocalMedia',
 
-  MCVirtualSourceDataFetcher = 'MCVirtualSourceDataFetcher',
+  MCVirtualResourceDataFetcher = 'MCVirtualResourceDataFetcher',
 }

@@ -12,6 +12,7 @@
 - 支持预缓存/预加载, 可缓存指定大小的数据或全部数据;
 - 支持数据加解密, 保存数据时加密, 读取数据时解密;
 - 支持导出, 将媒体数据导出到指定的目录;
+- 支持资源代理, 可将任意资源 (本地文件、内存数据、动态生成流等) 映射为通过 HTTP URL 访问的媒体资源;
 
 ---
 
@@ -28,7 +29,7 @@ ohpm i @sj/mediacache
 ```json
 {
   "dependencies": {
-    "@sj/mediacache": "^1.1.3"
+    "@sj/mediacache": "^1.2.0"
   }
 }
 ```
@@ -112,6 +113,23 @@ player.url = proxyUrl; // 设置代理地址播放即可实现边播边缓存
   const player: media.AVPlayer;
   player.url = proxyUrl;
   ```
+
+___
+
+#### 虚拟资源代理
+
+可将任意资源 (本地文件、内存数据、动态生成流等) 映射为通过 HTTP URL 访问的媒体资源;
+```ts
+  // 以下将一个普通文件, 映射为可通过 HTTP URL 访问的媒体资源
+  // 1. 本地文件的路径
+  const filePath = xxx;
+  // 2. 注册虚拟资源(全局注册一次即可), 传入的 key 请确保全局唯一
+  MCMediaCache.setVirtualResource("key-local-media", { filePath: filePath });
+  
+  // 3. 在需要播放时通过 key 获取映射的代理地址进行播放
+  const proxyUrl = await MCMediaCache.proxyVirtualResource("key-local-media");
+  player.url = proxyUrl;
+```
 
 ___
 

@@ -9,11 +9,11 @@ import {
 import { IMCMediaContent } from '../defines/IMCMediaContent';
 import { IMCMediaContentLoader } from '../defines/IMCMediaContentLoader';
 import {
-  IMCVirtualSource,
-  IMCVirtualSourceBuffer,
-  IMCVirtualSourceFile,
-  IMCVirtualSourceType
-} from '../defines/IMCVirtualSource';
+  IMCVirtualResource,
+  IMCVirtualResourceBuffer,
+  IMCVirtualResourceFile,
+  IMCVirtualResourceType
+} from '../defines/IMCVirtualResource';
 import { MCLogModule } from '../defines/MCLogModule';
 import { MCMediaContentLoaderState } from '../defines/MCMediaContentLoaderState';
 import { MCMediaBufferContent } from '../media/MCMediaBufferContent';
@@ -24,9 +24,9 @@ import MCFileIOUtils from '../utils/MCFileIOUtils';
 import MCLogger from '../utils/MCLogger';
 import { MCRange } from '../utils/MCRange';
 
-export class MCVirtualSourceDataFetcher implements IMCDataFetcher {
+export class MCVirtualResourceDataFetcher implements IMCDataFetcher {
   private mClientId: number;
-  private mSource: IMCVirtualSourceType;
+  private mResource: IMCVirtualResourceType;
   private mRequest: IMCDataRequest;
 
   private mOnAborted: ((fetcher: IMCDataFetcher, error: Error) => void) | undefined = undefined;
@@ -39,14 +39,14 @@ export class MCVirtualSourceDataFetcher implements IMCDataFetcher {
 
   constructor(
     clientId: number,
-    source: IMCVirtualSourceType,
+    resource: IMCVirtualResourceType,
     request: IMCDataRequest
   ) {
     this.mClientId = clientId;
-    this.mSource = source;
+    this.mResource = resource;
     this.mRequest = request;
 
-    MCLogger.info(MCLogModule.MCVirtualSourceDataFetcher, () => `[clientId: ${this.mClientId}] Created fechter for request: ${JSON.stringify(this.mRequest)}`);
+    MCLogger.info(MCLogModule.MCVirtualResourceDataFetcher, () => `[clientId: ${this.mClientId}] Created fechter for request: ${JSON.stringify(this.mRequest)}`);
   }
 
   get isReady(): boolean {
@@ -74,16 +74,16 @@ export class MCVirtualSourceDataFetcher implements IMCDataFetcher {
   }
 
   async prepare(): Promise<IMCHttpResponseHeaders> {
-    MCLogger.info(MCLogModule.MCVirtualSourceDataFetcher, () => `[clientId: ${this.mClientId}] Starting preparation for request: ${JSON.stringify(this.mRequest)}}`);
+    MCLogger.info(MCLogModule.MCVirtualResourceDataFetcher, () => `[clientId: ${this.mClientId}] Starting preparation for request: ${JSON.stringify(this.mRequest)}}`);
 
     if ( this.mAborted ) {
-      MCLogger.debug(MCLogModule.MCVirtualSourceDataFetcher, () => `[clientId: ${this.mClientId}] Cannot prepare as the fetcher has been aborted`);
+      MCLogger.debug(MCLogModule.MCVirtualResourceDataFetcher, () => `[clientId: ${this.mClientId}] Cannot prepare as the fetcher has been aborted`);
       throw this.mError!;
     }
 
     try {
       const content = await this.createContent();
-      const mimeType = this.mSource.mimeType ?? 'application/octet-stream';
+      const mimeType = this.mResource.mimeType ?? 'application/octet-stream';
       const requestHeader = this.mRequest.headers?.['range'];
       const readRange = requestHeader ? parseRequestRange(requestHeader).toRange(content.length) : new MCRange(0, content.length);
 
@@ -119,12 +119,12 @@ export class MCVirtualSourceDataFetcher implements IMCDataFetcher {
         byteRangeAccessSupported: true,
       };
       this.mResponseHeaders = responseHeaders;
-      MCLogger.debug(MCLogModule.MCVirtualSourceDataFetcher, () => `[clientId: ${this.mClientId}] Generated response headers: ${JSON.stringify(responseHeaders)}`);
+      MCLogger.debug(MCLogModule.MCVirtualResourceDataFetcher, () => `[clientId: ${this.mClientId}] Generated response headers: ${JSON.stringify(responseHeaders)}`);
 
       return responseHeaders;
     }
     catch (error) {
-      MCLogger.warn(MCLogModule.MCVirtualSourceDataFetcher, () => `[clientId: ${this.mClientId}] Fetch failed during prepare: ${error?.message}`);
+      MCLogger.warn(MCLogModule.MCVirtualResourceDataFetcher, () => `[clientId: ${this.mClientId}] Fetch failed during prepare: ${error?.message}`);
       this.onError(error);
       throw error as Error;
     }
@@ -135,44 +135,44 @@ export class MCVirtualSourceDataFetcher implements IMCDataFetcher {
     if ( contentLoader ) {
 
       const offset = contentLoader.offset;
-      MCLogger.debug(MCLogModule.MCVirtualSourceDataFetcher, () => `[clientId: ${this.mClientId}] Attempting to read ${capacity} bytes at offset ${offset}`);
+      MCLogger.debug(MCLogModule.MCVirtualResourceDataFetcher, () => `[clientId: ${this.mClientId}] Attempting to read ${capacity} bytes at offset ${offset}`);
 
       let data = await contentLoader.read(capacity);
-      MCLogger.debug(MCLogModule.MCVirtualSourceDataFetcher, () => `[clientId: ${this.mClientId}] Read ${data?.byteLength ?? 0} bytes`);
+      MCLogger.debug(MCLogModule.MCVirtualResourceDataFetcher, () => `[clientId: ${this.mClientId}] Read ${data?.byteLength ?? 0} bytes`);
 
       if ( data ) {
         // 校验数据一致性
         if ( MCConfigs.dataValidationHandler ) {
-          MCLogger.debug(MCLogModule.MCVirtualSourceDataFetcher, () => `[clientId: ${this.mClientId}] Validating data. Offset: ${offset}, Bytes: ${data?.byteLength}`);
+          MCLogger.debug(MCLogModule.MCVirtualResourceDataFetcher, () => `[clientId: ${this.mClientId}] Validating data. Offset: ${offset}, Bytes: ${data?.byteLength}`);
           const result = await MCConfigs.dataValidationHandler(this.mRequest, offset, data);
           if ( !result ) {
             throw new Error(`Data validation failed at offset ${offset}. Data size: ${data.byteLength} bytes.`);
           }
 
-          MCLogger.debug(MCLogModule.MCVirtualSourceDataFetcher, () => `[clientId: ${this.mClientId}] Data validation passed. Offset: ${offset}, Bytes: ${data?.byteLength}`);
+          MCLogger.debug(MCLogModule.MCVirtualResourceDataFetcher, () => `[clientId: ${this.mClientId}] Data validation passed. Offset: ${offset}, Bytes: ${data?.byteLength}`);
         }
 
         // 数据解密
         if ( MCConfigs.dataDecryptionHandler ) {
-          MCLogger.debug(MCLogModule.MCVirtualSourceDataFetcher, () => `[clientId: ${this.mClientId}] Decrypting data. Offset: ${offset}, Bytes: ${data?.byteLength}`);
+          MCLogger.debug(MCLogModule.MCVirtualResourceDataFetcher, () => `[clientId: ${this.mClientId}] Decrypting data. Offset: ${offset}, Bytes: ${data?.byteLength}`);
           const byteLength = data.byteLength;
           const result = await MCConfigs.dataDecryptionHandler(this.mRequest, offset, data);
           if ( result instanceof ArrayBuffer ) {
             // 比较数据长度
             // 解密后的数据长度必须与原始数据长度一致
             if ( result.byteLength != byteLength ) {
-              MCLogger.error(MCLogModule.MCVirtualSourceDataFetcher, () => `[clientId: ${this.mClientId}] Decrypted data length mismatch. Offset: ${offset}, OriginalBytes: ${byteLength}, DecryptedBytes: ${result.byteLength}`);
+              MCLogger.error(MCLogModule.MCVirtualResourceDataFetcher, () => `[clientId: ${this.mClientId}] Decrypted data length mismatch. Offset: ${offset}, OriginalBytes: ${byteLength}, DecryptedBytes: ${result.byteLength}`);
               throw new Error(`Decrypted data length mismatch at offset ${offset}`);
             }
 
             data = result;
           }
-          MCLogger.debug(MCLogModule.MCVirtualSourceDataFetcher, () => `[clientId: ${this.mClientId}] Data decryption completed. Offset: ${offset}, Bytes: ${byteLength}`);
+          MCLogger.debug(MCLogModule.MCVirtualResourceDataFetcher, () => `[clientId: ${this.mClientId}] Data decryption completed. Offset: ${offset}, Bytes: ${byteLength}`);
         }
       }
 
       if ( contentLoader.state == MCMediaContentLoaderState.Ended ) {
-        MCLogger.debug(MCLogModule.MCVirtualSourceDataFetcher, () => `[clientId: ${this.mClientId}] Content loader has reached end`);
+        MCLogger.debug(MCLogModule.MCVirtualResourceDataFetcher, () => `[clientId: ${this.mClientId}] Content loader has reached end`);
 
         this.done();
       }
@@ -191,11 +191,11 @@ export class MCVirtualSourceDataFetcher implements IMCDataFetcher {
       }
 
       const result = contentLoader.seek(offset);
-      MCLogger.debug(MCLogModule.MCVirtualSourceDataFetcher, () => `[clientId: ${this.mClientId}] Seek to offset ${offset} ${result ? "succeeded" : "failed"}.`);
+      MCLogger.debug(MCLogModule.MCVirtualResourceDataFetcher, () => `[clientId: ${this.mClientId}] Seek to offset ${offset} ${result ? "succeeded" : "failed"}.`);
 
       if ( result ) {
         if ( contentLoader.state == MCMediaContentLoaderState.Ended ) {
-          MCLogger.debug(MCLogModule.MCVirtualSourceDataFetcher, () => `[clientId: ${this.mClientId}] Content loader has reached end`);
+          MCLogger.debug(MCLogModule.MCVirtualResourceDataFetcher, () => `[clientId: ${this.mClientId}] Content loader has reached end`);
 
           this.done();
         }
@@ -207,18 +207,18 @@ export class MCVirtualSourceDataFetcher implements IMCDataFetcher {
 
   abort(error?: Error | undefined): void {
     if ( this.mAborted || this.mDataEnd ) {
-      MCLogger.debug(MCLogModule.MCVirtualSourceDataFetcher, () => `[clientId: ${this.mClientId}] Abort called but fetcher is already completed`);
+      MCLogger.debug(MCLogModule.MCVirtualResourceDataFetcher, () => `[clientId: ${this.mClientId}] Abort called but fetcher is already completed`);
       return;
     }
 
-    MCLogger.info(MCLogModule.MCVirtualSourceDataFetcher, () => `[clientId: ${this.mClientId}] Aborting fetcher. Reason: ${this.mError!.message}, Stack: ${this.mError!.stack}`);
+    MCLogger.info(MCLogModule.MCVirtualResourceDataFetcher, () => `[clientId: ${this.mClientId}] Aborting fetcher. Reason: ${this.mError!.message}, Stack: ${this.mError!.stack}`);
     this.mAborted = true;
     this.mError = error ?? new Error('Fetcher was aborted');
 
 
     const contentLoader = this.mContentLoader;
     if ( contentLoader ) {
-      MCLogger.info(MCLogModule.MCVirtualSourceDataFetcher, () => `[clientId: ${this.mClientId}] Aborting content loader`);
+      MCLogger.info(MCLogModule.MCVirtualResourceDataFetcher, () => `[clientId: ${this.mClientId}] Aborting content loader`);
       contentLoader.off("stateChange");
       if ( contentLoader.state != MCMediaContentLoaderState.Ended &&
            contentLoader.state != MCMediaContentLoaderState.Aborted ) {
@@ -237,7 +237,7 @@ export class MCVirtualSourceDataFetcher implements IMCDataFetcher {
       return;
     }
 
-    MCLogger.info(MCLogModule.MCVirtualSourceDataFetcher, () => `[clientId: ${this.mClientId}] Marking fetcher as done`);
+    MCLogger.info(MCLogModule.MCVirtualResourceDataFetcher, () => `[clientId: ${this.mClientId}] Marking fetcher as done`);
 
     this.mDataEnd = true;
     this.mContentLoader?.off("stateChange");
@@ -254,7 +254,7 @@ export class MCVirtualSourceDataFetcher implements IMCDataFetcher {
   on(event: "newDataReadable", callback: (fetcher: IMCDataFetcher) => void): void;
   on(event: "aborted", callback: (fetcher: IMCDataFetcher, error: Error) => void): void;
   on(event: string, callback: Object): void {
-    MCLogger.debug(MCLogModule.MCVirtualSourceDataFetcher, () => `[clientId: ${this.mClientId}] ${event} callback registered`);
+    MCLogger.debug(MCLogModule.MCVirtualResourceDataFetcher, () => `[clientId: ${this.mClientId}] ${event} callback registered`);
     
     switch (event) {
       case "newDataReadable":
@@ -268,7 +268,7 @@ export class MCVirtualSourceDataFetcher implements IMCDataFetcher {
   off(event: "newDataReadable"): void;
   off(event: "aborted"): void;
   off(event: string): void {
-    MCLogger.debug(MCLogModule.MCVirtualSourceDataFetcher, () => `[clientId: ${this.mClientId}] ${event} callback removed`);
+    MCLogger.debug(MCLogModule.MCVirtualResourceDataFetcher, () => `[clientId: ${this.mClientId}] ${event} callback removed`);
 
     switch (event) {
       case "newDataReadable":
@@ -280,43 +280,43 @@ export class MCVirtualSourceDataFetcher implements IMCDataFetcher {
   }
 
   private async createContent(): Promise<IMCMediaContent> {
-    const fileSource = this.asFileDataSource(this.mSource);
-    if ( fileSource ) {
+    const fileRes = this.asFileResource(this.mResource);
+    if ( fileRes ) {
       const content = new MCMediaContent(
         'VIRTUAL',
         0,
-        fileSource.filePath,
-        await MCFileIOUtils.getFileSize(fileSource.filePath)
+        fileRes.filePath,
+        await MCFileIOUtils.getFileSize(fileRes.filePath)
       );
       return content;
     }
 
-    const bufferSource = this.asBufferDataSource(this.mSource);
-    if ( bufferSource ) {
+    const bufRes = this.asBufferResource(this.mResource);
+    if ( bufRes ) {
       const content = new MCMediaBufferContent(
         'VIRTUAL',
         0,
-        bufferSource.buffer,
+        bufRes.buffer,
         false,
       );
       return content;
     }
 
-    throw new Error(`Unknown IMCVirtualSource type: ${JSON.stringify(this.mSource)}`);
+    throw new Error(`Unknown IMCVirtualResource type: ${JSON.stringify(this.mResource)}`);
   }
 
-  private asFileDataSource(source: IMCVirtualSource): IMCVirtualSourceFile | undefined {
-    const sourceAsFile = source as IMCVirtualSourceFile;
-    if ( sourceAsFile && typeof sourceAsFile.filePath === 'string' && sourceAsFile.filePath.length > 0 ) {
-      return sourceAsFile;
+  private asFileResource(resource: IMCVirtualResource): IMCVirtualResourceFile | undefined {
+    const resAsFile = resource as IMCVirtualResourceFile;
+    if ( resAsFile && typeof resAsFile.filePath === 'string' && resAsFile.filePath.length > 0 ) {
+      return resAsFile;
     }
     return undefined;
   }
 
-  private asBufferDataSource(source: IMCVirtualSource): IMCVirtualSourceBuffer | undefined {
-    const sourceAsBuffer = source as IMCVirtualSourceBuffer;
-    if ( sourceAsBuffer && sourceAsBuffer.buffer instanceof ArrayBuffer ) {
-      return sourceAsBuffer;
+  private asBufferResource(resource: IMCVirtualResource): IMCVirtualResourceBuffer | undefined {
+    const resAsBuf = resource as IMCVirtualResourceBuffer;
+    if ( resAsBuf && resAsBuf.buffer instanceof ArrayBuffer ) {
+      return resAsBuf;
     }
     return undefined;
   }

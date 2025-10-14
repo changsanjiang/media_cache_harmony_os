@@ -15,7 +15,7 @@ import MCConsts from '../utils/MCConsts';
 import { IMCAsset } from '../defines/IMCAsset';
 import { MCAssetExportManager } from '../exporter/MCAssetExportManager';
 import { MCAssetProxyUtils } from '../asset/MCAssetProxyUtils';
-import { MCVirtualSourceManager } from '../virtual/MCVirtualSourceManager';
+import { MCVirtualResourceManager } from '../virtual/MCVirtualResourceManager';
 
 export class MCHttpResponse implements IMCHttpResponse {
   private mClientId: number;
@@ -76,7 +76,7 @@ export class MCHttpResponse implements IMCHttpResponse {
         });
       }
       else if ( requestTarget.startsWith(MCConsts.ROUTE_PATH_PROXY_VIRTUAL) ) {
-        this.mFetcher = MCVirtualSourceManager.getInstance().fetch(this.mClientId, {
+        this.mFetcher = MCVirtualResourceManager.getInstance().fetch(this.mClientId, {
           requestTarget: requestTarget,
           headers: this.mRequest.headers,
         });

@@ -20,10 +20,9 @@ import { MCAssetExportUtils } from './exporter/MCAssetExportUtils';
 import MCConsts from './utils/MCConsts';
 import { MCProxyDirUtils } from './utils/MCProxyDirUtils';
 import { DashAdaptationSetSelectionHandler, DashRepresentationSelectionHandler } from './defines/DashDefines';
-import { IMCVirtualSource, IMCVirtualSourceType } from './defines/IMCVirtualSource';
-import { MCVirtualSourceManager } from './virtual/MCVirtualSourceManager';
-import { MCVirtualSourceUtils } from './virtual/MCVirtualSourceUtils';
-import { MCProxyVirtualSourceUtils } from './utils/MCProxyVirtualSourceUtils';
+import { IMCVirtualResourceType } from './defines/IMCVirtualResource';
+import { MCVirtualResourceManager } from './virtual/MCVirtualResourceManager';
+import { MCProxyVirtualResourceUtils } from './utils/MCProxyVirtualResourceUtils';
 
 export namespace MCMediaCache {
   const mTcpServer = new MCTcpSocketServer();
@@ -108,27 +107,27 @@ export namespace MCMediaCache {
   }
 
   /**
-   * 代理指定的数据源;
+   * 代理指定的虚拟资源;
    *
-   * 可将任意数据源 (本地文件、内存数据、动态生成流等) 映射为可通过 URL 访问的媒体资源;
+   * 可将任意资源 (本地文件、内存数据、动态生成流等) 映射为通过 HTTP URL 访问的媒体资源;
    *
    * #### 工作原理:
-   * - 通过 `MCMediaCache.proxyVirtualSource` 获取数据源代理 URL;
+   * - 通过 `MCMediaCache.proxyVirtualResource` 获取资源的代理 URL;
    * - 当外部组件 (例如播放器) 请求该 URL 时, 实际不会发起真实网络请求,
-   * - 请求将被路由到内部虚拟代理服务, 数据由`setVirtualSource()` 配置的 `virtualSource` 提供;
+   * - 请求将被路由到内部虚拟代理服务, 数据由`setVirtualResource()` 配置的 `virtualResource` 提供;
    *
    * #### 使用示例:
    * - 将代理 URL 设置给播放器;
-   * - 播放器获取播放数据时, 对播放器来说, 它只是请求了一个 URL, 与真实 URL 无异;
-   * - 数据将从 virtualSource 获取, 可以是本地文件、内存数据、加密数据、生成的数据流、甚至经过转换的媒体内容;
+   * - 播放器在获取播放数据时, 对播放器来说, 它只是请求了一个 URL, 与真实 URL 无异;
+   * - 数据将从 virtualResource 获取, 可以是本地文件、内存数据、加密数据、生成的数据流、甚至经过转换的媒体内容;
    * ```ts
-   * const key = 'key-local-audio'; // key 必须唯一, 通过 setVirtualSource 配置数据源, 全局配置一次即可
-   * MCMediaCache.setVirtualSource(key, { filePath: '/path/to/audio.mp3' });
+   * const key = 'key-local-audio'; // key 必须唯一, 通过 setVirtualResource 添加虚拟资源, 全局配置一次即可
+   * MCMediaCache.setVirtualResource(key, { filePath: '/path/to/audio.mp3' });
    *
-   * // 在需要播放时获取数据源代理 URL
-   * const proxyUrl = await MCMediaCache.proxyVirtual(key);
+   * // 在需要播放时获取代理 URL
+   * const proxyUrl = await MCMediaCache.proxyVirtualResource(key);
    *
-   * // 播放器无感知这是虚拟数据源
+   * // 播放器无感知这是虚拟资源
    * player.url = proxyUrl;
    * ```
    *
@@ -138,37 +137,30 @@ export namespace MCMediaCache {
    * - 将实时生成的数据 (如音频流、转码数据) 暴露为标准 URL;
    * - 统一播放器输入接口, 无需关心真实数据来源;
    *
-   * @note
-   * 请通过 `setVirtualSource` 设置数据源, `sourceKey` 将作为数据源标识;
-   *
-   * @note
-   * 解密数据仍然通过`setDataDecryptionHandler`进行配置, 在解密回调中 `resUrl` 将变为 `sourceKey`;
+   * @note 使用 `setVirtualResource` 注册虚拟资源，`resourceKey` 作为全局唯一标识符;
+   * @note 解密数据仍然通过`setDataDecryptionHandler`进行配置, 在解密回调中 `resUrl` 将对应 `resourceKey`;
    */
-  export async function proxyVirtualSource(sourceKey: string): Promise<string> {
-    return MCVirtualSourceUtils.generateSourceProxyUrl(sourceKey, await mTcpServer.start());
+  export async function proxyVirtualResource(resourceKey: string): Promise<string> {
+    return MCProxyVirtualResourceUtils.generateProxyUrl(resourceKey, await mTcpServer.start());
   }
 
   /**
-   * 设置数据源;
+   * 注册或移除虚拟资源;
    *
-   * 此方法用于为 `proxyVirtualSource()` 生成的虚拟 URL 提供实际数据来源;
+   * 此方法用于为 `proxyVirtualResource()` 生成的虚拟 URL 提供实际数据来源;
    *
    * #### 说明:
-   * - 当虚拟 URL 被访问时，系统将根据 `sourceKey` 找到对应的数据源;
-   * - 数据源可为本地文件、内存缓冲、或其他实现了 `IMCVirtualDataSource` 的对象;
-   * - 设置为 `undefined` 时表示移除绑定;
+   * - 当虚拟 URL 被访问时，系统将根据 `resourceKey` 找到对应的虚拟资源;
+   * - 虚拟资源可为本地文件、内存缓冲、或其他实现了 `IMCVirtualDataSource` 的对象;
+   * - 设置为 `undefined` 表示移除绑定;
    *
-   * @param sourceKey 数据源标识符, 要确保全局唯一性;
-   * @param source 虚拟数据源对象或 `undefined`;
+   * @param resourceKey 资源标识符, 要确保全局唯一性;
+   * @param resource 虚拟资源对象或 `undefined`;
    *
-   * @note
-   * 当数据源不再使用时, 可传入 `undefined` 移除绑定;
-   *
-   * @note
-   * 该数据源不参与缓存管理;
+   * @note 虚拟资源不参与缓存文件管理，其生命周期独立;
    * */
-  export function setVirtualSource(sourceKey: string, source: IMCVirtualSourceType | undefined): void {
-    MCVirtualSourceManager.getInstance().setSource(sourceKey, source);
+  export function setVirtualResource(resourceKey: string, resource: IMCVirtualResourceType | undefined): void {
+    MCVirtualResourceManager.getInstance().setResource(resourceKey, resource);
   }
 
   /**
@@ -274,7 +266,7 @@ export namespace MCMediaCache {
         return block(MCProxyDirUtils.parseTargetDir(request.requestTarget), offset, data);
       }
       else if ( proxyPath.startsWith(MCConsts.ROUTE_PATH_PROXY_VIRTUAL) ) {
-        return block(MCProxyVirtualSourceUtils.parseSourceKey(request.requestTarget), offset, data);
+        return block(MCProxyVirtualResourceUtils.parseKey(request.requestTarget), offset, data);
       }
       return Promise.resolve();
     };
