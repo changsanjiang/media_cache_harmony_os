@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <title>Video Player</title>
+    <style>
+        body {
+          font-family: system-ui, -apple-system, BlinkMacSystemFont;
+          padding: 20px;
+        }
+        video {
+          width: 100%;
+          max-width: 800px;
+          background: #000;
+        }
+        .error {
+          color: red;
+          margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<h2>HTML Video Test</h2>
+<p id="info"></p>
+
+<video
+        id="video"
+        controls
+        playsinline
+        crossorigin="anonymous"
+></video>
+
+<div id="error" class="error"></div>
+
+<script>
+    function getQueryParam(name) {
+      const params = new URLSearchParams(window.location.search);
+      return params.get(name);
+    }
+
+    const video = document.getElementById('video');
+    const info = document.getElementById('info');
+    const error = document.getElementById('error');
+
+    const targetUrl = getQueryParam('targetUrl');
+
+    if (!targetUrl) {
+      error.textContent = '缺少 query 参数：targetUrl';
+    } else {
+      info.textContent = `正在播放：${targetUrl}`;
+      video.src = targetUrl;
+
+      video.addEventListener('error', () => {
+        error.textContent = '视频加载失败，可能是跨域或格式不支持';
+      });
+    }
+</script>
+
+</body>
+</html>

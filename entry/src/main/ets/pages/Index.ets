@@ -77,6 +77,16 @@ struct Index {
           middle: { anchor: '__container__', align: HorizontalAlign.Center }
         })
         .onClick(() => this.testDash())
+
+      Text('Test WebView')
+        .id('测试WebView')
+        .fontSize(50)
+        .fontWeight(FontWeight.Bold)
+        .alignRules({
+          center: { anchor: '__container__', align: VerticalAlign.Center },
+          middle: { anchor: '__container__', align: HorizontalAlign.Center }
+        })
+        .onClick(() => this.testWebView())
     }
   }
 
@@ -149,6 +159,14 @@ struct Index {
     let proxyUrl = await MCMediaCache.proxy(resUrl);
 
     router.pushUrl({ url: 'pages/VideoPlayer', params: { url: proxyUrl } }).then(() => {
+      console.info('Succeeded in jumping to the second page.')
+    }).catch((err: BusinessError) => {
+      console.error(`Failed to jump to the second page. Code is ${err.code}, message is ${err.message}`)
+    })
+  }
+
+  testWebView() {
+    router.pushUrl({ url: 'pages/TestWebView' }).then(() => {
       console.info('Succeeded in jumping to the second page.')
     }).catch((err: BusinessError) => {
       console.error(`Failed to jump to the second page. Code is ${err.code}, message is ${err.message}`)

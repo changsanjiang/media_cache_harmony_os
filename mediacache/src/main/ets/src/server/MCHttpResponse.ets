@@ -295,6 +295,7 @@ export class MCHttpResponse implements IMCHttpResponse {
             (okResponse.chunked === true ? `Transfer-Encoding: chunked\r\n` : '') +
             (okResponse.contentLength ? `Content-Length: ${okResponse.contentLength}\r\n` : '')  +
             (okResponse.byteRangeAccessSupported === true ? `Accept-Ranges: bytes\r\n` : '') +
+            `Access-Control-Allow-Origin: *\r\n` +
             `Date: ${currentDate}\r\n` +
             `\r\n`
         )
@@ -307,6 +308,7 @@ export class MCHttpResponse implements IMCHttpResponse {
             `Content-Type: ${partialResponse.contentType}\r\n` +
             `Content-Length: ${partialResponse.contentRange.length}\r\n` +
             `Accept-Ranges: bytes\r\n` +
+            `Access-Control-Allow-Origin: *\r\n` +
             `Date: ${currentDate}\r\n` +
             `\r\n`
         );
