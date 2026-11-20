@@ -41,6 +41,13 @@ export interface IMCAssetManager {
    * @param assetIds 资产 ID 数组.
    */
   calculateCacheSizeForAssets(assetIds: string[]): Promise<number>;
+
+  /**
+   * 内存中该资产是否正被播放/预取/导出等持有引用。
+   *
+   * 仅当 Asset 已在 {@link getAssetByProxyPath} 中加载到 mAssetMap 时有效；仅供淘汰策略使用。
+   */
+  isAssetInUse(assetId: string): boolean;
 }
 
 interface IMCAssetDirectoryManager {
@@ -199,6 +206,12 @@ export class MCAssetManager implements IMCAssetManager {
 
   prepare(context: Context): Promise<void> {
     return this.mDirectoryManager.prepare(context);
+  }
+
+  isAssetInUse(assetId: string): boolean {
+    const asset = this.mAssetMap.get(assetId);
+    // readwriteCount 由 MCMediaHttpSession / MCRequestScope 等维护
+    return asset !== undefined && asset.readwriteCount > 0;
   }
 
   getAssetByProxyPath(proxyPath: string): Promise<IMCAsset> {

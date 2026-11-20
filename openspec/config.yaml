@@ -1,0 +1,16 @@
+schema: spec-driven
+
+context: |
+  HarmonyOS ArkTS library @sj/mediacache — local HTTP proxy media cache.
+  Domain: Asset (playback resource) → Media (single URL byte source) → ContentLoader.
+  Keep MCMediaCache public API stable; specs under openspec/changes until archive.
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours

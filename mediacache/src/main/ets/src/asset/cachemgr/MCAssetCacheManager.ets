@@ -4,6 +4,7 @@ import MCFileIOUtils from "../../utils/MCFileIOUtils";
 import MCAssetStateRepository from "../cachestate/MCAssetStateRepository";
 import { MCAssetProxyUtils } from "../MCAssetProxyUtils";
 import MCAssetAccessLogRepository from "../cachestate/MCAssetAccessLogRepository";
+import { MCCachePolicy } from "./MCCachePolicy";
 import { MCAssetCacheConfig } from "../../defines/MCAssetCacheConfig";
 import MCLogger from "../../utils/MCLogger";
 import { MCLogModule } from "../../defines/MCLogModule";
@@ -263,16 +264,18 @@ namespace MCAssetCacheManager {
     }
   }
 
-  /** 移除资产 */
+  /** 移除资产（经 {@link MCCachePolicy.canEvict} 过滤 in-use / pin） */
   async function evictAssets(assetIds: string[]): Promise<void> {
-    if (assetIds.length === 0) {
+    const eligible = assetIds.filter((id) => MCCachePolicy.canEvict(id));
+    if (eligible.length === 0) {
       MCLogger.debug(MCLogModule.MCAssetCacheManager, () => `No assets to evict.`);
       return;
     }
 
-    MCLogger.info(MCLogModule.MCAssetCacheManager, () => `Starting eviction of ${assetIds.length} asset(s).`);
+    MCLogger.info(MCLogModule.MCAssetCacheManager, () =>
+      `Starting eviction of ${eligible.length} asset(s) (${assetIds.length - eligible.length} skipped: in-use or pinned).`);
 
-    for (const assetId of assetIds) {
+    for (const assetId of eligible) {
       MCLogger.info(MCLogModule.MCAssetCacheManager, () => `[AssetId: ${assetId}] Eviction started.`);
       try {
         await MCAssetAccessLogRepository.onEvict(assetId);

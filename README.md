@@ -191,6 +191,13 @@ ___
 
 ___
 
+#### 开发文档
+
+- [代码架构：目录结构与模块关系](docs/ARCHITECTURE.md)
+- 架构规格：`openspec/specs/mediacache-{domain,http-session,cache-policy}/`；归档记录见 `openspec/changes/archive/2026-11-20-mediacache-architecture-refactor/`
+
+___
+
 #### 项目地址
 
 - GitHub: [https://github.com/changsanjiang/media_cache_harmony_os](https://github.com/changsanjiang/media_cache_harmony_os)

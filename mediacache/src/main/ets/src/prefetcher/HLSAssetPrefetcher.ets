@@ -8,7 +8,6 @@ import { IMCMedia } from '../defines/IMCMedia';
 import { MCAssetPrefetchOptions } from '../defines/MCAssetPrefetchOptions';
 import { MCMediaKind } from '../defines/MCMediaKind';
 import { MCAbortSignal } from '../utils/MCAbortController';
-import MCArrayUtils from '../utils/MCArrayUtils';
 import { MCRange } from '../utils/MCRange';
 import MCUtils from '../utils/MCUtils';
 import { MCAssetPrefetchUtils } from './MCAssetPrefetchUtils';

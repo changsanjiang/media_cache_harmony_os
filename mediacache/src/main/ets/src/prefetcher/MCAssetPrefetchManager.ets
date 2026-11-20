@@ -1,15 +1,13 @@
-import { FILEAsset } from '../asset/filebased/FILEAsset';
-import { HLSAsset } from '../asset/hls/HLSAsset';
+import { MCAssetCapabilityRegistry } from '../asset/MCAssetCapabilityRegistry';
 import { MCAssetManager } from '../asset/MCAssetManager';
 import { MCAssetProxyUtils } from '../asset/MCAssetProxyUtils';
 import { MCAssetPrefetchOptions } from '../defines/MCAssetPrefetchOptions';
-import { MCAssetType } from '../defines/MCAssetType';
 import { MCAbortController } from '../utils/MCAbortController';
 import MCUtils from '../utils/MCUtils';
-import { FILEAssetPrefetcher } from './FILEAssetPrefetcher';
-import { HLSAssetPrefetcher } from './HLSAssetPrefetcher';
+import { MCRequestScope } from '../utils/MCRequestScope';
 import { MCAssetPrefetchUtils } from './MCAssetPrefetchUtils';
 
+/** 预取门面；具体类型实现见 {@link MCAssetCapabilityRegistry.prefetchAsset}。 */
 export namespace MCAssetPrefetchManager {
   export async function prefetch(resUrl: string, options?: MCAssetPrefetchOptions): Promise<void> {
     // 参数校验
@@ -38,30 +36,15 @@ export namespace MCAssetPrefetchManager {
 
     signal?.addEventListener('aborted', (e) => prefetchAbortController.abort(e));
 
-    // 根据资产类型进行预加载
     try {
-      asset.readwriteRetain();
-      switch (asset.type) {
-        case MCAssetType.FILE_BASED: {
-          const prefetcher = new FILEAssetPrefetcher();
-          await prefetcher.prefetch(asset as FILEAsset, proxyPath, prefetchOptions);
-          break;
-        }
-        case MCAssetType.HLS: {
-          const prefetcher = new HLSAssetPrefetcher();
-          await prefetcher.prefetch(asset as HLSAsset, proxyPath, prefetchOptions);
-          break;
-        }
-        default:
-          throw new Error(`Unsupported type: ${asset.type}`);
-      }
+      // 持有引用期间禁止淘汰；类型分发由能力注册表统一处理
+      await MCRequestScope.withAsset(asset, async () => {
+        await MCAssetCapabilityRegistry.prefetchAsset(asset, proxyPath, prefetchOptions);
+      });
     }
     catch (e) {
       prefetchAbortController.abort(e);
       throw e as Error;
-    }
-    finally {
-      asset.readwriteRelease();
     }
   }
 }

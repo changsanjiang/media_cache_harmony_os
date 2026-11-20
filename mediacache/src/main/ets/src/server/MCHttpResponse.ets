@@ -2,7 +2,7 @@ import MCLogger from '../utils/MCLogger';
 import { IMCHttpRequest } from '../defines/IMCHttpRequest';
 import { IMCHttpResponse } from '../defines/IMCHttpResponse';
 import { MCLogModule } from '../defines/MCLogModule';
-import { MCAssetDataFetcher } from '../asset/MCAssetDataFetcher';
+import { MCMediaHttpSession } from '../session/MCMediaHttpSession';
 import { IMCDataFetcher } from '../defines/IMCDataFetcher';
 import { MCAssetManager } from '../asset/MCAssetManager';
 import {
@@ -60,17 +60,17 @@ export class MCHttpResponse implements IMCHttpResponse {
         requestTarget = await MCAssetProxyUtils.convertToProxyPath(requestTarget);
       }
 
-      // Determine which type of fetcher to use
+      // 远程缓存 / 已导出目录：统一走 HTTP 会话层（Asset → Media 流式响应）
       if ( requestTarget.startsWith(MCConsts.ROUTE_PATH_PROXY_URL) ) {
         const asset = await MCAssetManager.getInstance().getAssetByProxyPath(requestTarget);
-        this.mFetcher = new MCAssetDataFetcher(this.mClientId, asset, {
+        this.mFetcher = new MCMediaHttpSession(this.mClientId, asset, {
           requestTarget: requestTarget,
           headers: this.mRequest.headers
         });
       }
       else if ( requestTarget.startsWith(MCConsts.ROUTE_PATH_PROXY_DIR) ) {
         const asset = await MCAssetExportManager.getInstance().getAssetByProxyPath(requestTarget);
-        this.mFetcher = new MCAssetDataFetcher(this.mClientId, asset, {
+        this.mFetcher = new MCMediaHttpSession(this.mClientId, asset, {
           requestTarget: requestTarget,
           headers: this.mRequest.headers
         });

@@ -1,12 +1,10 @@
-import { FILEAsset } from "../asset/filebased/FILEAsset";
-import { HLSAsset } from "../asset/hls/HLSAsset";
+import { MCAssetCapabilityRegistry } from "../asset/MCAssetCapabilityRegistry";
 import { MCAssetManager } from "../asset/MCAssetManager";
 import { MCAssetProxyUtils } from "../asset/MCAssetProxyUtils";
 import { MCAssetExportOptions } from "../defines/MCAssetExportOptions";
 import { MCAssetType } from "../defines/MCAssetType";
 import { MCAssetPrefetchUtils } from "../prefetcher/MCAssetPrefetchUtils";
-import { FILEAssetExporter } from "./FILEAssetExporter";
-import { HLSAssetExporter } from "./HLSAssetExporter";
+import { MCRequestScope } from "../utils/MCRequestScope";
 import { fileIo } from "@kit.CoreFileKit";
 import { IMCAsset } from "../defines/IMCAsset";
 import { MCProxyDirUtils } from "../utils/MCProxyDirUtils";
@@ -62,27 +60,10 @@ export class MCAssetExportManager implements IMCAssetExportManager {
     const asset = await MCAssetManager.getInstance().getAssetByProxyPath(proxyPath);
     MCAssetPrefetchUtils.checkAbortSignal(signal);
 
-    // 根据资产类型进行导出
-    try {
-      asset.readwriteRetain();
-      switch (asset.type) {
-        case MCAssetType.FILE_BASED: {
-          const exporter = new FILEAssetExporter();
-          await exporter.export(asset as FILEAsset, proxyPath, targetDir, options);
-          break;
-        }
-        case MCAssetType.HLS: {
-          const exporter = new HLSAssetExporter();
-          await exporter.export(asset as HLSAsset, proxyPath, targetDir, options);
-          break;
-        }
-        default:
-          throw new Error(`Unsupported type: ${asset.type}`);
-      }
-    }
-    finally {
-      asset.readwriteRelease();
-    }
+    // 不支持导出的类型（如 DASH）在 Registry 内 assert 并抛错
+    await MCRequestScope.withAsset(asset, async () => {
+      await MCAssetCapabilityRegistry.exportAsset(asset, proxyPath, targetDir, options);
+    });
   }
 
   private enqueueTask<T>(task: () => Promise<T>): Promise<T> {
@@ -108,8 +89,9 @@ export class MCAssetExportManager implements IMCAssetExportManager {
       case MCAssetType.HLS:
         asset = new MCLocalHLSAsset(assetId, assetDir);
         break;
-      case MCAssetType.DASH:
-        throw new Error(`TODO(DASH)`);
+      default:
+        MCAssetCapabilityRegistry.assertLocalDirPlaySupported(assetType);
+        throw new Error(`Unsupported local asset type: ${MCAssetType[assetType]}`);
     }
     await asset.prepare();
 
