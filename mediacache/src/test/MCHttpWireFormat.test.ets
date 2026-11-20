@@ -22,9 +22,9 @@ export default function mcHttpWireFormatTest() {
       expect(raw).assertContain('Accept-Ranges: bytes');
     });
 
-    it('wrapChunkedBody prefix', 0, () => {
+    it('encodeChunkedBodySegment prefix', 0, () => {
       const body = new ArrayBuffer(3);
-      const chunked = new Uint8Array(MCHttpWireFormat.wrapChunkedBody(body));
+      const chunked = new Uint8Array(MCHttpWireFormat.encodeChunkedBodySegment(body));
       expect(chunked[0]).assertEqual(0x33);
       expect(chunked[1]).assertEqual(0x0d);
       expect(chunked[2]).assertEqual(0x0a);

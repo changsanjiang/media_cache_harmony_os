@@ -11,7 +11,7 @@ import { MCHttpWireFormat } from './MCHttpWireFormat';
 import { MCHttpLog } from './MCHttpLog';
 
 export interface IMCHttpConnectionSession {
-  on(event: "disconnect", callback: (handler: IMCHttpConnectionSession) => void): void;
+  on(event: "disconnect", callback: (session: IMCHttpConnectionSession) => void): void;
   off(event: "disconnect"): void;
 }
 
@@ -21,25 +21,25 @@ export class MCHttpConnectionSession implements IMCHttpConnectionSession {
   private mConnection: socket.TCPSocketConnection;
   private mCurrentResponse?: IMCHttpResponse = undefined;
   private mDisconnected = false;
-  private mSerialPromise = Promise.resolve();
+  private mIoSerialChain = Promise.resolve();
   private mHeadersSent = false;
-  private mConsuming = false;
+  private mBodyPumpActive = false;
   private mReceiveBuffer: MCHttpReceiveBuffer;
 
-  private mOnDisconnect?: (handler: IMCHttpConnectionSession) => void = undefined;
+  private mOnDisconnect?: (session: IMCHttpConnectionSession) => void = undefined;
 
-  constructor(cnt: socket.TCPSocketConnection) {
-    this.mClientId = cnt.clientId;
-    this.mConnection = cnt;
+  constructor(connection: socket.TCPSocketConnection) {
+    this.mClientId = connection.clientId;
+    this.mConnection = connection;
     this.mReceiveBuffer = new MCHttpReceiveBuffer(this.mClientId);
-    cnt.on('message', (msgInfo: socket.SocketMessageInfo) => this.onConnectionMessage(msgInfo));
-    cnt.on('error', (e: Error) => this.onError(e));
-    cnt.on('close', () => this.onConnectionDisconnect());
+    connection.on('message', (msgInfo: socket.SocketMessageInfo) => this.handleTcpMessage(msgInfo));
+    connection.on('error', (e: Error) => this.onSocketError(e));
+    connection.on('close', () => this.handleDisconnect());
 
     MCLogger.debug(MCLogModule.MCHttpConnectionSession, () => MCLogger.withClient(this.mClientId, 'Session initialized'));
   }
 
-  on(_: "disconnect", callback: (handler: IMCHttpConnectionSession) => void): void {
+  on(_: "disconnect", callback: (session: IMCHttpConnectionSession) => void): void {
     this.mOnDisconnect = callback;
   }
 
@@ -47,7 +47,7 @@ export class MCHttpConnectionSession implements IMCHttpConnectionSession {
     this.mOnDisconnect = undefined;
   }
 
-  private onConnectionMessage(msgInfo: socket.SocketMessageInfo): void {
+  private handleTcpMessage(msgInfo: socket.SocketMessageInfo): void {
     MCLogger.debug(MCLogModule.MCHttpConnectionSession, () => MCLogger.withClient(this.mClientId, `TCP segment ${msgInfo.message.byteLength} bytes`));
 
     try {
@@ -55,67 +55,67 @@ export class MCHttpConnectionSession implements IMCHttpConnectionSession {
     }
     catch (error) {
       MCLogger.error(MCLogModule.MCHttpConnectionSession, () => MCLogger.withClient(this.mClientId, `Receive buffer error: ${(error as Error).message}. Closing connection.`));
-      this.closeWithError(400);
+      this.closeWithErrorStatus(400);
       return;
     }
 
     while (true) {
-      const headerBlock = this.mReceiveBuffer.tryShiftCompleteHeaderBlock();
-      if (!headerBlock) {
+      const headerText = this.mReceiveBuffer.takeCompleteRequestHeaders();
+      if (!headerText) {
         break;
       }
 
-      this.abortResponse(new Error('Request is cancelled'));
+      this.cancelCurrentResponse(new Error('Request is cancelled'));
 
       let request: IMCHttpRequest;
       try {
-        request = parseRequest(this.mClientId, headerBlock);
+        request = parseRequest(this.mClientId, headerText);
         MCLogger.info(MCLogModule.MCHttpConnectionSession, () => MCLogger.withClient(this.mClientId, `Request ${MCHttpLog.summarizeRequest(request)}`));
       }
       catch (error) {
         MCLogger.error(MCLogModule.MCHttpConnectionSession, () => MCLogger.withClient(this.mClientId, `Parse failed: ${(error as Error).message}`));
-        this.closeWithError(400);
+        this.closeWithErrorStatus(400);
         return;
       }
 
-      this.startResponse(request);
+      this.dispatchRequest(request);
     }
   }
 
-  private closeWithError(statusCode: 400 | 500): void {
+  private closeWithErrorStatus(statusCode: 400 | 500): void {
     const rawData = MCHttpWireFormat.formatErrorResponse(statusCode);
-    this.enqueueTask(() => this.send(rawData));
-    this.enqueueTask(() => this.close());
-    this.enqueueTask(() => this.onConnectionDisconnect());
+    this.enqueueIoTask(() => this.sendOnSocket(rawData));
+    this.enqueueIoTask(() => this.closeSocket());
+    this.enqueueIoTask(() => this.handleDisconnect());
   }
 
-  private startResponse(request: IMCHttpRequest): void {
+  private dispatchRequest(request: IMCHttpRequest): void {
     const response = new MCHttpResponseAdapter(this.mClientId, request);
     response.on("newDataReadable", (response) => this.onResponseNewDataReadable(response));
     response.on("aborted", (response, error) => this.onResponseAborted(response, error));
     this.mCurrentResponse = response;
     this.mHeadersSent = false;
-    this.mConsuming = false;
+    this.mBodyPumpActive = false;
 
-    this.enqueueTask(() => response.prepare().then((rawHeaders) => this.onResponseHeaders(response, rawHeaders)));
+    this.enqueueIoTask(() => response.prepare().then((rawHeaders) => this.onResponseHeaders(response, rawHeaders)));
   }
 
-  private onError(error: Error): void {
+  private onSocketError(error: Error): void {
     MCLogger.error(MCLogModule.MCHttpConnectionSession, () => MCLogger.withClient(this.mClientId, `Connection error: ${error.message}`));
 
-    this.abortResponse(error);
-    this.enqueueTask(() => this.close());
-    this.enqueueTask(() => this.onConnectionDisconnect());
+    this.cancelCurrentResponse(error);
+    this.enqueueIoTask(() => this.closeSocket());
+    this.enqueueIoTask(() => this.handleDisconnect());
   }
 
-  private onConnectionDisconnect(): void {
+  private handleDisconnect(): void {
     if ( this.mDisconnected ) {
       return;
     }
 
     MCLogger.info(MCLogModule.MCHttpConnectionSession, () => MCLogger.withClient(this.mClientId, 'TCP connection closed'));
 
-    this.abortResponse(new Error('Request is cancelled'));
+    this.cancelCurrentResponse(new Error('Request is cancelled'));
     this.mDisconnected = true;
     this.mConnection.off('message');
     this.mConnection.off('error');
@@ -124,8 +124,8 @@ export class MCHttpConnectionSession implements IMCHttpConnectionSession {
   }
 
   private onResponseHeaders(response: IMCHttpResponse, headers: string): void {
-    this.enqueueTask(async () => {
-      if ( this.isActive(response) ) {
+    this.enqueueIoTask(async () => {
+      if ( this.isCurrentResponse(response) ) {
         this.mHeadersSent = true;
         MCLogger.debug(MCLogModule.MCHttpConnectionSession, () => MCLogger.withClient(this.mClientId, `Sending response headers (${headers.length} chars)`));
         await this.mConnection.send({ data: headers });
@@ -137,34 +137,34 @@ export class MCHttpConnectionSession implements IMCHttpConnectionSession {
     });
 
     if ( !response.omitsResponseBody ) {
-      this.enqueueTask(() => this.consumeData(response));
+      this.enqueueIoTask(() => this.pumpResponseBody(response));
     }
   }
 
   private onResponseNewDataReadable(response: IMCHttpResponse): void {
     MCLogger.debug(MCLogModule.MCHttpConnectionSession, () => MCLogger.withClient(this.mClientId, 'newDataReadable'));
 
-    if ( !this.isActive(response) || !this.mHeadersSent ) {
+    if ( !this.isCurrentResponse(response) || !this.mHeadersSent ) {
       return;
     }
 
-    this.enqueueTask(() => this.consumeData(response));
+    this.enqueueIoTask(() => this.pumpResponseBody(response));
   }
 
   private onResponseAborted(response: IMCHttpResponse, error: Error): void {
     response.off("newDataReadable");
     response.off("aborted");
 
-    if ( this.isActive(response) ) {
+    if ( this.isCurrentResponse(response) ) {
       MCLogger.warn(MCLogModule.MCHttpConnectionSession, () => MCLogger.withClient(this.mClientId, `Response aborted (headersSent=${this.mHeadersSent}): ${error.message}`));
 
       if ( this.mHeadersSent ) {
-        this.onError(error);
+        this.onSocketError(error);
         return;
       }
 
       this.mCurrentResponse = undefined;
-      this.closeWithError(500);
+      this.closeWithErrorStatus(500);
     }
   }
 
@@ -172,44 +172,44 @@ export class MCHttpConnectionSession implements IMCHttpConnectionSession {
     response.off("newDataReadable");
     response.off("aborted");
 
-    if ( this.isActive(response) ) {
+    if ( this.isCurrentResponse(response) ) {
       this.mCurrentResponse = undefined;
       this.mHeadersSent = false;
-      this.mConsuming = false;
+      this.mBodyPumpActive = false;
       MCLogger.debug(MCLogModule.MCHttpConnectionSession, () => MCLogger.withClient(this.mClientId, 'Response finished'));
     }
   }
 
-  private send(data: string | ArrayBuffer): Promise<void> {
+  private sendOnSocket(data: string | ArrayBuffer): Promise<void> {
     return this.mConnection.send({ data: data });
   }
 
-  private close(): Promise<void> {
+  private closeSocket(): Promise<void> {
     return this.mConnection.close();
   }
 
-  private isActive(response: IMCHttpResponse): boolean {
+  private isCurrentResponse(response: IMCHttpResponse): boolean {
     return !this.mDisconnected && response == this.mCurrentResponse;
   }
 
-  private consumeData(response: IMCHttpResponse): void {
-    if (this.mConsuming) {
-      MCLogger.trace(MCLogModule.MCHttpConnectionSession, () => MCLogger.withClient(this.mClientId, 'consumeData re-entry skipped'));
+  private pumpResponseBody(response: IMCHttpResponse): void {
+    if (this.mBodyPumpActive) {
+      MCLogger.trace(MCLogModule.MCHttpConnectionSession, () => MCLogger.withClient(this.mClientId, 'pumpResponseBody re-entry skipped'));
       return;
     }
 
-    this.mConsuming = true;
+    this.mBodyPumpActive = true;
 
-    this.enqueueTask(async () => {
-      if ( !this.isActive(response) ) {
-        MCLogger.debug(MCLogModule.MCHttpConnectionSession, () => MCLogger.withClient(this.mClientId, 'consumeData skipped (inactive response)'));
+    this.enqueueIoTask(async () => {
+      if ( !this.isCurrentResponse(response) ) {
+        MCLogger.debug(MCLogModule.MCHttpConnectionSession, () => MCLogger.withClient(this.mClientId, 'pumpResponseBody skipped (stale response)'));
         return;
       }
 
       try {
         const buffer = await response.read(MCConfigs.socketDataBufferSize);
         if ( !buffer ) {
-          this.mConsuming = false;
+          this.mBodyPumpActive = false;
           return;
         }
 
@@ -218,34 +218,34 @@ export class MCHttpConnectionSession implements IMCHttpConnectionSession {
 
         if ( response.isDone ) {
           this.onResponseDone(response);
-          this.mConsuming = false;
+          this.mBodyPumpActive = false;
           return;
         }
 
-        this.scheduleNextConsume(response);
+        this.scheduleBodyPump(response);
       }
       catch (e) {
-        this.mConsuming = false;
-        this.onError(e as Error);
+        this.mBodyPumpActive = false;
+        this.onSocketError(e as Error);
       }
     });
   }
 
-  private scheduleNextConsume(response: IMCHttpResponse): void {
+  private scheduleBodyPump(response: IMCHttpResponse): void {
     setTimeout(() => {
-      if ( this.isActive(response) ) this.forceConsumeData(response);
+      if ( this.isCurrentResponse(response) ) this.resumeBodyPump(response);
     });
   }
 
-  private forceConsumeData(response: IMCHttpResponse): void {
-    this.mConsuming = false;
-    this.consumeData(response);
+  private resumeBodyPump(response: IMCHttpResponse): void {
+    this.mBodyPumpActive = false;
+    this.pumpResponseBody(response);
   }
 
-  private abortResponse(error: Error): void {
+  private cancelCurrentResponse(error: Error): void {
     const response = this.mCurrentResponse;
     if ( response ) {
-      const abortMsg = () => MCLogger.withClient(this.mClientId, `Abort response: ${error.message}`);
+      const abortMsg = () => MCLogger.withClient(this.mClientId, `Cancel response: ${error.message}`);
       if (error.message === 'Request is cancelled') {
         MCLogger.debug(MCLogModule.MCHttpConnectionSession, abortMsg);
       }
@@ -257,7 +257,7 @@ export class MCHttpConnectionSession implements IMCHttpConnectionSession {
       response.off("aborted");
       this.mCurrentResponse = undefined;
       this.mHeadersSent = false;
-      this.mConsuming = false;
+      this.mBodyPumpActive = false;
 
       if ( !response.isCompleted ) {
         response.abort(error);
@@ -265,14 +265,14 @@ export class MCHttpConnectionSession implements IMCHttpConnectionSession {
     }
   }
 
-  private enqueueTask(task: () => (void | Promise<void>)): void {
-    this.mSerialPromise = this.mSerialPromise
+  private enqueueIoTask(task: () => (void | Promise<void>)): void {
+    this.mIoSerialChain = this.mIoSerialChain
       .then(async () => {
         if ( this.mDisconnected ) {
           return;
         }
         return task();
       })
-      .catch((e: Error) => this.onError(e));
+      .catch((e: Error) => this.onSocketError(e));
   }
 }

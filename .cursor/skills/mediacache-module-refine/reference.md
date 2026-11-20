@@ -29,6 +29,18 @@
 - `mediacache-http-transport` — 半包、HEAD
 - `mediacache-http-server-srp` — Wire/Router/Adapter 拆分
 
+## 符号命名（2026-11-20 server 收尾）
+
+| 区域 | 推荐命名 | 说明 |
+|------|----------|------|
+| Registry | `acceptConnection(connection)` | 替代 `handleConnection(cnt)` |
+| Session I/O | `enqueueIoTask` / `mIoSerialChain` | 与同仓 asset 的 `enqueueTask` 区分 |
+| Session 泵 | `pumpResponseBody` / `mBodyPumpActive` | 替代 `consumeData` / `mConsuming` |
+| Session 生命周期 | `dispatchRequest` / `cancelCurrentResponse` / `handleDisconnect` | |
+| ReceiveBuffer | `takeCompleteRequestHeaders` / `dropLeadingBytes` | |
+| WireFormat | `encodeChunkedBodySegment` / `formatChunkedTerminator` | 与 `formatErrorResponse` 同前缀风格 |
+| Adapter 状态 | `mFetcherExhausted` / `mChunkTerminatorSent` | |
+
 ## 日志示例行
 
 ```

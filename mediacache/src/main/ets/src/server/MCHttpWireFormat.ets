@@ -58,7 +58,7 @@ export namespace MCHttpWireFormat {
     }
   }
 
-  export function wrapChunkedBody(data: ArrayBuffer): ArrayBuffer {
+  export function encodeChunkedBodySegment(data: ArrayBuffer): ArrayBuffer {
     const uint8Array = new Uint8Array(data);
     const chunkSizeHex = uint8Array.byteLength.toString(16);
     const encoder = new util.TextEncoder('utf-8');
@@ -74,7 +74,7 @@ export namespace MCHttpWireFormat {
     return chunkedData;
   }
 
-  export function chunkedTerminator(): ArrayBuffer {
+  export function formatChunkedTerminator(): ArrayBuffer {
     return buffer.from('0\r\n\r\n', 'utf-8').buffer;
   }
 }

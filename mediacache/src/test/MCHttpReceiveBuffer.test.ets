@@ -14,9 +14,9 @@ export default function mcHttpReceiveBufferTest() {
     it('waits until CRLFCRLF present', 0, () => {
       const buffer = new MCHttpReceiveBuffer(1);
       buffer.append(encodeAscii('GET /x HTTP/1.1\r\nHost: h\r'));
-      expect(buffer.tryShiftCompleteHeaderBlock()).assertUndefined();
+      expect(buffer.takeCompleteRequestHeaders()).assertUndefined();
       buffer.append(encodeAscii('\n\r\n'));
-      const block = buffer.tryShiftCompleteHeaderBlock();
+      const block = buffer.takeCompleteRequestHeaders();
       expect(block).assertContain('GET /x HTTP/1.1');
     });
 
@@ -26,11 +26,11 @@ export default function mcHttpReceiveBufferTest() {
       const req2 = 'HEAD /b HTTP/1.1\r\nHost: h\r\n\r\n';
       buffer.append(encodeAscii(req1 + req2));
 
-      const first = buffer.tryShiftCompleteHeaderBlock();
+      const first = buffer.takeCompleteRequestHeaders();
       expect(first).assertContain('GET /a');
-      const second = buffer.tryShiftCompleteHeaderBlock();
+      const second = buffer.takeCompleteRequestHeaders();
       expect(second).assertContain('HEAD /b');
-      expect(buffer.tryShiftCompleteHeaderBlock()).assertUndefined();
+      expect(buffer.takeCompleteRequestHeaders()).assertUndefined();
     });
   });
 }

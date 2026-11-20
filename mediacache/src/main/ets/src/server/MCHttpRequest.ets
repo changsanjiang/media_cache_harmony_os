@@ -9,15 +9,15 @@ import { MCHttpLog } from './MCHttpLog';
 /**
  * 解析原始 HTTP 请求消息，仅处理 GET 和 HEAD 请求。
  *
- * @param rawMessage - 原始 HTTP 请求字符串
+ * @param headerText - 完整 HTTP 请求头块（含结尾 {@code \\r\\n\\r\\n} 之前部分由 buffer 切出）
  * @returns IMCHttpRequest - 解析后的 HTTP 请求对象
  * @throws Error - 如果消息格式无效、不支持的 HTTP 方法或存在消息体，则抛出异常
  */
-export function parseRequest(clientId: number, rawMessage: string): IMCHttpRequest {
-  MCLogger.trace(MCLogModule.MCHttpRequest, () => MCLogger.withClient(clientId, `parse headers (${rawMessage.length} chars)`));
+export function parseRequest(clientId: number, headerText: string): IMCHttpRequest {
+  MCLogger.trace(MCLogModule.MCHttpRequest, () => MCLogger.withClient(clientId, `parse headers (${headerText.length} chars)`));
 
-  const delimiterIndex = rawMessage.indexOf("\r\n\r\n");
-  const headerPart = delimiterIndex !== -1 ? rawMessage.slice(0, delimiterIndex) : rawMessage;
+  const delimiterIndex = headerText.indexOf("\r\n\r\n");
+  const headerPart = delimiterIndex !== -1 ? headerText.slice(0, delimiterIndex) : headerText;
 
   const headerLines = headerPart.split("\r\n");
 

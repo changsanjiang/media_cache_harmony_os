@@ -26,7 +26,7 @@ import { MCProxyVirtualResourceUtils } from './utils/MCProxyVirtualResourceUtils
 
 export namespace MCMediaCache {
   const mTcpServer = new MCTcpSocketServer();
-  const mConnectionHandler = new MCHttpConnectionRegistry();
+  const mConnectionRegistry = new MCHttpConnectionRegistry();
 
   /** 缓存管理配置; 缓存管理器会根据该配置, 定期检测并自动删除部分缓存文件; */
   export const cacheConfig: MCAssetCacheConfig = MCAssetCacheManager.config;
@@ -372,7 +372,7 @@ export namespace MCMediaCache {
   }
 
   async function _prepare(context: Context): Promise<void> {
-    mTcpServer.on('connect', (connection) => mConnectionHandler.handleConnection(connection));
+    mTcpServer.on('connect', (connection) => mConnectionRegistry.acceptConnection(connection));
     // 初始化缓存管理器
     // 启动代理服务器
     await Promise.all([MCAssetCacheManager.prepare(context), mTcpServer.start()]);

@@ -15,10 +15,10 @@ export class MCHttpResponseAdapter implements IMCHttpResponse {
   private mRequest: IMCHttpRequest
   private mFetcher?: IMCDataFetcher = undefined;
   private mChunked = false;
-  private mChunkReadEnd = false;
+  private mChunkTerminatorSent = false;
 
   private mAborted = false;
-  private mDataEnd = false;
+  private mFetcherExhausted = false;
   private mError?: Error = undefined;
 
   private mOnNewDataReadable?: (response: IMCHttpResponse) => void = undefined;
@@ -39,14 +39,14 @@ export class MCHttpResponseAdapter implements IMCHttpResponse {
   }
 
   get isDone(): boolean {
-    return this.mDataEnd && (!this.mChunked || this.mChunkReadEnd);
+    return this.mFetcherExhausted && (!this.mChunked || this.mChunkTerminatorSent);
   }
 
   get omitsResponseBody(): boolean {
     return this.mRequest.method === 'HEAD';
   }
 
-  private toDataRequest(requestTarget: string): IMCDataRequest {
+  private buildDataRequest(requestTarget: string): IMCDataRequest {
     const method = this.mRequest.method === 'HEAD' ? 'HEAD' : 'GET';
     return {
       requestTarget: requestTarget,
@@ -59,7 +59,7 @@ export class MCHttpResponseAdapter implements IMCHttpResponse {
     MCLogger.debug(MCLogModule.MCHttpResponseAdapter, () => MCLogger.withClient(this.mClientId, `prepare ${MCHttpLog.summarizeRequest(this.mRequest)}`));
     try {
       const requestTarget = await MCHttpProxyRouter.normalizeRequestTarget(this.mClientId, this.mRequest.requestTarget);
-      const dataRequest = this.toDataRequest(requestTarget);
+      const dataRequest = this.buildDataRequest(requestTarget);
 
       this.mFetcher = await MCHttpProxyRouter.resolveFetcher(this.mClientId, requestTarget, dataRequest);
 
@@ -73,11 +73,11 @@ export class MCHttpResponseAdapter implements IMCHttpResponse {
       }
 
       this.mFetcher.on('newDataReadable', () => this.onNewDataReadable());
-      this.mFetcher.on('aborted', (_, error) => this.onError(error));
+      this.mFetcher.on('aborted', (_, error) => this.failFromFetcher(error));
 
       const responseHeaders = await this.mFetcher.prepare();
       if ( this.mAborted ) {
-        MCLogger.warn(MCLogModule.MCHttpResponseAdapter, () => `[clientId: ${this.mClientId}] Aborted after fetcher prepare. Reason: ${this.mError?.message}`);
+        MCLogger.warn(MCLogModule.MCHttpResponseAdapter, () => MCLogger.withClient(this.mClientId, `Aborted after fetcher prepare: ${this.mError?.message}`));
         throw this.mError!;
       }
 
@@ -88,13 +88,13 @@ export class MCHttpResponseAdapter implements IMCHttpResponse {
         `prepare done status=${responseHeaders.statusCode} chunked=${this.mChunked} eos=${this.mFetcher?.isDataEnd}`));
 
       if ( this.mFetcher.isDataEnd ) {
-        this.mDataEnd = true;
+        this.mFetcherExhausted = true;
       }
       return rawHeaders;
     }
     catch (error) {
       MCLogger.error(MCLogModule.MCHttpResponseAdapter, () => MCLogger.withClient(this.mClientId, `prepare failed: ${(error as Error).message}`));
-      this.onError(error as Error);
+      this.failFromFetcher(error as Error);
       throw error as Error;
     }
   }
@@ -112,19 +112,19 @@ export class MCHttpResponseAdapter implements IMCHttpResponse {
 
     if ( data ) {
       if ( fetcher.isDataEnd ) {
-        this.mDataEnd = true;
+        this.mFetcherExhausted = true;
       }
 
       if ( this.mChunked ) {
-        return MCHttpWireFormat.wrapChunkedBody(data);
+        return MCHttpWireFormat.encodeChunkedBodySegment(data);
       }
 
       return data;
     }
 
-    if ( this.mDataEnd && this.mChunked && !this.mChunkReadEnd ) {
-      this.mChunkReadEnd = true;
-      return MCHttpWireFormat.chunkedTerminator();
+    if ( this.mFetcherExhausted && this.mChunked && !this.mChunkTerminatorSent ) {
+      this.mChunkTerminatorSent = true;
+      return MCHttpWireFormat.formatChunkedTerminator();
     }
 
     return data;
@@ -181,7 +181,7 @@ export class MCHttpResponseAdapter implements IMCHttpResponse {
     this.mOnNewDataReadable?.(this);
   }
 
-  private onError(error?: Error): void {
+  private failFromFetcher(error?: Error): void {
     if ( this.isCompleted ) {
       return;
     }

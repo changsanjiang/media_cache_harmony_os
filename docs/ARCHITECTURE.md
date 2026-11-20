@@ -103,7 +103,7 @@ src/
 | `MCTcpSocketServer` | `127.0.0.1` 动态端口监听 |
 | `MCHttpRequest` / `MCHttpReceiveBuffer` | 解析 GET/HEAD、半包/粘包 |
 | `MCHttpConnectionRegistry` | 活动 TCP 连接注册表 |
-| `MCHttpConnectionSession` | 单连接读写调度、`consumeData` |
+| `MCHttpConnectionSession` | 单连接读写调度、`pumpResponseBody` + `enqueueIoTask` 串行写 socket |
 | `MCHttpProxyRouter` | 路径 → `MCMediaHttpSession` / Virtual Fetcher |
 | `MCHttpWireFormat` | 200/206/400/500 线格式与 chunked |
 | `MCHttpResponseAdapter` | 适配 `IMCDataFetcher`（契约仍为 `IMCHttpResponse`） |

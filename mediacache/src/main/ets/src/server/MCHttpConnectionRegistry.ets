@@ -5,7 +5,7 @@ import { HashMap } from '@kit.ArkTS';
 import { IMCHttpConnectionSession, MCHttpConnectionSession } from './MCHttpConnectionSession';
 
 export interface IMCHttpConnectionRegistry {
-  handleConnection(cnt: socket.TCPSocketConnection): void;
+  acceptConnection(connection: socket.TCPSocketConnection): void;
 }
 
 /** 活动 TCP 连接注册表：为每条连接创建 {@link MCHttpConnectionSession}。 */
@@ -16,11 +16,11 @@ export class MCHttpConnectionRegistry implements IMCHttpConnectionRegistry {
     MCLogger.debug(MCLogModule.MCHttpConnectionRegistry, () => 'Registry created');
   }
 
-  handleConnection(cnt: socket.TCPSocketConnection): void {
-    const clientId: number = cnt.clientId;
+  acceptConnection(connection: socket.TCPSocketConnection): void {
+    const clientId: number = connection.clientId;
     MCLogger.info(MCLogModule.MCHttpConnectionRegistry, () => MCLogger.withClient(clientId, 'TCP connection accepted'));
 
-    const session = new MCHttpConnectionSession(cnt);
+    const session = new MCHttpConnectionSession(connection);
     this.mSessions.set(clientId, session);
 
     session.on("disconnect", () => {

@@ -28,10 +28,8 @@ export class MCHttpReceiveBuffer {
     this.mLength += chunk.byteLength;
   }
 
-  /**
-   * 若缓冲区内已有完整请求头（以 \\r\\n\\r\\n 结束），切出该段并返回用于 parse 的字符串；否则返回 undefined。
-   */
-  tryShiftCompleteHeaderBlock(): string | undefined {
+  /** 若已有完整请求头（以 {@code \\r\\n\\r\\n} 结束），取出并返回；否则 undefined。 */
+  takeCompleteRequestHeaders(): string | undefined {
     const merged = this.peekMerged();
     const delimiter = this.indexOfCrlfCrlf(merged);
     if ( delimiter < 0 ) {
@@ -40,7 +38,7 @@ export class MCHttpReceiveBuffer {
 
     const headerBytes = merged.subarray(0, delimiter);
     const consumed = delimiter + 4;
-    this.consumeFromMerged(consumed);
+    this.dropLeadingBytes(consumed);
 
     const headerText = this.decodeAscii(headerBytes);
     MCLogger.trace(MCLogModule.MCHttpReceiveBuffer, () =>
@@ -58,7 +56,7 @@ export class MCHttpReceiveBuffer {
     return merged;
   }
 
-  private consumeFromMerged(consumed: number): void {
+  private dropLeadingBytes(consumed: number): void {
     if ( consumed <= 0 ) {
       return;
     }
