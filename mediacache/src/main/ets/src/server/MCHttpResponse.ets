@@ -16,6 +16,7 @@ import { IMCAsset } from '../defines/IMCAsset';
 import { MCAssetExportManager } from '../exporter/MCAssetExportManager';
 import { MCAssetProxyUtils } from '../asset/MCAssetProxyUtils';
 import { MCVirtualResourceManager } from '../virtual/MCVirtualResourceManager';
+import { IMCDataRequest } from '../defines/IMCDataRequest';
 
 export class MCHttpResponse implements IMCHttpResponse {
   private mClientId: number;
@@ -49,6 +50,19 @@ export class MCHttpResponse implements IMCHttpResponse {
     return this.mDataEnd && (!this.mChunked || this.mChunkReadEnd);
   }
 
+  get omitsResponseBody(): boolean {
+    return this.mRequest.method === 'HEAD';
+  }
+
+  private toDataRequest(requestTarget: string): IMCDataRequest {
+    const method = this.mRequest.method === 'HEAD' ? 'HEAD' : 'GET';
+    return {
+      requestTarget: requestTarget,
+      headers: this.mRequest.headers,
+      method: method
+    };
+  }
+
   async prepare(): Promise<string> {
     MCLogger.info(MCLogModule.MCHttpResponse, () => `[clientId: ${this.mClientId}] Starting preparation for request: ${JSON.stringify(this.mRequest)}`);
     try {
@@ -63,23 +77,14 @@ export class MCHttpResponse implements IMCHttpResponse {
       // 远程缓存 / 已导出目录：统一走 HTTP 会话层（Asset → Media 流式响应）
       if ( requestTarget.startsWith(MCConsts.ROUTE_PATH_PROXY_URL) ) {
         const asset = await MCAssetManager.getInstance().getAssetByProxyPath(requestTarget);
-        this.mFetcher = new MCMediaHttpSession(this.mClientId, asset, {
-          requestTarget: requestTarget,
-          headers: this.mRequest.headers
-        });
+        this.mFetcher = new MCMediaHttpSession(this.mClientId, asset, this.toDataRequest(requestTarget));
       }
       else if ( requestTarget.startsWith(MCConsts.ROUTE_PATH_PROXY_DIR) ) {
         const asset = await MCAssetExportManager.getInstance().getAssetByProxyPath(requestTarget);
-        this.mFetcher = new MCMediaHttpSession(this.mClientId, asset, {
-          requestTarget: requestTarget,
-          headers: this.mRequest.headers
-        });
+        this.mFetcher = new MCMediaHttpSession(this.mClientId, asset, this.toDataRequest(requestTarget));
       }
       else if ( requestTarget.startsWith(MCConsts.ROUTE_PATH_PROXY_VIRTUAL) ) {
-        this.mFetcher = MCVirtualResourceManager.getInstance().fetch(this.mClientId, {
-          requestTarget: requestTarget,
-          headers: this.mRequest.headers,
-        });
+        this.mFetcher = MCVirtualResourceManager.getInstance().fetch(this.mClientId, this.toDataRequest(requestTarget));
       }
       else {
         throw new Error(

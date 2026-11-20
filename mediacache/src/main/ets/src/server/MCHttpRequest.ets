@@ -15,24 +15,8 @@ import MCUtils from "../utils/MCUtils";
 export function parseRequest(clientId: number, rawMessage: string): IMCHttpRequest {
   MCLogger.debug(MCLogModule.MCHttpRequest, () => `[clientId: ${clientId}] Start parsing HTTP request with rawMessage: \n${rawMessage}`);
 
-  // 分离 header 部分和 body;
   const delimiterIndex = rawMessage.indexOf("\r\n\r\n");
-  let headerPart: string;
-  let bodyPart: string;
-
-  if (delimiterIndex !== -1) {
-    headerPart = rawMessage.slice(0, delimiterIndex);
-    bodyPart = rawMessage.slice(delimiterIndex + 4);
-  } else {
-    headerPart = rawMessage;
-    bodyPart = "";
-  }
-
-  // 不解析 body; 如果存在消息体部分, 抛出异常;
-  if (bodyPart.trim().length > 0) {
-    MCLogger.error(MCLogModule.MCHttpRequest, () => `[clientId: ${clientId}] Request contains a body, which is not supported.`);
-    throw new Error("Request contains a body, which is not supported.");
-  }
+  const headerPart = delimiterIndex !== -1 ? rawMessage.slice(0, delimiterIndex) : rawMessage;
 
   const headerLines = headerPart.split("\r\n");
 
@@ -93,6 +77,15 @@ export function parseRequest(clientId: number, rawMessage: string): IMCHttpReque
     catch (e) {
       MCLogger.error(MCLogModule.MCHttpRequest, () => `[clientId: ${clientId}] Invalid Range format: ${rangeHeader}. Error: ${e.stack}`);
       throw new Error('Invalid Range format');
+    }
+  }
+
+  const contentLengthHeader = headers.get('content-length');
+  if (contentLengthHeader) {
+    const contentLength = parseInt(contentLengthHeader, 10);
+    if (!Number.isNaN(contentLength) && contentLength > 0) {
+      MCLogger.error(MCLogModule.MCHttpRequest, () => `[clientId: ${clientId}] Request declares Content-Length ${contentLength}, body is not supported.`);
+      throw new Error("Request contains a body, which is not supported.");
     }
   }
 

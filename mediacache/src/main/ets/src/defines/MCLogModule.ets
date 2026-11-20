@@ -2,6 +2,7 @@ export enum MCLogModule {
   MCTcpSocketServer = 'MCTcpSocketServer',
   MCHttpConnectionHandler = 'MCHttpConnectionHandler',
   MCHttpRequest = 'MCHttpRequest',
+  MCHttpReceiveBuffer = 'MCHttpReceiveBuffer',
   MCHttpResponse = 'MCHttpResponse',
   MCMedia = 'MCMedia',
   MCMediaContent = 'MCMediaContent',

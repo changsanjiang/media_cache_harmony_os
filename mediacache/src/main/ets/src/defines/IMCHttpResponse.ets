@@ -1,4 +1,6 @@
 export interface IMCHttpResponse {
+  /** HEAD 等场景：只发送响应头，不发送 body */
+  readonly omitsResponseBody: boolean;
   /** 是否已准备就绪, 可以开始读取数据了; */
   readonly isReady: boolean;
   /** 是否已读取结束或 aborted; */

@@ -87,6 +87,13 @@ export class MCVirtualResourceDataFetcher implements IMCDataFetcher {
       const requestHeader = this.mRequest.headers?.['range'];
       const readRange = requestHeader ? parseRequestRange(requestHeader).toRange(content.length) : new MCRange(0, content.length);
 
+      if (this.mRequest.method === 'HEAD') {
+        const headers = this.headersForContent(mimeType, content.length, requestHeader, readRange);
+        this.mResponseHeaders = headers;
+        this.mDataEnd = true;
+        return headers;
+      }
+
       this.mContentLoader = new MCMediaLocalContentLoader(
         this.mClientId,
         0,
@@ -100,24 +107,7 @@ export class MCVirtualResourceDataFetcher implements IMCDataFetcher {
       });
       setTimeout(() => this.mContentLoader?.prepare());
 
-      if ( requestHeader ) {
-        const responseHeaders: IMCHttpPartialContentResponseHeaders = {
-          statusCode: 206,
-          contentType: mimeType,
-          contentRange: readRange,
-          totalLength: content.length,
-        };
-        this.mResponseHeaders = responseHeaders;
-        return responseHeaders;
-      }
-
-      const responseHeaders: IMCHttpOkResponseHeaders = {
-        statusCode: 200,
-        contentType: mimeType,
-        chunked: false,
-        contentLength: content.length,
-        byteRangeAccessSupported: true,
-      };
+      const responseHeaders = this.headersForContent(mimeType, content.length, requestHeader, readRange);
       this.mResponseHeaders = responseHeaders;
       MCLogger.debug(MCLogModule.MCVirtualResourceDataFetcher, () => `[clientId: ${this.mClientId}] Generated response headers: ${JSON.stringify(responseHeaders)}`);
 
@@ -277,6 +267,32 @@ export class MCVirtualResourceDataFetcher implements IMCDataFetcher {
         this.mOnAborted = undefined;
         break;
     }
+  }
+
+  private headersForContent(
+    mimeType: string,
+    contentLength: number,
+    requestHeader: string | undefined,
+    readRange: MCRange
+  ): IMCHttpResponseHeaders {
+    if (requestHeader) {
+      const partial: IMCHttpPartialContentResponseHeaders = {
+        statusCode: 206,
+        contentType: mimeType,
+        contentRange: readRange,
+        totalLength: contentLength,
+      };
+      return partial;
+    }
+
+    const ok: IMCHttpOkResponseHeaders = {
+      statusCode: 200,
+      contentType: mimeType,
+      chunked: false,
+      contentLength: contentLength,
+      byteRangeAccessSupported: true,
+    };
+    return ok;
   }
 
   private async createContent(): Promise<IMCMediaContent> {

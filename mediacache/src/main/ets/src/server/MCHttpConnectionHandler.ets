@@ -6,6 +6,7 @@ import MCConfigs from '../utils/MCConfigs';
 import MCLogger from '../utils/MCLogger';
 import { parseRequest } from './MCHttpRequest';
 import { MCHttpResponse } from './MCHttpResponse';
+import { MCHttpReceiveBuffer } from './MCHttpReceiveBuffer';
 import { HashMap } from '@kit.ArkTS';
 
 export interface IMCHttpConnectionHandler {
@@ -47,12 +48,14 @@ class MCHttpConnectionResponseHandler implements IMCHttpConnectionResponseHandle
   private mSerialPromise = Promise.resolve();
   private mHeadersSent = false; // headers 是否已发送;
   private mConsuming = false;
+  private mReceiveBuffer: MCHttpReceiveBuffer;
 
   private mOnDisconnect?: (handler: IMCHttpConnectionResponseHandler) => void = undefined;
 
   constructor(cnt: socket.TCPSocketConnection) {
     this.mClientId = cnt.clientId;
     this.mConnection = cnt;
+    this.mReceiveBuffer = new MCHttpReceiveBuffer(this.mClientId);
     cnt.on('message', (msgInfo: socket.SocketMessageInfo) => this.onConnectionMessage(msgInfo));
     cnt.on('error', (e: Error) => this.onError(e));
     cnt.on('close', () => this.onConnectionDisconnect());
@@ -69,22 +72,13 @@ class MCHttpConnectionResponseHandler implements IMCHttpConnectionResponseHandle
   }
 
   private onConnectionMessage(msgInfo: socket.SocketMessageInfo): void {
-    MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] New message received`);
+    MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] New message received (${msgInfo.message.byteLength} bytes)`);
 
-    // 取消之前的响应;
-    this.abortResponse(new Error('Request is cancelled'));
-
-    // 处理新消息
-    MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Parsing incoming request...`);
-    let request: IMCHttpRequest;
     try {
-      request = this.parseHttpRequest(msgInfo)
-      MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Parsed request: ${JSON.stringify(request)}`);
+      this.mReceiveBuffer.append(msgInfo.message);
     }
     catch (error) {
-      MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Error while parsing request: ${error.message}. Closing connection. Stack trace: ${error.stack}}`);
-
-      // 解析请求失败, 发送错误请求的响应, 并主动关闭连接
+      MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Receive buffer error: ${(error as Error).message}. Closing connection.`);
       const rawData = "HTTP/1.1 400 Bad Request\r\n\r\n";
       this.enqueueTask(() => this.send(rawData));
       this.enqueueTask(() => this.close());
@@ -92,7 +86,34 @@ class MCHttpConnectionResponseHandler implements IMCHttpConnectionResponseHandle
       return;
     }
 
-    // 进行响应
+    while (true) {
+      const headerBlock = this.mReceiveBuffer.tryShiftCompleteHeaderBlock();
+      if (!headerBlock) {
+        break;
+      }
+
+      this.abortResponse(new Error('Request is cancelled'));
+
+      MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Parsing incoming request...`);
+      let request: IMCHttpRequest;
+      try {
+        request = parseRequest(this.mClientId, headerBlock);
+        MCLogger.info(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Parsed request: ${JSON.stringify(request)}`);
+      }
+      catch (error) {
+        MCLogger.error(MCLogModule.MCHttpConnectionHandler, () => `[clientId: ${this.mClientId}] Error while parsing request: ${(error as Error).message}. Closing connection. Stack trace: ${(error as Error).stack}}`);
+        const rawData = "HTTP/1.1 400 Bad Request\r\n\r\n";
+        this.enqueueTask(() => this.send(rawData));
+        this.enqueueTask(() => this.close());
+        this.enqueueTask(() => this.onConnectionDisconnect());
+        return;
+      }
+
+      this.startResponse(request);
+    }
+  }
+
+  private startResponse(request: IMCHttpRequest): void {
     const response = new MCHttpResponse(this.mClientId, request);
     response.on("newDataReadable", (response) => this.onResponseNewDataReadable(response));
     response.on("aborted", (response, error) => this.onResponseAborted(response, error));
@@ -100,7 +121,6 @@ class MCHttpConnectionResponseHandler implements IMCHttpConnectionResponseHandle
     this.mHeadersSent = false;
     this.mConsuming = false;
 
-    // prepare
     this.enqueueTask(() => response.prepare().then((rawHeaders) => this.onResponseHeaders(response, rawHeaders)));
   }
 
@@ -144,7 +164,9 @@ class MCHttpConnectionResponseHandler implements IMCHttpConnectionResponseHandle
       }
     });
 
-    this.enqueueTask(() => this.consumeData(response));
+    if ( !response.omitsResponseBody ) {
+      this.enqueueTask(() => this.consumeData(response));
+    }
   }
 
   /** 有新数据可响应 */
@@ -282,17 +304,6 @@ class MCHttpConnectionResponseHandler implements IMCHttpConnectionResponseHandle
         response.abort(error);
       }
     }
-  }
-
-  // throw if error
-  private parseHttpRequest(msgInfo: socket.SocketMessageInfo): IMCHttpRequest {
-    let buffer: ArrayBuffer = msgInfo.message;
-    let dataView = new DataView(buffer);
-    let rawMessage = "";
-    for (let i = 0; i < dataView.byteLength; ++i) {
-      rawMessage += String.fromCharCode(dataView.getUint8(i));
-    }
-    return parseRequest(this.mClientId, rawMessage);
   }
 
   // 确保操作按顺序串行执行

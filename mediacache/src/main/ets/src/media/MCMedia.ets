@@ -243,7 +243,14 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   }
 
   fetch(request: IMCDataRequest, clientId: number, signal?: MCAbortSignal): Promise<IMCDataResponse> {
-    return this.probe(request, signal).then(() => this.resolve(request, clientId, signal)).catch((error: Error) => {
+    const method = request.method ?? 'GET';
+
+    return this.probe(request, signal).then((metadata) => {
+      if (method === 'HEAD') {
+        return this.buildHeadOnlyResponse(request, metadata);
+      }
+      return this.resolve(request, clientId, signal);
+    }).catch((error: Error) => {
       if ( !(error instanceof MCDataResponseError) ) {
         throw error;
       }
@@ -296,6 +303,68 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       return buffer;
     }
     return undefined;
+  }
+
+  /** HEAD：与 GET 相同的数据响应形状，但 `contentLoaders` 为空。 */
+  private buildHeadOnlyResponse(proxyRequest: IMCDataRequest, metadata: IMCMediaMetadata): IMCDataResponse {
+    return this.composeDataResponse(metadata, proxyRequest.headers?.['range'], []);
+  }
+
+  /** 按元数据与 Range 组装 `IMCDataResponse`（GET/HEAD 共用）。 */
+  private composeDataResponse(
+    metadata: IMCMediaMetadata,
+    requestRangeHeader: string | undefined,
+    contentLoaders: IMCMediaContentLoader[]
+  ): IMCDataResponse {
+    const contentType = metadata.contentType;
+    const totalLength = metadata.totalLength;
+
+    if (metadata.byteRangeAccessSupported && metadata.totalLength > 0) {
+      const contentRange = requestRangeHeader
+        ? parseRequestRange(requestRangeHeader).toRange(totalLength)
+        : new MCRange(0, totalLength);
+
+      if (requestRangeHeader) {
+        const response: IMCDataPartialContentResponse = {
+          statusCode: 206,
+          contentType: contentType,
+          contentRange: contentRange,
+          totalLength: totalLength,
+          contentLoaders: contentLoaders
+        };
+        return response;
+      }
+
+      const response: IMCDataOkResponse = {
+        statusCode: 200,
+        contentType: contentType,
+        contentLength: totalLength,
+        byteRangeAccessSupported: true,
+        contentLoaders: contentLoaders
+      };
+      return response;
+    }
+
+    if (metadata.totalLength === 0) {
+      const response: IMCDataOkResponse = {
+        statusCode: 200,
+        contentType: contentType,
+        contentLength: 0,
+        contentLoaders: contentLoaders
+      };
+      return response;
+    }
+
+    const contentLength = metadata.totalLength !== Number.MAX_SAFE_INTEGER ? metadata.totalLength : undefined;
+    const response: IMCDataOkResponse = {
+      statusCode: 200,
+      contentType: contentType,
+      contentLength: contentLength,
+      chunked: contentLength === undefined,
+      byteRangeAccessSupported: metadata.byteRangeAccessSupported,
+      contentLoaders: contentLoaders
+    };
+    return response;
   }
 
   private async resolve(proxyRequest: IMCDataRequest, clientId: number, signal?: MCAbortSignal): Promise<IMCDataResponse> {
@@ -353,36 +422,10 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
         contentLoaders.push(new MCMediaHttpContentLoader(clientId, contentLoaders.length, this,request));
       }
 
-      // 206
-      if ( requestRangeHeader ) {
-        const response: IMCDataPartialContentResponse = {
-          statusCode: 206,
-          contentType: contentType,
-          contentRange: contentRange,
-          totalLength: totalLength,
-          contentLoaders: contentLoaders
-        };
-        return response;
-      }
-
-      // 200
-      const response: IMCDataOkResponse = {
-        statusCode: 200,
-        contentType: contentType,
-        contentLength: totalLength,
-        byteRangeAccessSupported: true,
-        contentLoaders: contentLoaders
-      };
-      return response;
+      return this.composeDataResponse(metadata, requestRangeHeader, contentLoaders);
     }
     else if (metadata.totalLength === 0) { // empty content;
-      const response: IMCDataOkResponse = {
-        statusCode: 200,
-        contentType: contentType,
-        contentLength: 0,
-        contentLoaders: contentLoaders
-      };
-      return response;
+      return this.composeDataResponse(metadata, undefined, contentLoaders);
     }
     else {
       if ( !this.mProxyHandler ) {
@@ -392,16 +435,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
         contentLoaders.push(new MCMediaProxyContentLoader(clientId, contentLoaders.length, this, new MCDownloadRequest(url, proxyRequest.headers)));
       }
 
-      const contentLength = metadata.totalLength !== Number.MAX_SAFE_INTEGER ? metadata.totalLength : undefined;
-      const response: IMCDataOkResponse = {
-        statusCode: 200,
-        contentType: contentType,
-        contentLength: contentLength,
-        chunked: contentLength === undefined,
-        byteRangeAccessSupported: metadata.byteRangeAccessSupported,
-        contentLoaders: contentLoaders
-      }
-      return response;
+      return this.composeDataResponse(metadata, undefined, contentLoaders);
     }
   }
 

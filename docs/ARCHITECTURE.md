@@ -191,6 +191,13 @@ MCHttpResponse 组 200/206 → ConnectionHandler 流式 send
 
 播放器只使用 HTTP；缓存与回源细节封装在 `MCMedia` 内。HLS/DASH 的子资源请求仍走 `/mc_proxy`，依赖 playlist 改写。
 
+## HTTP 传输层（`server/`）
+
+- **`MCHttpReceiveBuffer`**：按连接累积 TCP 字节，直到出现 `\r\n\r\n` 再交给 `parseRequest`；半包不 400 关连接，粘包可顺序拆多条请求。
+- **入站 body**：仅当请求头声明 `Content-Length > 0` 时拒绝；不再把下一条请求行误判为 body。
+- **HEAD**：`probe` 完成后 `buildHeadOnlyResponse` → `composeDataResponse`（与 GET 同形、_loaders 为空_）；`omitsResponseBody` 时连接层只 `send` 响应头。
+- **Keep-Alive**：响应结束后仍保持连接；新完整请求到达时会 `abort` 上一轮响应（与重构前一致，未实现 pipeline 队列）。
+
 ## 设计不变式（重构后）
 
 1. 代理路径必须先解析 **Asset**，再 **Media**；字节只经 `IMCMedia` 与 ContentLoader 读写。
