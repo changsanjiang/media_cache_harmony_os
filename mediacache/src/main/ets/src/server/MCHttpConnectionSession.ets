@@ -97,7 +97,25 @@ export class MCHttpConnectionSession implements IMCHttpConnectionSession {
     this.mHeadersSent = false;
     this.mBodyPumpActive = false;
 
-    this.enqueueIoTask(() => response.prepare().then((rawHeaders) => this.onResponseHeaders(response, rawHeaders)));
+    this.enqueueIoTask(async () => {
+      try {
+        const rawHeaders = await response.prepare();
+        this.onResponseHeaders(response, rawHeaders);
+      }
+      catch (error) {
+        if (!this.isCurrentResponse(response) || this.mHeadersSent) {
+          return;
+        }
+        response.off("newDataReadable");
+        response.off("aborted");
+        this.mCurrentResponse = undefined;
+        this.mHeadersSent = false;
+        this.mBodyPumpActive = false;
+        MCLogger.warn(MCLogModule.MCHttpConnectionSession, () =>
+          MCLogger.withClient(this.mClientId, `Prepare failed: ${(error as Error).message}`));
+        this.closeWithErrorStatus(500);
+      }
+    });
   }
 
   private onSocketError(error: Error): void {

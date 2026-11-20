@@ -108,6 +108,8 @@ src/
 | `MCHttpWireFormat` | 200/206/400/500 线格式与 chunked |
 | `MCHttpResponseAdapter` | 适配 `IMCDataFetcher`（契约仍为 `IMCHttpResponse`） |
 
+**连接状态机（摘要）**：单连接串行 I/O（`enqueueIoTask`）；响应结束后保持 TCP 以支持 keep-alive；同连接新请求会取消未完成的上一响应。`prepare` 失败在未发头时固定回 500 并断连。细节见 `.cursor/skills/mediacache-module-refine/reference.md` § Session 状态机审查。
+
 HTTP 路由前缀（`MCConsts`）：
 
 | 路径前缀 | 含义 | 数据来源 |

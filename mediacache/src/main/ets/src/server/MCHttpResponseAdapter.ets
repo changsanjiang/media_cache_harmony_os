@@ -94,7 +94,7 @@ export class MCHttpResponseAdapter implements IMCHttpResponse {
     }
     catch (error) {
       MCLogger.error(MCLogModule.MCHttpResponseAdapter, () => MCLogger.withClient(this.mClientId, `prepare failed: ${(error as Error).message}`));
-      this.failFromFetcher(error as Error);
+      this.disposeAfterPrepareFailure(error as Error);
       throw error as Error;
     }
   }
@@ -187,5 +187,23 @@ export class MCHttpResponseAdapter implements IMCHttpResponse {
     }
 
     this.abort(error);
+  }
+
+  /** prepare 失败：释放 fetcher，由 Session 通过 rejected prepare() 回 500，不触发 `aborted` 事件。 */
+  private disposeAfterPrepareFailure(error: Error): void {
+    if (this.isCompleted) {
+      return;
+    }
+    this.mAborted = true;
+    this.mError = error;
+    const fetcher = this.mFetcher;
+    if (fetcher) {
+      this.mFetcher = undefined;
+      fetcher.off('newDataReadable');
+      fetcher.off('aborted');
+      if (!fetcher.isCompleted) {
+        fetcher.abort(error);
+      }
+    }
   }
 }
