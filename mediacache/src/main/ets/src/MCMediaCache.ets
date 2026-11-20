@@ -7,7 +7,7 @@ import { MCAssetType } from './defines/MCAssetType';
 import { MCLogLevel } from './defines/MCLogLevel';
 import { MCLogModule } from './defines/MCLogModule';
 import { MCAssetPrefetchManager } from './prefetcher/MCAssetPrefetchManager';
-import { MCHttpConnectionHandler } from './server/MCHttpConnectionHandler';
+import { MCHttpConnectionRegistry } from './server/MCHttpConnectionRegistry';
 import { MCTcpSocketServer } from './server/MCTcpSocketServer';
 import MCConfigs from './utils/MCConfigs';
 import { MCDownloadRequest } from './utils/MCDownloadRequest';
@@ -26,7 +26,7 @@ import { MCProxyVirtualResourceUtils } from './utils/MCProxyVirtualResourceUtils
 
 export namespace MCMediaCache {
   const mTcpServer = new MCTcpSocketServer();
-  const mConnectionHandler = new MCHttpConnectionHandler();
+  const mConnectionHandler = new MCHttpConnectionRegistry();
 
   /** 缓存管理配置; 缓存管理器会根据该配置, 定期检测并自动删除部分缓存文件; */
   export const cacheConfig: MCAssetCacheConfig = MCAssetCacheManager.config;

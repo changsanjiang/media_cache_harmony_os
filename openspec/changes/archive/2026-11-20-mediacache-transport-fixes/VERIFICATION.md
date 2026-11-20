@@ -2,7 +2,7 @@
 
 | 提案项 | 实现 | 状态 |
 |--------|------|------|
-| 连接级 `MCHttpReceiveBuffer`，按 `\r\n\r\n` 拆请求 | `MCHttpReceiveBuffer.ets` + `MCHttpConnectionHandler` while 循环 | ✓ |
+| 连接级 `MCHttpReceiveBuffer`，按 `\r\n\r\n` 拆请求 | `MCHttpReceiveBuffer.ets` + `MCHttpConnectionSession` while 循环 | ✓ |
 | 最大头部长度限制 | 默认 64KiB，`append` 抛错 → 400 关连接 | ✓ |
 | `IMCDataRequest.method` GET/HEAD | `defines/IMCDataRequest.ets`，`MCHttpResponse.toDataRequest` | ✓ |
 | HEAD：probe + 响应头、无 body | `MCMedia.buildHeadOnlyResponse` + `composeDataResponse`；`omitsResponseBody` 跳过 `consumeData` | ✓ |

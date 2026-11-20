@@ -19,7 +19,7 @@ export class MCTcpSocketServer implements IMCTcpSocketServer {
   private mLaunchPromise?: Promise<number> = undefined;
 
   constructor() {
-    MCLogger.info(MCLogModule.MCTcpSocketServer, () => `New Server instance created.`);
+    MCLogger.debug(MCLogModule.MCTcpSocketServer, () => 'Server instance created');
   }
 
   get port(): number { return this.mPort; }
@@ -65,7 +65,7 @@ export class MCTcpSocketServer implements IMCTcpSocketServer {
       MCLogger.info(MCLogModule.MCTcpSocketServer, () => `Server is now running on port ${this.mPort}.`);
 
       this.mTcpServer.on("connect", (connection: socket.TCPSocketConnection) => {
-        MCLogger.info(MCLogModule.MCTcpSocketServer, () => `New connection established with client ID: ${connection.clientId}.`);
+        MCLogger.debug(MCLogModule.MCTcpSocketServer, () => MCLogger.withClient(connection.clientId, 'TCP connect callback'));
         this.mConnectionCallback ? this.mConnectionCallback?.(connection) : connection.close().catch();
       });
       return this.mPort;

@@ -11,7 +11,7 @@ import MCLogger from '../utils/MCLogger';
  *
  * 生命周期：构造时 `asset.readwriteRetain()`，在 `done()` / `abort()` 时 release 一次。
  *
- * @see MCHttpResponse 对 `/mc_proxy`、`/mc_dir_proxy` 使用本类
+ * @see MCHttpResponseAdapter 对 `/mc_proxy`、`/mc_dir_proxy` 使用本类
  */
 export class MCMediaHttpSession implements IMCDataFetcher {
   private mClientId: number;

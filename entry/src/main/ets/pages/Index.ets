@@ -26,7 +26,7 @@ struct Index {
     // 详细配置请查看 README.md
     MCMediaCache.setLogEnabled(BuildProfile.DEBUG); // 是否开启日志;
     MCMediaCache.setLogLevel(MCLogLevel.DEBUG); // 设置日志等级;
-    MCMediaCache.setLogWhiteModules([MCLogModule.MCHttpConnectionHandler, MCLogModule.MCHttpResponse, MCLogModule.MCMediaContentLoader, MCLogModule.MCMediaDataFetcher]) // 允许打印哪些模块的日志;
+    MCMediaCache.setLogWhiteModules([MCLogModule.MCHttpConnectionSession, MCLogModule.MCHttpResponseAdapter, MCLogModule.MCMediaContentLoader, MCLogModule.MCMediaDataFetcher]) // 允许打印哪些模块的日志;
     // MCMediaCache.setRequestHandler((request) => {
     //   request.setHeader('key', 'value');
     // });

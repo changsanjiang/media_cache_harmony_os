@@ -186,7 +186,7 @@ ___
   ```ts
   MCMediaCache.setLogEnabled(BuildProfile.DEBUG); // 是否开启日志;
   MCMediaCache.setLogLevel(MCLogLevel.DEBUG); // 设置日志等级;
-  MCMediaCache.setLogWhiteModules([MCLogModule.MCHttpConnectionHandler, MCLogModule.MCHttpResponse]) // 允许打印哪些模块的日志;
+  MCMediaCache.setLogWhiteModules([MCLogModule.MCHttpConnectionSession, MCLogModule.MCHttpResponseAdapter]) // 允许打印哪些模块的日志;
   ```
 
 ___
@@ -194,7 +194,8 @@ ___
 #### 开发文档
 
 - [代码架构：目录结构与模块关系](docs/ARCHITECTURE.md)
-- 架构规格：`openspec/specs/mediacache-{domain,http-session,cache-policy,http-transport}/`；归档见 `openspec/changes/archive/2026-11-20-mediacache-{architecture-refactor,transport-fixes}/`
+- 架构规格：`openspec/specs/mediacache-{domain,http-session,cache-policy,http-transport,http-server-srp}/`；归档见 `openspec/changes/archive/2026-11-20-mediacache-{architecture-refactor,transport-fixes,server-srp}/`
+- 分域优化技能：`.cursor/skills/mediacache-module-refine/SKILL.md`
 
 ___
 

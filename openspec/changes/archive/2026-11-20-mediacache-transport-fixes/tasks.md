@@ -1,7 +1,7 @@
 ## 1. Buffer & parse
 
 - [x] 1.1 Add `MCHttpReceiveBuffer`
-- [x] 1.2 Wire buffer in `MCHttpConnectionHandler`
+- [x] 1.2 Wire buffer in `MCHttpConnectionSession`（原 Handler，现 Session）
 - [x] 1.3 Adjust `parseRequest` body / Content-Length rules
 
 ## 2. HEAD

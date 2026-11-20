@@ -13,6 +13,11 @@ namespace MCLogger {
   /** 允许哪些模块的日志; */
   export let whitelist: MCLogModule[] | undefined = undefined;
 
+  /** 连接/会话类日志统一前缀，避免各处手写 `[clientId: …]` 格式不一致。 */
+  export function withClient(clientId: number, message: string): string {
+    return `[clientId:${clientId}] ${message}`;
+  }
+
   export function log(module: MCLogModule, level: MCLogLevel, messageFn: () => string): void {
     if ( enabled && level >= logLevel ) {
       if ( blacklist && blacklist.includes(module) ) return;

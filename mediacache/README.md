@@ -186,7 +186,7 @@ ___
   ```ts
   MCMediaCache.setLogEnabled(BuildProfile.DEBUG); // 是否开启日志;
   MCMediaCache.setLogLevel(MCLogLevel.DEBUG); // 设置日志等级;
-  MCMediaCache.setLogWhiteModules([MCLogModule.MCHttpConnectionHandler, MCLogModule.MCHttpResponse]) // 允许打印哪些模块的日志;
+  MCMediaCache.setLogWhiteModules([MCLogModule.MCHttpConnectionSession, MCLogModule.MCHttpResponseAdapter]) // 允许打印哪些模块的日志;
   ```
   
 ___

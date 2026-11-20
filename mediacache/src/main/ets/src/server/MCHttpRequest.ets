@@ -4,6 +4,7 @@ import { MCLogModule } from "../defines/MCLogModule";
 import MCConfigs from "../utils/MCConfigs";
 import MCLogger from "../utils/MCLogger";
 import MCUtils from "../utils/MCUtils";
+import { MCHttpLog } from './MCHttpLog';
 
 /**
  * 解析原始 HTTP 请求消息，仅处理 GET 和 HEAD 请求。
@@ -13,7 +14,7 @@ import MCUtils from "../utils/MCUtils";
  * @throws Error - 如果消息格式无效、不支持的 HTTP 方法或存在消息体，则抛出异常
  */
 export function parseRequest(clientId: number, rawMessage: string): IMCHttpRequest {
-  MCLogger.debug(MCLogModule.MCHttpRequest, () => `[clientId: ${clientId}] Start parsing HTTP request with rawMessage: \n${rawMessage}`);
+  MCLogger.trace(MCLogModule.MCHttpRequest, () => MCLogger.withClient(clientId, `parse headers (${rawMessage.length} chars)`));
 
   const delimiterIndex = rawMessage.indexOf("\r\n\r\n");
   const headerPart = delimiterIndex !== -1 ? rawMessage.slice(0, delimiterIndex) : rawMessage;
@@ -99,7 +100,7 @@ export function parseRequest(clientId: number, rawMessage: string): IMCHttpReque
     headers: MCUtils.mapToRecord(headers)
   };
 
-  MCLogger.info(MCLogModule.MCHttpRequest, () => `[clientId: ${clientId}] Successfully parsed request: ${JSON.stringify(request)}`);
+  MCLogger.debug(MCLogModule.MCHttpRequest, () => MCLogger.withClient(clientId, `parsed ${MCHttpLog.summarizeRequest(request)}`));
 
   return request
 }

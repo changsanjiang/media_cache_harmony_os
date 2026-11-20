@@ -21,8 +21,8 @@ flowchart TB
   end
   subgraph transport [server]
     TCP[MCTcpSocketServer]
-    Conn[MCHttpConnectionHandler]
-    Resp[MCHttpResponse]
+    Conn[MCHttpConnectionRegistry]
+    Resp[MCHttpResponseAdapter]
   end
   subgraph biz [业务]
     AM[MCAssetManager]
@@ -58,9 +58,13 @@ src/
 ├── MCMediaCache.ets              # 对外门面
 ├── server/                       # 本地 HTTP 服务
 │   ├── MCTcpSocketServer.ets
-│   ├── MCHttpConnectionHandler.ets
-│   ├── MCHttpResponse.ets
-│   └── MCHttpRequest.ets
+│   ├── MCHttpConnectionRegistry.ets     # 活动连接注册表
+│   ├── MCHttpConnectionSession.ets      # 单连接 HTTP 状态机
+│   ├── MCHttpReceiveBuffer.ets
+│   ├── MCHttpRequest.ets                # parseRequest
+│   ├── MCHttpProxyRouter.ets            # proxyPath → IMCDataFetcher
+│   ├── MCHttpWireFormat.ets             # 响应头 / 错误 / chunked
+│   └── MCHttpResponseAdapter.ets        # Fetcher → IMCHttpResponse 适配
 ├── session/
 │   └── MCMediaHttpSession.ets    # 播放 HTTP 会话（Asset → Media）
 ├── asset/                        # 资产（一次点播 / 一个播放列表树）
@@ -88,7 +92,7 @@ src/
 
 ### `MCMediaCache.ets`（门面）
 
-- 持有 `MCTcpSocketServer` 与 `MCHttpConnectionHandler`。
+- 持有 `MCTcpSocketServer` 与 `MCHttpConnectionRegistry`。
 - `prepare`：启动 TCP、初始化 `MCAssetCacheManager`、`MCVirtualResourceManager` 等。
 - 能力分发：`proxy` → `MCAssetProxyUtils`；`prefetch` → `MCAssetPrefetchManager`；`exportToDirectory` → `MCAssetExportManager`；全局钩子写入 `MCConfigs`。
 
@@ -97,9 +101,12 @@ src/
 | 文件 | 作用 |
 |------|------|
 | `MCTcpSocketServer` | `127.0.0.1` 动态端口监听 |
-| `MCHttpRequest` | 从 TCP 字节流解析 HTTP 请求 |
-| `MCHttpConnectionHandler` | 每连接一个 handler；串行发送 header/body；支持 Range |
-| `MCHttpResponse` | 按 `requestTarget` 选择 DataFetcher |
+| `MCHttpRequest` / `MCHttpReceiveBuffer` | 解析 GET/HEAD、半包/粘包 |
+| `MCHttpConnectionRegistry` | 活动 TCP 连接注册表 |
+| `MCHttpConnectionSession` | 单连接读写调度、`consumeData` |
+| `MCHttpProxyRouter` | 路径 → `MCMediaHttpSession` / Virtual Fetcher |
+| `MCHttpWireFormat` | 200/206/400/500 线格式与 chunked |
+| `MCHttpResponseAdapter` | 适配 `IMCDataFetcher`（契约仍为 `IMCHttpResponse`） |
 
 HTTP 路由前缀（`MCConsts`）：
 
@@ -122,7 +129,7 @@ HTTP 路由前缀（`MCConsts`）：
 
 - **`MCMedia`**（`IMCMedia`）：分片落盘（`MCMediaContentProvider` / `MCMediaContentNodeList`）、`probe` / `fetch` 支持 Range；缓存命中用 `MCMediaLocalContentLoader`，缺失用 `MCMediaHttpContentLoader`（`MCDownload`）。
 - Playlist 类媒体可配置 **`proxyHandler`**，落盘后改写 m3u8/MPD 中的 URL 为代理地址（HLS/DASH）。
-- **`MCMediaDataFetcher`**：HTTP 请求 → `media.fetch()` → 多个 `MCMediaContentLoader` 供给 `MCHttpResponse.read()`。
+- **`MCMediaDataFetcher`**：HTTP 请求 → `media.fetch()` → 多个 `MCMediaContentLoader` 供给 `MCHttpResponseAdapter.read()`。
 
 ### `prefetcher/` 与 `exporter/`
 
@@ -168,7 +175,7 @@ classDiagram
   MCMediaHttpSession ..> IMCAsset
   MCMediaHttpSession --> MCMediaDataFetcher
   MCMediaDataFetcher ..> IMCMedia
-  MCHttpResponse --> IMCDataFetcher
+  MCHttpResponseAdapter --> IMCDataFetcher
 ```
 
 ## 播放请求主链路
@@ -176,7 +183,7 @@ classDiagram
 ```text
 播放器 GET http://127.0.0.1:{port}/mc_proxy/...
     ↓
-MCTcpSocketServer → MCHttpConnectionHandler → MCHttpResponse.prepare()
+MCTcpSocketServer → MCHttpConnectionRegistry → MCHttpConnectionSession → MCHttpResponseAdapter.prepare()
     ↓
 [可选] /mc_based_proxy → convertToProxyPath
     ↓
@@ -186,10 +193,18 @@ MCMediaHttpSession → getMediaByProxyPath → MCMediaDataFetcher
     ↓
 MCMedia.fetch(Range) → LocalLoader + HttpLoader（落盘，可走 encryption handler）
     ↓
-MCHttpResponse 组 200/206 → ConnectionHandler 流式 send
+MCHttpWireFormat 组 200/206 → ConnectionSession 流式 send
 ```
 
 播放器只使用 HTTP；缓存与回源细节封装在 `MCMedia` 内。HLS/DASH 的子资源请求仍走 `/mc_proxy`，依赖 playlist 改写。
+
+## HTTP 传输层日志约定
+
+- 输出格式：`[MCLogModule] [clientId:N] …`（`MCLogger.withClient` + `MCHttpLog.summarizeRequest`）。
+- **INFO**：新连接、`GET/HEAD` 一行摘要、`prepare done` 状态码。
+- **DEBUG**：半包、prepare/abort 细节、响应结束。
+- **TRACE**：每段 TCP、缓冲切头、body 写出字节（需 `setLogLevel(TRACE)`）。
+- Pipeline 取消上一请求时的 `Abort response: Request is cancelled` 降为 **DEBUG**，避免刷屏。
 
 ## HTTP 传输层（`server/`）
 
@@ -210,7 +225,7 @@ MCHttpResponse 组 200/206 → ConnectionHandler 流式 send
 
 `MCMediaCache.prepare` 大致包括：
 
-1. 启动 `MCTcpSocketServer`，连接交给 `MCHttpConnectionHandler`。
+1. 启动 `MCTcpSocketServer`，连接交给 `MCHttpConnectionRegistry`。
 2. `MCAssetCacheManager.prepare` → `MCAssetManager`、状态库、首次 trim。
 3. 虚拟资源、导出管理等子模块 `prepare`。
 
@@ -221,14 +236,14 @@ MCHttpResponse 组 200/206 → ConnectionHandler 流式 send
 1. **单例 + 内存 Map**：`MCAssetManager`、`MCAssetExportManager`、`MCVirtualResourceManager` 缓存活跃对象。
 2. **`enqueueTask` 串行 Promise**：同一资产上的操作排队，降低并发写盘竞态。
 3. **`MCReadwriteReference`**：播放/预取期间 retain，清理前 `abort`；与 `onAssetReadwrite` 联动。
-4. **Fetcher 链**：`MCHttpResponse` → `MCMediaHttpSession` → `MCMediaDataFetcher` → `MCMediaContentLoader`，统一中止与 Range 续传。
+4. **Fetcher 链**：`MCHttpResponseAdapter` → `MCMediaHttpSession` → `MCMediaDataFetcher` → `MCMediaContentLoader`，统一中止与 Range 续传。
 
 ## 按任务推荐阅读顺序
 
 | 任务 | 阅读顺序 |
 |------|----------|
 | 整体 API | `MCMediaCache.ets` |
-| HTTP 接到缓存 | `MCHttpResponse.ets` → `MCMediaHttpSession` → `MCMediaDataFetcher` |
+| HTTP 接到缓存 | `MCHttpResponseAdapter` → `MCMediaHttpSession` → `MCMediaDataFetcher` |
 | 单文件 MP4 | `FILEAsset` → `MCMedia` → `MCMediaHttpContentLoader` |
 | HLS | `HLSAsset` → `HLSParser.proxy` → `HLSProxyUtils` |
 | DASH | `DashAsset` → `DashProxyUtils` → `MCConsts`（DASH 路径占位） |

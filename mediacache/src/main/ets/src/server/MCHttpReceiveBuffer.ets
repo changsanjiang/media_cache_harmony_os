@@ -43,8 +43,8 @@ export class MCHttpReceiveBuffer {
     this.consumeFromMerged(consumed);
 
     const headerText = this.decodeAscii(headerBytes);
-    MCLogger.debug(MCLogModule.MCHttpReceiveBuffer, () =>
-      `[clientId: ${this.mClientId}] Shifted header block (${headerBytes.byteLength} bytes), remaining buffer: ${this.mLength}`);
+    MCLogger.trace(MCLogModule.MCHttpReceiveBuffer, () =>
+      MCLogger.withClient(this.mClientId, `header block ${headerBytes.byteLength}B, pending ${this.mLength}B`));
     return headerText;
   }
 
