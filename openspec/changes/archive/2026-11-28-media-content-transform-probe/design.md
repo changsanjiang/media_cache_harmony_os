@@ -17,7 +17,7 @@
 
 ## D4: fetch / resolve
 
-不变：`resolve` 在 `byteRangeAccessSupported === false` 时仍选择 `MCMediaProxyContentLoader`；`finalize` 写入真实长度。
+不变：`resolve` 在 `byteRangeAccessSupported === false` 时仍选择 `MCMediaTransformContentLoader`；`finalize` 写入真实长度。
 
 ## D5: prepare 默认清理占位 content
 

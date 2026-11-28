@@ -10,7 +10,7 @@ import { IMCMediaMetadata } from '../defines/IMCMediaMetadata';
 import { generateResponseContentRange, parseResponseContentRange } from '../defines/IMCHttpResponseContentRange';
 import { MCDownloadResponseHeaders } from '../utils/MCDownloadResponseHeaders';
 import { MCProxyURLUtils } from '../utils/MCProxyURLUtils';
-import { MCMediaHttpContentLoader } from './MCMediaHttpContentLoader';
+import { MCMediaRemoteContentLoader } from './MCMediaRemoteContentLoader';
 import { parseRequestRange, toRequestRange } from '../defines/IMCHttpRequestRange';
 import { MCMediaLocalContentLoader } from './MCMediaLocalContentLoader';
 import MCLogger from '../utils/MCLogger';
@@ -21,7 +21,7 @@ import { MCDownloadRequest } from '../utils/MCDownloadRequest';
 import { IMCDataOkResponse, IMCDataPartialContentResponse, IMCDataResponse } from '../defines/IMCDataResponse';
 import { MCDataResponseError } from '../defines/MCDataResponseError';
 import { MCAbortSignal } from '../utils/MCAbortController';
-import { MCMediaProxyContentLoader } from './MCMediaProxyContentLoader';
+import { MCMediaTransformContentLoader } from './MCMediaTransformContentLoader';
 import MCUtils from '../utils/MCUtils';
 import { MCMediaKind } from '../defines/MCMediaKind';
 import MCConfigs from '../utils/MCConfigs';
@@ -182,7 +182,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
 
     let metadata: IMCMediaMetadata;
     if ( this.mContentTransformer ) {
-      // 改写类: probe 仅取 content-type; 整包下载与改写在 MCMediaProxyContentLoader;
+      // 改写类: probe 仅取 content-type; 整包下载与改写在 MCMediaTransformContentLoader;
       metadata = {
         contentType: contentType,
         totalLength: Number.MAX_SAFE_INTEGER,
@@ -374,7 +374,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
             const leftRange = new MCRange(readRange.location, intersection.location - readRange.location);
             const leftRequest = new MCDownloadRequest(url, proxyRequest.headers);
             leftRequest.setHeader('range', toRequestRange(leftRange).toRangeHeader());
-            contentLoaders.push(new MCMediaHttpContentLoader(clientId, contentLoaders.length, this, leftRequest));
+            contentLoaders.push(new MCMediaRemoteContentLoader(clientId, contentLoaders.length, this, leftRequest));
           }
           contentLoaders.push(new MCMediaLocalContentLoader(clientId, contentLoaders.length, content, intersection));
           readRange = new MCRange(intersection.max, readRange.max - intersection.max);
@@ -389,7 +389,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       if (readRange.length !== 0) {
         const request = new MCDownloadRequest(url, proxyRequest.headers);
         request.setHeader('range', toRequestRange(readRange).toRangeHeader());
-        contentLoaders.push(new MCMediaHttpContentLoader(clientId, contentLoaders.length, this,request));
+        contentLoaders.push(new MCMediaRemoteContentLoader(clientId, contentLoaders.length, this,request));
       }
 
       return this.composeDataResponse(metadata, requestRangeHeader, contentLoaders);
@@ -399,10 +399,10 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     }
     else {
       if ( !this.mContentTransformer ) {
-        contentLoaders.push(new MCMediaHttpContentLoader(clientId, contentLoaders.length, this, new MCDownloadRequest(url, proxyRequest.headers)));
+        contentLoaders.push(new MCMediaRemoteContentLoader(clientId, contentLoaders.length, this, new MCDownloadRequest(url, proxyRequest.headers)));
       }
       else {
-        contentLoaders.push(new MCMediaProxyContentLoader(clientId, contentLoaders.length, this, new MCDownloadRequest(url, proxyRequest.headers)));
+        contentLoaders.push(new MCMediaTransformContentLoader(clientId, contentLoaders.length, this, new MCDownloadRequest(url, proxyRequest.headers)));
       }
 
       return this.composeDataResponse(metadata, undefined, contentLoaders);

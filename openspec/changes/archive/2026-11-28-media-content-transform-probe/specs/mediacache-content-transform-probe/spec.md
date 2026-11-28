@@ -22,7 +22,7 @@ When a content transformer is configured and the resource is not empty, `probe` 
 #### Scenario: Full body transform happens in loader
 
 - **WHEN** a client performs GET on transformed playlist media after probe
-- **THEN** the full download and content transformation SHALL occur in `MCMediaProxyContentLoader`, not in `probe`
+- **THEN** the full download and content transformation SHALL occur in `MCMediaTransformContentLoader`, not in `probe`
 
 ### Requirement: Probe SHALL recognize empty origin resources
 
@@ -31,7 +31,7 @@ When a content transformer is configured and the resource is not empty, `probe` 
 #### Scenario: Empty playlist skips transform loader
 
 - **WHEN** the origin responds with 416 or zero total size to `bytes=0-1` and the media has a content transformer
-- **THEN** `probe` SHALL persist `totalLength: 0` and subsequent GET SHALL NOT spawn `MCMediaProxyContentLoader` for non-empty fetch
+- **THEN** `probe` SHALL persist `totalLength: 0` and subsequent GET SHALL NOT spawn `MCMediaTransformContentLoader` for non-empty fetch
 
 ### Requirement: Placeholder metadata SHALL trigger content cleanup on prepare
 

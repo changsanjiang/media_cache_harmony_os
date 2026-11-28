@@ -7,6 +7,6 @@
 
 ## 回归注意
 
-- 冷启动：`prepare` 加载占位 metadata（`MAX_SAFE_INTEGER`）且无 content 时，首次 GET 仍走 `MCMediaProxyContentLoader`。
+- 冷启动：`prepare` 加载占位 metadata（`MAX_SAFE_INTEGER`）且无 content 时，首次 GET 仍走 `MCMediaTransformContentLoader`。
 - `finalize` 后 metadata 更新为真实长度与 `byteRangeAccessSupported: true`。
 - 空对象：`bytes=0-1` 返回 416 或 `Content-Length: 0` 时 `totalLength` 为 0，`prepare` 标记 assembled，无 Loader。
