@@ -71,9 +71,9 @@ export class MCMediaHttpSession implements IMCDataFetcher {
 
       const fetcher = new MCMediaDataFetcher(this.mClientId, media, this.mRequest);
       this.mMediaDataFetcher = fetcher;
-      this.mMediaDataFetcher.on('newDataReadable', () => this.onNewDataReadable());
-      this.mMediaDataFetcher.on('aborted', (_, error) => this.onError(error));
-      const responseHeaders = await this.mMediaDataFetcher.prepare();
+      fetcher.on('newDataReadable', () => this.onNewDataReadable());
+      fetcher.on('aborted', (_, error) => this.onError(error));
+      const responseHeaders = await fetcher.prepare();
 
       if ( fetcher.isDataEnd ) {
         this.done();
@@ -138,6 +138,11 @@ export class MCMediaHttpSession implements IMCDataFetcher {
       return;
     }
     this.mDataEnd = true;
+    const fetcher = this.mMediaDataFetcher;
+    if ( fetcher ) {
+      fetcher.off('newDataReadable');
+      fetcher.off('aborted');
+    }
     this.mAsset.readwriteRelease();
   }
 
