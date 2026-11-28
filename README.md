@@ -194,7 +194,7 @@ ___
 #### 开发文档
 
 - [代码架构：目录结构与模块关系](docs/ARCHITECTURE.md)
-- 架构规格：`openspec/specs/mediacache-{domain,http-session,cache-policy,http-transport,http-server-srp}/`；归档见 `openspec/changes/archive/2026-11-20-mediacache-{architecture-refactor,transport-fixes,server-srp}/`
+- 架构规格：`openspec/specs/mediacache-{domain,http-session,cache-policy,http-transport,http-server-srp,content-transform-probe}/`；归档见 `openspec/changes/archive/2026-11-{20,28}-mediacache-*/`
 - 分域优化技能：`.cursor/skills/mediacache-module-refine/SKILL.md`
 
 ___

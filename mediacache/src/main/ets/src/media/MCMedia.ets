@@ -37,18 +37,18 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   private mNodeList = new MCMediaContentNodeList();
   private mAssembled = false; // 是否已组合完成, 是否已得到完整内容; 虽然得到了完整内容, 但是文件夹下可能还存在正在读取的冗余数据;
   private mFullyTrimmed = false; // 已组合完成并且所有冗余数据都已删除;
-  private mProxyHandler?: (requestUrl: string, currentUrl: string, data: ArrayBuffer) => Promise<ArrayBuffer> = undefined; // 代理内容;
+  private mContentTransformer?: (requestUrl: string, currentUrl: string, data: ArrayBuffer) => Promise<ArrayBuffer> = undefined; // 内容改写;
   private mRestructurePromise?: Promise<void> = undefined;
 
   /// `id` 中不能包含下划线;
   ///
-  /// proxy: 内容需要代理时设置;
+  /// contentTransformer: 远端内容落盘前需改写时设置（如 HLS/DASH 清单）;
   constructor(
     id: string,
     mediaKind: MCMediaKind,
     dir: string,
     abortSignal: MCAbortSignal,
-    proxy?: (requestUrl: string, currentUrl: string, data: ArrayBuffer) => Promise<ArrayBuffer>
+    contentTransformer?: (requestUrl: string, currentUrl: string, data: ArrayBuffer) => Promise<ArrayBuffer>
   ) {
     if (id.includes("_")) {
       throw new Error(`The media ID '${id}' is invalid. Media IDs cannot contain underscores ('_').`);
@@ -58,7 +58,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     this.mediaKind = mediaKind;
     this.mDir = dir;
     this.mAbortSignal = abortSignal;
-    this.mProxyHandler = proxy;
+    this.mContentTransformer = contentTransformer;
     this.mContentProvider = new MCMediaContentProvider(this.id, this.mDir);
     MCLogger.info(MCLogModule.MCMedia, () => `[mediaId: ${id}]: MCMedia instance created with dir ${dir}.`);
   }
@@ -140,106 +140,76 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
   // 探测元数据
   async probe(proxyRequest: IMCDataRequest, signal?: MCAbortSignal): Promise<IMCMediaMetadata> {
     if ( this.mMetadata ) {
-      return Promise.resolve(this.mMetadata);
+      return this.mMetadata;
     }
 
-    if ( this.mProxyHandler ) {
-      const url = MCProxyURLUtils.parseTargetUrl(proxyRequest.requestTarget);
-      if (!url) {
-        throw new MCDataResponseError(400, "Failed to restore URL from the provided request.");
-      }
-      const request = new MCDownloadRequest(url, proxyRequest.headers);
-      if ( MCConfigs.requestHandler ) {
-        MCConfigs.requestHandler(request);
-      }
-      request.setHeader("range", undefined);
-
-      const response = await MCDownload.download(request, { signal: signal });
-      if ( this.mMetadata ) {
-        return this.mMetadata;
-      }
-
-      if ( response.statusCode !== 200 ) {
-        throw new MCDataResponseError(500, 'Content proxy mode requires HTTP status code 200'); // 内容代理仅支持200请求;
-      }
-
-      const data = response.body;
-      const content = await this.createContentAt(0, true);
-      if ( data ) {
-        const proxyData = await this.mProxyHandler(response.requestUrl, response.currentUrl, data);
-        const writer = content.createWriter();
-        await writer.writeData(proxyData, proxyData.byteLength);
-        await writer.close();
-      }
-      content.finalize();
-
-      const contentTypeHeader: string | undefined = response.headers['content-type'];
-      const contentType = contentTypeHeader || 'application/octet-stream';
-      const totalLength = content.length;
-      const metadata: IMCMediaMetadata = {
-        contentType: contentType,
-        totalLength: totalLength,
-        byteRangeAccessSupported: true,
-      };
-      this.mMetadata = metadata;
-      this.mMetadataFileSize = await this.mContentProvider.saveMetadata(metadata);
-      return metadata;
+    const mediaUrl = MCProxyURLUtils.parseTargetUrl(proxyRequest.requestTarget);
+    if (!mediaUrl) {
+      throw new MCDataResponseError(400, "Failed to restore URL from the provided request.");
     }
-
-    const proxyPath = proxyRequest.requestTarget;
-    const headers = proxyRequest.headers;
-    const mediaUrl = MCProxyURLUtils.parseTargetUrl(proxyPath);
-    const request = new MCDownloadRequest(mediaUrl, headers);
+    const request = new MCDownloadRequest(mediaUrl, proxyRequest.headers);
     if ( MCConfigs.requestHandler ) {
       MCConfigs.requestHandler(request);
     }
     request.setHeader("range", "bytes=0-1");
 
-    return MCDownload.download(request, {
-      signal: signal,
-    }).then(async (response) => {
-      if ( this.mMetadata ) {
-        return this.mMetadata;
-      }
+    const response = await MCDownload.download(request, { signal: signal });
+    if ( this.mMetadata ) {
+      return this.mMetadata;
+    }
 
-      this.checkAbortSignal(signal);
+    this.checkAbortSignal(signal);
 
-      const statusCode = response.statusCode;
-      if ( statusCode !== 200 && statusCode !== 206 ) {
-        throw new MCDataResponseError(statusCode, `Unexpected HTTP status code: ${statusCode}`);
-      }
+    const statusCode = response.statusCode;
+    const responseHeaders = response.headers;
+    const contentTypeHeader: string | undefined = responseHeaders['content-type'];
+    const contentType = contentTypeHeader || 'application/octet-stream';
 
-      if ( this.mProxyHandler && statusCode !== 200 ) {
-        throw new MCDataResponseError(500, 'Content proxy mode requires HTTP status code 200'); // 内容代理仅支持200请求;
-      }
+    if ( this.inferProbeEmptyTotalLength(statusCode, responseHeaders, response.body) === 0 ) {
+      const emptyMetadata: IMCMediaMetadata = {
+        contentType: contentType,
+        totalLength: 0,
+        byteRangeAccessSupported: false,
+      };
+      this.mMetadata = emptyMetadata;
+      this.mMetadataFileSize = await this.mContentProvider.saveMetadata(emptyMetadata);
+      return emptyMetadata;
+    }
 
+    if ( statusCode !== 200 && statusCode !== 206 ) {
+      throw new MCDataResponseError(statusCode, `Unexpected HTTP status code: ${statusCode}`);
+    }
+
+    let metadata: IMCMediaMetadata;
+    if ( this.mContentTransformer ) {
+      // 改写类: probe 仅取 content-type; 整包下载与改写在 MCMediaProxyContentLoader;
+      metadata = {
+        contentType: contentType,
+        totalLength: Number.MAX_SAFE_INTEGER,
+        byteRangeAccessSupported: false,
+      };
+    }
+    else {
       // 探测服务器支持的情况
       // 如果不支持206请求，在未完全下载之前就只创建一个 200 loader
-
-      const headers = response.headers;
-      const acceptRangesHeader: string | undefined = headers['accept-ranges'];
-      const contentRangeHeader: string | undefined = headers['content-range'];
-      const contentTypeHeader: string | undefined = headers['content-type'];
-      const contentLengthHeader: string | undefined = headers['content-length'];
-
-      const contentType = contentTypeHeader || 'application/octet-stream';
-      const byteRangeAccessSupported = !this.mProxyHandler && (statusCode === 206 || acceptRangesHeader === 'bytes');
-
-      /// - 情况1: 当内容需要代理时, 最终的数据长度只有在生成代理内容后才能确定, 这里需要暂时设置为 Number.MAX_SAFE_INTEGER;
-      /// - 情况2: 有些服务器不会返回 contentLengthHeader, 这里需要暂时设置 Number.MAX_SAFE_INTEGER;
-      const contentLength = this.mProxyHandler ? Number.MAX_SAFE_INTEGER : (contentLengthHeader ? parseInt(contentLengthHeader, 10) : Number.MAX_SAFE_INTEGER);
+      const acceptRangesHeader: string | undefined = responseHeaders['accept-ranges'];
+      const contentRangeHeader: string | undefined = responseHeaders['content-range'];
+      const contentLengthHeader: string | undefined = responseHeaders['content-length'];
+      const byteRangeAccessSupported = statusCode === 206 || acceptRangesHeader === 'bytes';
+      /// 有些服务器不会返回 contentLengthHeader, 这里需要暂时设置 Number.MAX_SAFE_INTEGER;
+      const contentLength = contentLengthHeader ? parseInt(contentLengthHeader, 10) : Number.MAX_SAFE_INTEGER;
       const contentRange = contentRangeHeader ? parseResponseContentRange(contentRangeHeader) : undefined;
       const totalLength = contentRange ? contentRange.size : contentLength;
-
-      const metadata: IMCMediaMetadata = {
+      metadata = {
         contentType: contentType,
         totalLength: totalLength,
         byteRangeAccessSupported: byteRangeAccessSupported
       };
-      this.mMetadata = metadata;
-      this.mMetadataFileSize = await this.mContentProvider.saveMetadata(metadata);
-      return metadata;
-    });
+    }
+
+    this.mMetadata = metadata;
+    this.mMetadataFileSize = await this.mContentProvider.saveMetadata(metadata);
+    return metadata;
   }
 
   fetch(request: IMCDataRequest, clientId: number, signal?: MCAbortSignal): Promise<IMCDataResponse> {
@@ -428,7 +398,7 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       return this.composeDataResponse(metadata, undefined, contentLoaders);
     }
     else {
-      if ( !this.mProxyHandler ) {
+      if ( !this.mContentTransformer ) {
         contentLoaders.push(new MCMediaHttpContentLoader(clientId, contentLoaders.length, this, new MCDownloadRequest(url, proxyRequest.headers)));
       }
       else {
@@ -577,10 +547,10 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
     return content;
   }
 
-  // 生成代理内容;
-  // 原始 m3u8 文件中记录着的各个媒体片段, 它们都需要代理请求, 通过该方法将原始 m3u8 的文件内容替换成代理内容;
-  applyProxy(requestUrl: string, currentUrl: string, contentData: ArrayBuffer): Promise<ArrayBuffer> {
-    return this.mProxyHandler!(requestUrl, currentUrl, contentData);
+  // 改写远端内容;
+  // 原始 m3u8 中各分片 URL 需指向本地代理, 通过该方法将原始清单内容替换成改写后的内容;
+  applyContentTransform(requestUrl: string, currentUrl: string, contentData: ArrayBuffer): Promise<ArrayBuffer> {
+    return this.mContentTransformer!(requestUrl, currentUrl, contentData);
   }
 
   /** 销毁临时内容; */
@@ -812,6 +782,54 @@ export class MCMedia extends MCReadwriteReference<MCMedia> implements IMCMedia {
       node = node.next;
     }
     return lengthCached / this.mMetadata.totalLength;
+  }
+
+  /**
+   * `bytes=0-1` 探测空资源: 416、Content-Length: 0、Content-Range 总长度为 0 等;
+   * 返回 0 表示空文件; undefined 表示未能据此判定为空。
+   */
+  private inferProbeEmptyTotalLength(
+    statusCode: number,
+    headers: MCDownloadResponseHeaders,
+    body?: ArrayBuffer
+  ): number | undefined {
+    if ( statusCode === 416 ) {
+      return 0;
+    }
+
+    const contentLengthHeader = headers['content-length'];
+    if ( contentLengthHeader !== undefined ) {
+      const contentLength = parseInt(contentLengthHeader, 10);
+      if ( !isNaN(contentLength) && contentLength === 0 ) {
+        return 0;
+      }
+    }
+
+    const contentRangeHeader = headers['content-range'];
+    if ( contentRangeHeader ) {
+      const suffixMatch = contentRangeHeader.match(/^bytes \*\/(\d+)$/);
+      if ( suffixMatch ) {
+        const size = parseInt(suffixMatch[1], 10);
+        if ( !isNaN(size) && size === 0 ) {
+          return 0;
+        }
+      }
+      const rangedMatch = contentRangeHeader.match(/^bytes (\d+)-(\d+)\/(\d+)$/);
+      if ( rangedMatch ) {
+        const size = parseInt(rangedMatch[3], 10);
+        if ( !isNaN(size) && size === 0 ) {
+          return 0;
+        }
+      }
+    }
+
+    if ( statusCode === 200 && body !== undefined && body.byteLength === 0 ) {
+      if ( contentLengthHeader === undefined || parseInt(contentLengthHeader, 10) === 0 ) {
+        return 0;
+      }
+    }
+
+    return undefined;
   }
 
   private checkAbortSignal(signal: MCAbortSignal | undefined) {

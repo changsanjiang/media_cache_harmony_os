@@ -71,11 +71,11 @@ export class DashAsset extends MCReadwriteReference<DashAsset> implements IMCAss
   }
 
   private async prepareMedia(mediaId: string, mediaKind: MCMediaKind): Promise<IMCMedia> {
-    let proxyHandler: ((requestUrl: string, currentUrl: string, data: ArrayBuffer) => Promise<ArrayBuffer>) | undefined = undefined;
-    // 代理 playlist
+    let contentTransformer: ((requestUrl: string, currentUrl: string, data: ArrayBuffer) => Promise<ArrayBuffer>) | undefined = undefined;
+    // 改写 MPD（PLAYLIST）
     if ( mediaKind === MCMediaKind.PLAYLIST ) {
       // MCMedia 的内容下载完成后回调;
-      proxyHandler = async (requestUrl, currentUrl, data) => {
+      contentTransformer = async (requestUrl, currentUrl, data) => {
         const content = MCUtils.bufferToString(data);
         const proxyContent = DashParser.proxy(
           content,
@@ -89,7 +89,7 @@ export class DashAsset extends MCReadwriteReference<DashAsset> implements IMCAss
       }
     }
 
-    const media = new MCMedia(mediaId, mediaKind, this.mDir, this.mAbortController.signal, proxyHandler);
+    const media = new MCMedia(mediaId, mediaKind, this.mDir, this.mAbortController.signal, contentTransformer);
     await media.prepare();
     this.mPreparedMedias.set(mediaId, media);
     this.mColdCacheSize -= media.currentCachedSize;

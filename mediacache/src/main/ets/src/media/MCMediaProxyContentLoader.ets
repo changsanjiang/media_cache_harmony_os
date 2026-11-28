@@ -10,7 +10,7 @@ import { MCMedia } from "./MCMedia";
 import { MCMediaContentLoader } from "./MCMediaContentLoader";
 import MCConfigs from "../utils/MCConfigs";
 
-/** 下载全部数据, 通过 media.applyProxy 生成代理内容后写入到content中; */
+/** 下载全部数据, 通过 media.applyContentTransform 改写后写入到 content 中; */
 export class MCMediaProxyContentLoader extends MCMediaContentLoader {
   private mMedia: MCMedia;
   private mRequest: MCDownloadRequest;
@@ -70,8 +70,7 @@ export class MCMediaProxyContentLoader extends MCMediaContentLoader {
         throw new Error(`Loader aborted after content creation`);
       }
 
-      // apply proxy;
-      const data = res.body ? await this.mMedia.applyProxy(res.requestUrl, res.currentUrl, res.body) : undefined;
+      const data = res.body ? await this.mMedia.applyContentTransform(res.requestUrl, res.currentUrl, res.body) : undefined;
       if ( this.isAborted ) {
         throw new Error(`Loader aborted after proxy content data`);
       }

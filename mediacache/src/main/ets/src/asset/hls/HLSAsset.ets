@@ -55,18 +55,18 @@ export class HLSAsset extends MCReadwriteReference<HLSAsset> implements IMCAsset
   }
 
   private async prepareMedia(mediaId: string, mediaKind: MCMediaKind): Promise<IMCMedia> {
-    let proxyHandler: ((requestUrl: string, currentUrl: string, data: ArrayBuffer) => Promise<ArrayBuffer>) | undefined = undefined;
-    // 代理 playlist 中的各个片段;
+    let contentTransformer: ((requestUrl: string, currentUrl: string, data: ArrayBuffer) => Promise<ArrayBuffer>) | undefined = undefined;
+    // 改写 playlist 中的各个片段 URL;
     if ( mediaKind === MCMediaKind.PLAYLIST ) {
       // MCMedia 的内容下载完成后回调;
-      proxyHandler = async (requestUrl, currentUrl, data) => {
+      contentTransformer = async (requestUrl, currentUrl, data) => {
         const content = MCUtils.bufferToString(data);
         const proxyContent = await HLSParser.proxy(content, this.id, requestUrl, currentUrl, MCConfigs.variantStreamSelectionHandler, MCConfigs.renditionSelectionHandler);
         return MCUtils.stringToBuffer(proxyContent);
       }
     }
 
-    const media = new MCMedia(mediaId, mediaKind, this.mDir, this.mAbortController.signal, proxyHandler);
+    const media = new MCMedia(mediaId, mediaKind, this.mDir, this.mAbortController.signal, contentTransformer);
     await media.prepare();
     this.mPreparedMedias.set(mediaId, media);
     this.mColdCacheSize -= media.currentCachedSize;

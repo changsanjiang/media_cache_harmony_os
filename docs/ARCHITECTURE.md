@@ -130,7 +130,9 @@ HTTP 路由前缀（`MCConsts`）：
 ### `media/` — Media 层
 
 - **`MCMedia`**（`IMCMedia`）：分片落盘（`MCMediaContentProvider` / `MCMediaContentNodeList`）、`probe` / `fetch` 支持 Range；缓存命中用 `MCMediaLocalContentLoader`，缺失用 `MCMediaHttpContentLoader`（`MCDownload`）。
-- Playlist 类媒体可配置 **`proxyHandler`**，落盘后改写 m3u8/MPD 中的 URL 为代理地址（HLS/DASH）。
+- **`contentTransformer`**（构造参数，旧名 `proxy`）：远端 body 落盘前的改写回调；HLS/DASH 清单在 Asset 层注入，经 `applyContentTransform` / **`MCMediaProxyContentLoader`** 整包 200 后执行。
+- **`probe`** 统一 `Range: bytes=0-1`（不依赖 HEAD）。**空资源**（416、`Content-Length: 0`、`Content-Range` 总长 0 等）→ `totalLength: 0` 落盘，无 Loader。有 **`contentTransformer`** 且非空时仅取 `Content-Type`，占位 `totalLength = MAX_SAFE_INTEGER`、`byteRangeAccessSupported = false` 并落盘；改写与 URL 替换在 **`MCMediaProxyContentLoader`** 完成（`finalize` 后写入真实长度）。
+- **`MCMediaContentProvider.prepare`**：若已存 metadata 的 `totalLength === MAX_SAFE_INTEGER`，默认删除目录下不可信 `c_*` content 文件。
 - **`MCMediaDataFetcher`**：HTTP 请求 → `media.fetch()` → 多个 `MCMediaContentLoader` 供给 `MCHttpResponseAdapter.read()`。
 
 ### `prefetcher/` 与 `exporter/`
